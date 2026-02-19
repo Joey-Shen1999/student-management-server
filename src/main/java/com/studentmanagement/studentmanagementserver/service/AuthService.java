@@ -6,6 +6,7 @@ import com.studentmanagement.studentmanagementserver.api.dto.RegisterResponse;
 import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
 import com.studentmanagement.studentmanagementserver.domain.student.Student;
 import com.studentmanagement.studentmanagementserver.domain.user.User;
+import com.studentmanagement.studentmanagementserver.domain.teacher.Teacher; // ✅ 如果你的Teacher包名不同，改这里
 import com.studentmanagement.studentmanagementserver.repo.StudentRepository;
 import com.studentmanagement.studentmanagementserver.repo.TeacherRepository;
 import com.studentmanagement.studentmanagementserver.repo.UserRepository;
@@ -36,15 +37,18 @@ public class AuthService {
         String username = req.getUsername() == null ? "" : req.getUsername().trim();
         String password = req.getPassword();
 
-        if (username.isEmpty() || password == null || password.isEmpty()) {
+        if (username.isEmpty() || password == null || password.trim().isEmpty()) {
             throw new IllegalArgumentException("Username and password are required");
+        }
+
+        UserRole role = req.getRole();
+        if (role == null) {
+            throw new IllegalArgumentException("Role is required (STUDENT or TEACHER)");
         }
 
         if (userRepository.findByUsername(username).isPresent()) {
             throw new IllegalArgumentException("Username already exists");
         }
-
-        UserRole role = req.getRole();
 
         // 创建 User
         User user = new User(username, encoder.encode(password), role);
@@ -53,19 +57,33 @@ public class AuthService {
         Long studentId = null;
         Long teacherId = null;
 
-        // 如果是学生，创建 Student Profile
         if (role == UserRole.STUDENT) {
+            // ✅ 学生：要求 first / last name
             String firstName = req.getFirstName() == null ? "" : req.getFirstName().trim();
             String lastName = req.getLastName() == null ? "" : req.getLastName().trim();
-            String nickName = req.getPreferredName() == null ? null : req.getPreferredName().trim();
+            String preferredName = req.getPreferredName() == null ? null : req.getPreferredName().trim();
 
             if (firstName.isEmpty() || lastName.isEmpty()) {
                 throw new IllegalArgumentException("First name and last name are required for students");
             }
 
-            Student student = new Student(user, firstName, lastName, nickName);
+            Student student = new Student(user, firstName, lastName, preferredName);
             student = studentRepository.save(student);
             studentId = student.getId();
+        } else if (role == UserRole.TEACHER) {
+            // ✅ 老师：创建 Teacher profile（先最简）
+            String displayName = req.getDisplayName() == null ? "" : req.getDisplayName().trim();
+            if (displayName.isEmpty()) {
+                // 你可以改成强制要求 displayName
+                displayName = username;
+            }
+
+            // ⚠️ 下面构造函数可能需要你按 Teacher 实体调整（见备注）
+            Teacher teacher = new Teacher(user, displayName);
+            teacher = teacherRepository.save(teacher);
+            teacherId = teacher.getId();
+        } else {
+            throw new IllegalArgumentException("Unsupported role: " + role);
         }
 
         return new RegisterResponse(user.getId(), role, studentId, teacherId);
@@ -73,10 +91,17 @@ public class AuthService {
 
     @Transactional
     public LoginResponse login(String username, String rawPassword) {
-        User user = userRepository.findByUsername(username)
+        String u = username == null ? "" : username.trim();
+        String p = rawPassword == null ? "" : rawPassword;
+
+        if (u.isEmpty() || p.isEmpty()) {
+            throw new IllegalArgumentException("Invalid username or password");
+        }
+
+        User user = userRepository.findByUsername(u)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid username or password"));
 
-        if (!encoder.matches(rawPassword, user.getPasswordHash())) {
+        if (!encoder.matches(p, user.getPasswordHash())) {
             throw new IllegalArgumentException("Invalid username or password");
         }
 
@@ -94,6 +119,7 @@ public class AuthService {
         }
 
         user.setLastLoginAt(LocalDateTime.now());
+        userRepository.save(user); // ✅ 显式保存更稳
 
         return new LoginResponse(user.getId(), user.getRole(), studentId, teacherId);
     }
