@@ -10,9 +10,11 @@ import com.studentmanagement.studentmanagementserver.domain.teacher.Teacher; // 
 import com.studentmanagement.studentmanagementserver.repo.StudentRepository;
 import com.studentmanagement.studentmanagementserver.repo.TeacherRepository;
 import com.studentmanagement.studentmanagementserver.repo.UserRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 
@@ -74,11 +76,9 @@ public class AuthService {
             // ✅ 老师：创建 Teacher profile（先最简）
             String displayName = req.getDisplayName() == null ? "" : req.getDisplayName().trim();
             if (displayName.isEmpty()) {
-                // 你可以改成强制要求 displayName
                 displayName = username;
             }
 
-            // ⚠️ 下面构造函数可能需要你按 Teacher 实体调整（见备注）
             Teacher teacher = new Teacher(user, displayName);
             teacher = teacherRepository.save(teacher);
             teacherId = teacher.getId();
@@ -119,8 +119,36 @@ public class AuthService {
         }
 
         user.setLastLoginAt(LocalDateTime.now());
-        userRepository.save(user); // ✅ 显式保存更稳
+        userRepository.save(user);
 
-        return new LoginResponse(user.getId(), user.getRole(), studentId, teacherId);
+        return new LoginResponse(
+                user.getId(),
+                user.getRole(),
+                studentId,
+                teacherId,
+                user.isMustChangePassword()
+        );
+    }
+
+    // ✅ 新增：首次登录设置新密码（不需要旧密码）
+    @Transactional
+    public void setPassword(Long userId, String newPassword) {
+
+        if (userId == null || newPassword == null || newPassword.trim().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing fields.");
+        }
+
+        String np = newPassword.trim();
+        if (np.length() < 8) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password must be at least 8 characters.");
+        }
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found."));
+
+        user.setPasswordHash(encoder.encode(np));
+        user.setMustChangePassword(false);
+
+        userRepository.save(user);
     }
 }
