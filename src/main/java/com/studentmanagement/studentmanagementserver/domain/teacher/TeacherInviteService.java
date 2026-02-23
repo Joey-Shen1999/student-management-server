@@ -4,31 +4,41 @@ import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
 import com.studentmanagement.studentmanagementserver.domain.user.User;
 import com.studentmanagement.studentmanagementserver.repo.TeacherRepository;
 import com.studentmanagement.studentmanagementserver.repo.UserRepository;
+import com.studentmanagement.studentmanagementserver.service.PasswordPolicyValidator;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 @Service
 public class TeacherInviteService {
 
+    private static final String UPPERCASE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+    private static final String LOWERCASE_CHARS = "abcdefghijkmnpqrstuvwxyz";
+    private static final String DIGIT_CHARS = "23456789";
+    private static final String SPECIAL_CHARS = "!@#$%^&*()-_=+[]{}:;,.?";
+    private static final String ALL_CHARS = UPPERCASE_CHARS + LOWERCASE_CHARS + DIGIT_CHARS + SPECIAL_CHARS;
+
     private final UserRepository userRepository;
     private final TeacherRepository teacherRepository;
     private final PasswordEncoder passwordEncoder;
+    private final PasswordPolicyValidator passwordPolicyValidator;
+    private final SecureRandom random = new SecureRandom();
 
     public TeacherInviteService(UserRepository userRepository,
                                 TeacherRepository teacherRepository,
-                                PasswordEncoder passwordEncoder) {
+                                PasswordEncoder passwordEncoder,
+                                PasswordPolicyValidator passwordPolicyValidator) {
         this.userRepository = userRepository;
         this.teacherRepository = teacherRepository;
         this.passwordEncoder = passwordEncoder;
+        this.passwordPolicyValidator = passwordPolicyValidator;
     }
 
-    /**
-     * Create a TEACHER user + teacher profile and return a one-time temp password.
-     * Transactional: either both User + Teacher are created, or none.
-     */
     @Transactional
     public CreateTeacherInviteResponse createTeacher(String usernameRaw, String nameRaw) {
         String username = safeTrim(usernameRaw);
@@ -48,11 +58,10 @@ public class TeacherInviteService {
         }
 
         if (userRepository.findByUsername(username).isPresent()) {
-            // 让前端能直接显示清晰提示
             throw new IllegalArgumentException("Username already exists: " + username);
         }
 
-        String tempPassword = generateTempPassword8();
+        String tempPassword = generateTempPassword(username);
 
         User user = new User(username, passwordEncoder.encode(tempPassword), UserRole.TEACHER);
         user.setMustChangePassword(true);
@@ -68,26 +77,44 @@ public class TeacherInviteService {
         return s == null ? "" : s.trim();
     }
 
-    // Java 8 compatible blank check
     private boolean isBlankCompat(String s) {
         return s == null || s.trim().isEmpty();
     }
 
-    private String generateTempPassword8() {
-        // avoid ambiguous chars: 0/O, 1/I/l
-        final String chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
-        SecureRandom r = new SecureRandom();
-        StringBuilder sb = new StringBuilder(8);
-        for (int i = 0; i < 8; i++) {
-            sb.append(chars.charAt(r.nextInt(chars.length())));
+    private String generateTempPassword(String username) {
+        for (int attempt = 0; attempt < 100; attempt++) {
+            String candidate = buildRandomPassword();
+            if (passwordPolicyValidator.validate(username, candidate).isEmpty()) {
+                return candidate;
+            }
+        }
+        throw new IllegalStateException("Failed to generate a policy-compliant temporary password.");
+    }
+
+    private String buildRandomPassword() {
+        List<Character> chars = new ArrayList<Character>();
+        chars.add(randomChar(UPPERCASE_CHARS));
+        chars.add(randomChar(LOWERCASE_CHARS));
+        chars.add(randomChar(DIGIT_CHARS));
+        chars.add(randomChar(SPECIAL_CHARS));
+
+        while (chars.size() < 8) {
+            chars.add(randomChar(ALL_CHARS));
+        }
+
+        Collections.shuffle(chars, random);
+
+        StringBuilder sb = new StringBuilder(chars.size());
+        for (Character c : chars) {
+            sb.append(c.charValue());
         }
         return sb.toString();
     }
 
-    /**
-     * Simple DTO for response: username + tempPassword
-     * JSON keys will be: username, tempPassword
-     */
+    private char randomChar(String source) {
+        return source.charAt(random.nextInt(source.length()));
+    }
+
     public static class CreateTeacherInviteResponse {
         private final String username;
         private final String tempPassword;
@@ -97,7 +124,12 @@ public class TeacherInviteService {
             this.tempPassword = tempPassword;
         }
 
-        public String getUsername() { return username; }
-        public String getTempPassword() { return tempPassword; }
+        public String getUsername() {
+            return username;
+        }
+
+        public String getTempPassword() {
+            return tempPassword;
+        }
     }
 }
