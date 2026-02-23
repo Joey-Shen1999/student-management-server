@@ -66,4 +66,41 @@ class AuthPasswordPolicyApiTest {
                 .andExpect(jsonPath("$.code").value("PASSWORD_POLICY_VIOLATION"))
                 .andExpect(jsonPath("$.details").isArray());
     }
+
+    @Test
+    void setPassword_userNotFound_returnsNotFoundErrorPayload() throws Exception {
+        String body = "{"
+                + "\"userId\":999999,"
+                + "\"newPassword\":\"Valid!9A\""
+                + "}";
+
+        mockMvc.perform(post("/api/auth/set-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("User not found."))
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"))
+                .andExpect(jsonPath("$.details").isArray());
+    }
+
+    @Test
+    void register_duplicateUsername_returnsConflictErrorPayload() throws Exception {
+        String username = "dup_user_api";
+        userRepository.save(new User(username, passwordEncoder.encode("Valid!9A"), UserRole.TEACHER));
+
+        String body = "{"
+                + "\"username\":\"" + username + "\","
+                + "\"password\":\"Valid!9A\","
+                + "\"role\":\"TEACHER\","
+                + "\"displayName\":\"Teacher Dup\""
+                + "}";
+
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("Username already exists"))
+                .andExpect(jsonPath("$.code").value("RESOURCE_CONFLICT"))
+                .andExpect(jsonPath("$.details").isArray());
+    }
 }
