@@ -1,0 +1,11 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="All JUnit Tests" type="JUnit" factoryName="JUnit">
+    <module name="student-management-server" />
+    <option name="PACKAGE_NAME" value="com.studentmanagement.studentmanagementserver" />
+    <option name="TEST_OBJECT" value="package" />
+    <option name="VM_PARAMETERS" value="-Dspring.profiles.active=test" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

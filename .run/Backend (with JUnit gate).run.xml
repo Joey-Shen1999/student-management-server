@@ -1,0 +1,10 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Backend (with JUnit gate)" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot">
+    <module name="student-management-server" />
+    <option name="SPRING_BOOT_MAIN_CLASS" value="com.studentmanagement.studentmanagementserver.StudentManagementServerApplication" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+      <option name="RunConfigurationTask" enabled="true" run_configuration_name="All JUnit Tests" run_configuration_type="JUnit" />
+    </method>
+  </configuration>
+</component>
