@@ -22,6 +22,9 @@ public class ManagementAccessService {
 
     public User requireTeacherManagementAccess(HttpServletRequest request) {
         User operator = authenticate(request);
+        if (operator.isMustChangePassword()) {
+            throw new MustChangePasswordRequiredException();
+        }
         if (operator.getRole() != UserRole.ADMIN) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: admin role required.");
         }

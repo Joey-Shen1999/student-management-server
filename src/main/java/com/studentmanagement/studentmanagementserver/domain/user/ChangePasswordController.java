@@ -1,6 +1,7 @@
 package com.studentmanagement.studentmanagementserver.domain.user;
 
 import com.studentmanagement.studentmanagementserver.repo.UserRepository;
+import com.studentmanagement.studentmanagementserver.service.PasswordPolicyValidator;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
@@ -13,11 +14,14 @@ public class ChangePasswordController {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final PasswordPolicyValidator passwordPolicyValidator;
 
     public ChangePasswordController(UserRepository userRepository,
-                                    PasswordEncoder passwordEncoder) {
+                                    PasswordEncoder passwordEncoder,
+                                    PasswordPolicyValidator passwordPolicyValidator) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.passwordPolicyValidator = passwordPolicyValidator;
     }
 
     @PostMapping("/change-password")
@@ -36,9 +40,6 @@ public class ChangePasswordController {
         if (isBlank(newPassword)) {
             throw new IllegalArgumentException("newPassword is required");
         }
-        if (newPassword.length() < 8) {
-            throw new IllegalArgumentException("newPassword must be at least 8 characters");
-        }
         if (newPassword.equals(oldPassword)) {
             throw new IllegalArgumentException("newPassword must be different from oldPassword");
         }
@@ -53,6 +54,8 @@ public class ChangePasswordController {
         if (!passwordEncoder.matches(oldPassword, user.getPasswordHash())) {
             throw new IllegalArgumentException("oldPassword incorrect");
         }
+
+        passwordPolicyValidator.validateOrThrow(username, newPassword);
 
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         user.setMustChangePassword(false);

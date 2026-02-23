@@ -9,6 +9,7 @@ import com.studentmanagement.studentmanagementserver.domain.user.User;
 import com.studentmanagement.studentmanagementserver.repo.TeacherPasswordResetAuditLogRepository;
 import com.studentmanagement.studentmanagementserver.repo.TeacherRepository;
 import com.studentmanagement.studentmanagementserver.repo.UserRepository;
+import com.studentmanagement.studentmanagementserver.service.PasswordPolicyValidator;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -49,6 +50,9 @@ class TeacherAccountsApiTest {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private PasswordPolicyValidator passwordPolicyValidator;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -114,6 +118,30 @@ class TeacherAccountsApiTest {
     }
 
     @Test
+    void mustChangePasswordAdmin_isBlockedFromTeacherManagementApis() throws Exception {
+        User admin = createAdmin("must_change_admin_user");
+        admin.setMustChangePassword(true);
+        userRepository.save(admin);
+        Teacher teacher = createTeacherAccount("must_change_target_user", "Must Change Target");
+
+        mockMvc.perform(get("/api/teacher/accounts")
+                        .header("X-User-Id", admin.getId()))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("Password change required before accessing this resource."))
+                .andExpect(jsonPath("$.code").value("MUST_CHANGE_PASSWORD_REQUIRED"))
+                .andExpect(jsonPath("$.details").isArray());
+
+        mockMvc.perform(post("/api/teacher/accounts/{teacherId}/reset-password", teacher.getId())
+                        .header("X-User-Id", admin.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("Password change required before accessing this resource."))
+                .andExpect(jsonPath("$.code").value("MUST_CHANGE_PASSWORD_REQUIRED"))
+                .andExpect(jsonPath("$.details").isArray());
+    }
+
+    @Test
     void resetPassword_updatesMustChangePasswordAndWritesAuditLog() throws Exception {
         User admin = createAdmin("audit_admin_user");
         Teacher teacher = createTeacherAccount("audit_teacher_user", "Audit Teacher");
@@ -131,6 +159,7 @@ class TeacherAccountsApiTest {
         JsonNode json = objectMapper.readTree(result.getResponse().getContentAsString());
         String tempPassword = json.get("tempPassword").asText();
         assertEquals(8, tempPassword.length());
+        assertTrue(passwordPolicyValidator.validate(updatedUserName(teacher), tempPassword).isEmpty());
 
         User updatedUser = userRepository.findById(targetUser.getId())
                 .orElseThrow(() -> new RuntimeException("Target user not found"));
@@ -156,5 +185,9 @@ class TeacherAccountsApiTest {
     private Teacher createTeacherAccount(String username, String displayName) {
         User user = createTeacherUser(username);
         return teacherRepository.save(new Teacher(user, displayName));
+    }
+
+    private String updatedUserName(Teacher teacher) {
+        return teacher.getUser().getUsername();
     }
 }

@@ -1,5 +1,6 @@
 package com.studentmanagement.studentmanagementserver.web;
 
+import com.studentmanagement.studentmanagementserver.service.MustChangePasswordRequiredException;
 import com.studentmanagement.studentmanagementserver.service.PasswordPolicyViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -22,6 +23,17 @@ public class GlobalExceptionHandler {
                 e.getDetails()
         );
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
+    @ExceptionHandler(MustChangePasswordRequiredException.class)
+    public ResponseEntity<ApiError> handleMustChangePassword(MustChangePasswordRequiredException e) {
+        ApiError body = new ApiError(
+                HttpStatus.FORBIDDEN.value(),
+                e.getMessage(),
+                e.getCode(),
+                Collections.<String>emptyList()
+        );
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

@@ -1,25 +1,37 @@
 package com.studentmanagement.studentmanagementserver.domain.teacher;
 
+import com.studentmanagement.studentmanagementserver.domain.user.User;
+import com.studentmanagement.studentmanagementserver.service.ManagementAccessService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import javax.servlet.http.HttpServletRequest;
 
 @RestController
 @RequestMapping("/api/teacher/invites")
 public class TeacherInviteController {
 
     private final TeacherInviteService teacherInviteService;
+    private final ManagementAccessService managementAccessService;
 
-    public TeacherInviteController(TeacherInviteService teacherInviteService) {
+    public TeacherInviteController(TeacherInviteService teacherInviteService,
+                                   ManagementAccessService managementAccessService) {
         this.teacherInviteService = teacherInviteService;
+        this.managementAccessService = managementAccessService;
     }
 
     @PostMapping
-    public ResponseEntity<?> create(@RequestBody CreateTeacherRequest req) {
+    public ResponseEntity<?> create(@RequestBody CreateTeacherRequest req, HttpServletRequest request) {
+        User operator = managementAccessService.requireTeacherManagementAccess(request);
 
         TeacherInviteService.CreateTeacherInviteResponse response =
                 teacherInviteService.createTeacher(
                         req.getUsername(),
-                        req.getUsername()   // 默认 name = username
+                        req.getUsername(),
+                        operator
                 );
 
         return ResponseEntity.ok(response);

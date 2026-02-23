@@ -2,6 +2,7 @@ package com.studentmanagement.studentmanagementserver.domain.teacher;
 
 import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
 import com.studentmanagement.studentmanagementserver.domain.user.User;
+import com.studentmanagement.studentmanagementserver.repo.TeacherInviteAuditLogRepository;
 import com.studentmanagement.studentmanagementserver.repo.TeacherRepository;
 import com.studentmanagement.studentmanagementserver.repo.UserRepository;
 import com.studentmanagement.studentmanagementserver.service.TemporaryPasswordGenerator;
@@ -14,21 +15,24 @@ public class TeacherInviteService {
 
     private final UserRepository userRepository;
     private final TeacherRepository teacherRepository;
+    private final TeacherInviteAuditLogRepository teacherInviteAuditLogRepository;
     private final PasswordEncoder passwordEncoder;
     private final TemporaryPasswordGenerator temporaryPasswordGenerator;
 
     public TeacherInviteService(UserRepository userRepository,
                                 TeacherRepository teacherRepository,
+                                TeacherInviteAuditLogRepository teacherInviteAuditLogRepository,
                                 PasswordEncoder passwordEncoder,
                                 TemporaryPasswordGenerator temporaryPasswordGenerator) {
         this.userRepository = userRepository;
         this.teacherRepository = teacherRepository;
+        this.teacherInviteAuditLogRepository = teacherInviteAuditLogRepository;
         this.passwordEncoder = passwordEncoder;
         this.temporaryPasswordGenerator = temporaryPasswordGenerator;
     }
 
     @Transactional
-    public CreateTeacherInviteResponse createTeacher(String usernameRaw, String nameRaw) {
+    public CreateTeacherInviteResponse createTeacher(String usernameRaw, String nameRaw, User operator) {
         String username = safeTrim(usernameRaw);
         String name = safeTrim(nameRaw);
 
@@ -56,7 +60,8 @@ public class TeacherInviteService {
         userRepository.save(user);
 
         Teacher teacher = new Teacher(user, name);
-        teacherRepository.save(teacher);
+        teacher = teacherRepository.save(teacher);
+        teacherInviteAuditLogRepository.save(new TeacherInviteAuditLog(operator, teacher));
 
         return new CreateTeacherInviteResponse(username, tempPassword);
     }
