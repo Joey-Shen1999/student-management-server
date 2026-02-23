@@ -4,6 +4,7 @@
     <option name="SPRING_BOOT_MAIN_CLASS" value="com.studentmanagement.studentmanagementserver.StudentManagementServerApplication" />
     <method v="2">
       <option name="Make" enabled="true" />
+      <option name="RunConfigurationTask" enabled="true" run_configuration_name="Docker DB Up" run_configuration_type="docker-deploy" />
       <option name="RunConfigurationTask" enabled="true" run_configuration_name="All JUnit Tests" run_configuration_type="JUnit" />
     </method>
   </configuration>
