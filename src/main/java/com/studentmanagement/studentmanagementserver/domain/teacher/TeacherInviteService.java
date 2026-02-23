@@ -4,39 +4,27 @@ import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
 import com.studentmanagement.studentmanagementserver.domain.user.User;
 import com.studentmanagement.studentmanagementserver.repo.TeacherRepository;
 import com.studentmanagement.studentmanagementserver.repo.UserRepository;
-import com.studentmanagement.studentmanagementserver.service.PasswordPolicyValidator;
+import com.studentmanagement.studentmanagementserver.service.TemporaryPasswordGenerator;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.security.SecureRandom;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-
 @Service
 public class TeacherInviteService {
-
-    private static final String UPPERCASE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ";
-    private static final String LOWERCASE_CHARS = "abcdefghijkmnpqrstuvwxyz";
-    private static final String DIGIT_CHARS = "23456789";
-    private static final String SPECIAL_CHARS = "!@#$%^&*()-_=+[]{}:;,.?";
-    private static final String ALL_CHARS = UPPERCASE_CHARS + LOWERCASE_CHARS + DIGIT_CHARS + SPECIAL_CHARS;
 
     private final UserRepository userRepository;
     private final TeacherRepository teacherRepository;
     private final PasswordEncoder passwordEncoder;
-    private final PasswordPolicyValidator passwordPolicyValidator;
-    private final SecureRandom random = new SecureRandom();
+    private final TemporaryPasswordGenerator temporaryPasswordGenerator;
 
     public TeacherInviteService(UserRepository userRepository,
                                 TeacherRepository teacherRepository,
                                 PasswordEncoder passwordEncoder,
-                                PasswordPolicyValidator passwordPolicyValidator) {
+                                TemporaryPasswordGenerator temporaryPasswordGenerator) {
         this.userRepository = userRepository;
         this.teacherRepository = teacherRepository;
         this.passwordEncoder = passwordEncoder;
-        this.passwordPolicyValidator = passwordPolicyValidator;
+        this.temporaryPasswordGenerator = temporaryPasswordGenerator;
     }
 
     @Transactional
@@ -61,7 +49,7 @@ public class TeacherInviteService {
             throw new IllegalArgumentException("Username already exists: " + username);
         }
 
-        String tempPassword = generateTempPassword(username);
+        String tempPassword = temporaryPasswordGenerator.generate(username);
 
         User user = new User(username, passwordEncoder.encode(tempPassword), UserRole.TEACHER);
         user.setMustChangePassword(true);
@@ -79,40 +67,6 @@ public class TeacherInviteService {
 
     private boolean isBlankCompat(String s) {
         return s == null || s.trim().isEmpty();
-    }
-
-    private String generateTempPassword(String username) {
-        for (int attempt = 0; attempt < 100; attempt++) {
-            String candidate = buildRandomPassword();
-            if (passwordPolicyValidator.validate(username, candidate).isEmpty()) {
-                return candidate;
-            }
-        }
-        throw new IllegalStateException("Failed to generate a policy-compliant temporary password.");
-    }
-
-    private String buildRandomPassword() {
-        List<Character> chars = new ArrayList<Character>();
-        chars.add(randomChar(UPPERCASE_CHARS));
-        chars.add(randomChar(LOWERCASE_CHARS));
-        chars.add(randomChar(DIGIT_CHARS));
-        chars.add(randomChar(SPECIAL_CHARS));
-
-        while (chars.size() < 8) {
-            chars.add(randomChar(ALL_CHARS));
-        }
-
-        Collections.shuffle(chars, random);
-
-        StringBuilder sb = new StringBuilder(chars.size());
-        for (Character c : chars) {
-            sb.append(c.charValue());
-        }
-        return sb.toString();
-    }
-
-    private char randomChar(String source) {
-        return source.charAt(random.nextInt(source.length()));
     }
 
     public static class CreateTeacherInviteResponse {
