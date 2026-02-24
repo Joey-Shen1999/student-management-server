@@ -98,7 +98,7 @@ class AuthPasswordPolicyApiTest {
     }
 
     @Test
-    void setPassword_unauthenticated_returnsUnauthorizedErrorPayload() throws Exception {
+    void setPassword_unauthenticated_returnsUNAUTHENTICATEDErrorPayload() throws Exception {
         String body = "{"
                 + "\"newPassword\":\"Valid!9A\""
                 + "}";
@@ -108,7 +108,7 @@ class AuthPasswordPolicyApiTest {
                         .content(body))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.message").value("Unauthenticated."))
-                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"))
+                .andExpect(jsonPath("$.code").value("UNAUTHENTICATED"))
                 .andExpect(jsonPath("$.details").isArray());
     }
 

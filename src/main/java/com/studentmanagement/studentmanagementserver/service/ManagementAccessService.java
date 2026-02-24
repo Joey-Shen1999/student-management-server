@@ -27,4 +27,15 @@ public class ManagementAccessService {
         }
         return operator;
     }
+
+    public User requireStudentAccountManagementAccess(HttpServletRequest request) {
+        User operator = authSessionService.requireAuthenticatedUser(request);
+        if (operator.isMustChangePassword()) {
+            throw new MustChangePasswordRequiredException();
+        }
+        if (operator.getRole() != UserRole.ADMIN && operator.getRole() != UserRole.TEACHER) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: teacher/admin role required.");
+        }
+        return operator;
+    }
 }

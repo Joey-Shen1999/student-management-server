@@ -75,9 +75,10 @@ public class GlobalExceptionHandler {
         String message = (e.getReason() == null || e.getReason().trim().isEmpty())
                 ? status.getReasonPhrase()
                 : e.getReason();
+        String code = status == HttpStatus.UNAUTHORIZED ? "UNAUTHENTICATED" : status.name();
 
         return ResponseEntity.status(status)
-                .body(new ApiError(status.value(), message, status.name(), Collections.<String>emptyList()));
+                .body(new ApiError(status.value(), message, code, Collections.<String>emptyList()));
     }
 
     @ExceptionHandler(Exception.class)

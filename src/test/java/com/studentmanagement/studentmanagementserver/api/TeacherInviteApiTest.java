@@ -129,13 +129,13 @@ class TeacherInviteApiTest {
     }
 
     @Test
-    void createInvite_unauthenticated_returnsUnauthorized() throws Exception {
+    void createInvite_unauthenticated_returnsUNAUTHENTICATED() throws Exception {
         mockMvc.perform(post("/api/teacher/invites")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"invite_user_unauth\"}"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.message").value("Unauthenticated."))
-                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"))
+                .andExpect(jsonPath("$.code").value("UNAUTHENTICATED"))
                 .andExpect(jsonPath("$.details").isArray());
     }
 

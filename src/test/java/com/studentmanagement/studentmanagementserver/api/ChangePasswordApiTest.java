@@ -81,7 +81,7 @@ class ChangePasswordApiTest {
     }
 
     @Test
-    void changePassword_unauthenticated_returnsUnauthorized() throws Exception {
+    void changePassword_unauthenticated_returnsUNAUTHENTICATED() throws Exception {
         String body = "{"
                 + "\"oldPassword\":\"OldPass!1\","
                 + "\"newPassword\":\"NewPass!2\""
@@ -92,7 +92,7 @@ class ChangePasswordApiTest {
                         .content(body))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.message").value("Unauthenticated."))
-                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"))
+                .andExpect(jsonPath("$.code").value("UNAUTHENTICATED"))
                 .andExpect(jsonPath("$.details").isArray());
     }
 

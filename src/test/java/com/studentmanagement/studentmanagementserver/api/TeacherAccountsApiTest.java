@@ -134,7 +134,7 @@ class TeacherAccountsApiTest {
                         .content("{\"role\":\"ADMIN\"}"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.message").value("Unauthenticated."))
-                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+                .andExpect(jsonPath("$.code").value("UNAUTHENTICATED"));
     }
 
     @Test
@@ -247,7 +247,7 @@ class TeacherAccountsApiTest {
                         .content("{\"status\":\"ARCHIVED\"}"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.message").value("Unauthenticated."))
-                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+                .andExpect(jsonPath("$.code").value("UNAUTHENTICATED"));
     }
 
     @Test
@@ -353,7 +353,7 @@ class TeacherAccountsApiTest {
         mockMvc.perform(get("/api/teacher/accounts"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.message").value("Unauthenticated."))
-                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+                .andExpect(jsonPath("$.code").value("UNAUTHENTICATED"));
     }
 
     @Test
@@ -419,7 +419,7 @@ class TeacherAccountsApiTest {
                         .content("{\"oldPassword\":\"Teacher!234\",\"newPassword\":\"NewPass!2\"}"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.message").value("Unauthenticated."))
-                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+                .andExpect(jsonPath("$.code").value("UNAUTHENTICATED"));
     }
 
     private User createAdmin(String username) {

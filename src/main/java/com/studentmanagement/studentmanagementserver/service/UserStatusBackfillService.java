@@ -1,7 +1,6 @@
 package com.studentmanagement.studentmanagementserver.service;
 
 import com.studentmanagement.studentmanagementserver.domain.enums.UserAccountStatus;
-import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
 import com.studentmanagement.studentmanagementserver.domain.user.User;
 import com.studentmanagement.studentmanagementserver.repo.UserRepository;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -9,7 +8,6 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Arrays;
 import java.util.List;
 
 @Component
@@ -23,10 +21,8 @@ public class UserStatusBackfillService {
 
     @EventListener(ApplicationReadyEvent.class)
     @Transactional
-    public void backfillTeacherAndAdminStatus() {
-        List<User> users = userRepository.findByStatusIsNullAndRoleIn(
-                Arrays.asList(UserRole.TEACHER, UserRole.ADMIN)
-        );
+    public void backfillMissingStatuses() {
+        List<User> users = userRepository.findByStatusIsNull();
         for (User user : users) {
             user.updateStatus(UserAccountStatus.ACTIVE, null);
         }
