@@ -1,6 +1,7 @@
 package com.studentmanagement.studentmanagementserver.service;
 
 import com.studentmanagement.studentmanagementserver.api.dto.LoginResponse;
+import com.studentmanagement.studentmanagementserver.domain.enums.UserAccountStatus;
 import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
 import com.studentmanagement.studentmanagementserver.domain.student.Student;
 import com.studentmanagement.studentmanagementserver.domain.teacher.Teacher;
@@ -67,5 +68,17 @@ class AuthServiceTest {
     void login_wrongPassword_throws() {
         userRepository.save(new User("u1", encoder.encode("right"), UserRole.STUDENT));
         assertThrows(IllegalArgumentException.class, () -> authService.login("u1", "wrong"));
+    }
+
+    @Test
+    void login_archivedAccount_throws() {
+        User u = userRepository.save(new User("archived_user", encoder.encode("pw"), UserRole.TEACHER));
+        teacherRepository.save(new Teacher(u, "Archived Teacher"));
+        u.updateStatus(UserAccountStatus.ARCHIVED, null);
+        userRepository.save(u);
+
+        AccountArchivedException ex =
+                assertThrows(AccountArchivedException.class, () -> authService.login("archived_user", "pw"));
+        assertEquals("ACCOUNT_ARCHIVED", ex.getCode());
     }
 }

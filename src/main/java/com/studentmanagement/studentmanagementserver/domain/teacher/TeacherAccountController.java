@@ -62,6 +62,18 @@ public class TeacherAccountController {
         return ResponseEntity.ok(response);
     }
 
+    @PatchMapping("/{teacherId}/status")
+    public ResponseEntity<TeacherAccountService.UpdateTeacherStatusResponse> updateStatus(
+            @PathVariable Long teacherId,
+            @RequestBody(required = false) UpdateTeacherStatusRequest req,
+            HttpServletRequest request) {
+        User operator = managementAccessService.requireTeacherManagementAccess(request);
+        String status = req == null ? null : req.getStatus();
+        TeacherAccountService.UpdateTeacherStatusResponse response =
+                teacherAccountService.updateTeacherStatus(teacherId, status, operator);
+        return ResponseEntity.ok(response);
+    }
+
     public static class UpdateTeacherRoleRequest {
         private String role;
 
@@ -71,6 +83,18 @@ public class TeacherAccountController {
 
         public void setRole(String role) {
             this.role = role;
+        }
+    }
+
+    public static class UpdateTeacherStatusRequest {
+        private String status;
+
+        public String getStatus() {
+            return status;
+        }
+
+        public void setStatus(String status) {
+            this.status = status;
         }
     }
 }

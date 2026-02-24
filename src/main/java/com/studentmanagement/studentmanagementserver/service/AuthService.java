@@ -3,6 +3,7 @@ package com.studentmanagement.studentmanagementserver.service;
 import com.studentmanagement.studentmanagementserver.api.dto.LoginResponse;
 import com.studentmanagement.studentmanagementserver.api.dto.RegisterRequest;
 import com.studentmanagement.studentmanagementserver.api.dto.RegisterResponse;
+import com.studentmanagement.studentmanagementserver.domain.enums.UserAccountStatus;
 import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
 import com.studentmanagement.studentmanagementserver.domain.student.Student;
 import com.studentmanagement.studentmanagementserver.domain.teacher.Teacher;
@@ -109,6 +110,9 @@ public class AuthService {
 
         if (!passwordEncoder.matches(p, user.getPasswordHash())) {
             throw new IllegalArgumentException("Invalid username or password");
+        }
+        if (user.getStatus() == UserAccountStatus.ARCHIVED) {
+            throw new AccountArchivedException();
         }
 
         Long studentId = null;

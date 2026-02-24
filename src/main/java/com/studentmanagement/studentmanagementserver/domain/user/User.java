@@ -1,6 +1,7 @@
 package com.studentmanagement.studentmanagementserver.domain.user;
 
 import com.studentmanagement.studentmanagementserver.domain.common.BaseEntity;
+import com.studentmanagement.studentmanagementserver.domain.enums.UserAccountStatus;
 import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
 
 import javax.persistence.*;
@@ -23,6 +24,14 @@ public class User extends BaseEntity {
     @Column(nullable = false, length = 20)
     private UserRole role;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20, columnDefinition = "varchar(20) default 'ACTIVE'")
+    private UserAccountStatus status = UserAccountStatus.ACTIVE;
+
+    private LocalDateTime statusUpdatedAt;
+
+    private Long statusUpdatedBy;
+
     private LocalDateTime lastLoginAt;
 
     /**
@@ -38,7 +47,15 @@ public class User extends BaseEntity {
         this.username = username;
         this.passwordHash = passwordHash;
         this.role = role;
+        this.status = UserAccountStatus.ACTIVE;
         this.mustChangePassword = false;
+    }
+
+    @PrePersist
+    void ensureDefaults() {
+        if (this.status == null) {
+            this.status = UserAccountStatus.ACTIVE;
+        }
     }
 
     public String getUsername() { return username; }
@@ -48,6 +65,28 @@ public class User extends BaseEntity {
 
     public UserRole getRole() { return role; }
     public void setRole(UserRole role) { this.role = role; }
+
+    public UserAccountStatus getStatus() {
+        return status == null ? UserAccountStatus.ACTIVE : status;
+    }
+
+    public void setStatus(UserAccountStatus status) {
+        this.status = status == null ? UserAccountStatus.ACTIVE : status;
+    }
+
+    public void updateStatus(UserAccountStatus status, Long operatorUserId) {
+        this.status = status == null ? UserAccountStatus.ACTIVE : status;
+        this.statusUpdatedAt = LocalDateTime.now();
+        this.statusUpdatedBy = operatorUserId;
+    }
+
+    public LocalDateTime getStatusUpdatedAt() {
+        return statusUpdatedAt;
+    }
+
+    public Long getStatusUpdatedBy() {
+        return statusUpdatedBy;
+    }
 
     public LocalDateTime getLastLoginAt() { return lastLoginAt; }
     public void setLastLoginAt(LocalDateTime lastLoginAt) { this.lastLoginAt = lastLoginAt; }

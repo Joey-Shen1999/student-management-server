@@ -1,5 +1,6 @@
 package com.studentmanagement.studentmanagementserver.domain.teacher;
 
+import com.studentmanagement.studentmanagementserver.domain.enums.UserAccountStatus;
 import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
 import com.studentmanagement.studentmanagementserver.domain.user.User;
 import com.studentmanagement.studentmanagementserver.repo.TeacherPasswordResetAuditLogRepository;
@@ -51,6 +52,7 @@ public class TeacherAccountService {
                     teacher.getId(),
                     teacher.getUser().getUsername(),
                     teacher.getUser().getRole(),
+                    teacher.getUser().getStatus(),
                     teacher.getName(),
                     null,
                     null,
@@ -108,6 +110,30 @@ public class TeacherAccountService {
         );
     }
 
+    @Transactional
+    public UpdateTeacherStatusResponse updateTeacherStatus(Long teacherId, String statusRaw, User operator) {
+        UserAccountStatus targetStatus = parseTeacherAccountStatus(statusRaw);
+
+        Teacher teacher = teacherRepository.findById(teacherId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Teacher account not found: " + teacherId
+                ));
+
+        User targetUser = teacher.getUser();
+        targetUser.updateStatus(targetStatus, operator == null ? null : operator.getId());
+        userRepository.save(targetUser);
+        if (targetStatus == UserAccountStatus.ARCHIVED) {
+            userSessionRepository.revokeAllActiveSessions(targetUser.getId(), LocalDateTime.now());
+        }
+
+        return new UpdateTeacherStatusResponse(
+                teacher.getId(),
+                targetUser.getUsername(),
+                targetStatus
+        );
+    }
+
     private UserRole parseTeacherManagementRole(String roleRaw) {
         if (roleRaw == null || roleRaw.trim().isEmpty()) {
             throw new IllegalArgumentException("role is required");
@@ -126,10 +152,23 @@ public class TeacherAccountService {
         return parsed;
     }
 
+    private UserAccountStatus parseTeacherAccountStatus(String statusRaw) {
+        if (statusRaw == null || statusRaw.trim().isEmpty()) {
+            throw new IllegalArgumentException("status is required");
+        }
+
+        try {
+            return UserAccountStatus.valueOf(statusRaw.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("Invalid account status. Expected ACTIVE or ARCHIVED.");
+        }
+    }
+
     public static class TeacherAccountItem {
         private Long teacherId;
         private String username;
         private UserRole role;
+        private UserAccountStatus status;
         private String displayName;
         private String firstName;
         private String lastName;
@@ -138,6 +177,7 @@ public class TeacherAccountService {
         public TeacherAccountItem(Long teacherId,
                                   String username,
                                   UserRole role,
+                                  UserAccountStatus status,
                                   String displayName,
                                   String firstName,
                                   String lastName,
@@ -145,6 +185,7 @@ public class TeacherAccountService {
             this.teacherId = teacherId;
             this.username = username;
             this.role = role;
+            this.status = status;
             this.displayName = displayName;
             this.firstName = firstName;
             this.lastName = lastName;
@@ -161,6 +202,10 @@ public class TeacherAccountService {
 
         public UserRole getRole() {
             return role;
+        }
+
+        public UserAccountStatus getStatus() {
+            return status;
         }
 
         public String getDisplayName() {
@@ -237,6 +282,30 @@ public class TeacherAccountService {
 
         public String getMessage() {
             return message;
+        }
+    }
+
+    public static class UpdateTeacherStatusResponse {
+        private Long teacherId;
+        private String username;
+        private UserAccountStatus status;
+
+        public UpdateTeacherStatusResponse(Long teacherId, String username, UserAccountStatus status) {
+            this.teacherId = teacherId;
+            this.username = username;
+            this.status = status;
+        }
+
+        public Long getTeacherId() {
+            return teacherId;
+        }
+
+        public String getUsername() {
+            return username;
+        }
+
+        public UserAccountStatus getStatus() {
+            return status;
         }
     }
 }

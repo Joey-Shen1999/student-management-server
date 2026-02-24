@@ -2,6 +2,7 @@ package com.studentmanagement.studentmanagementserver.api;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.studentmanagement.studentmanagementserver.domain.enums.UserAccountStatus;
 import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
 import com.studentmanagement.studentmanagementserver.domain.teacher.Teacher;
 import com.studentmanagement.studentmanagementserver.domain.teacher.TeacherPasswordResetAuditLog;
@@ -71,7 +72,8 @@ class TeacherAccountsApiTest {
                         .header("Authorization", bearerFor(admin)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data").isArray())
-                .andExpect(jsonPath("$.data[*].username", hasItem("list_teacher_user")));
+                .andExpect(jsonPath("$.data[*].username", hasItem("list_teacher_user")))
+                .andExpect(jsonPath("$.data[*].status", hasItem("ACTIVE")));
     }
 
     @Test
@@ -204,6 +206,135 @@ class TeacherAccountsApiTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("role is required"))
                 .andExpect(jsonPath("$.code").value("BAD_REQUEST"));
+    }
+
+    @Test
+    void patchStatus_success_updatesStatus() throws Exception {
+        User admin = createAdmin("status_admin_user");
+        Teacher teacher = createTeacherAccount("status_target_teacher", "Status Target");
+
+        mockMvc.perform(patch("/api/teacher/accounts/{teacherId}/status", teacher.getId())
+                        .header("Authorization", bearerFor(admin))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"ARCHIVED\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.teacherId").value(teacher.getId()))
+                .andExpect(jsonPath("$.username").value("status_target_teacher"))
+                .andExpect(jsonPath("$.status").value("ARCHIVED"));
+
+        User archivedUser = userRepository.findById(teacher.getUser().getId())
+                .orElseThrow(() -> new RuntimeException("Archived target user not found"));
+        assertEquals(UserAccountStatus.ARCHIVED, archivedUser.getStatus());
+
+        mockMvc.perform(patch("/api/teacher/accounts/{teacherId}/status", teacher.getId())
+                        .header("Authorization", bearerFor(admin))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"ACTIVE\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("ACTIVE"));
+
+        User activatedUser = userRepository.findById(teacher.getUser().getId())
+                .orElseThrow(() -> new RuntimeException("Activated target user not found"));
+        assertEquals(UserAccountStatus.ACTIVE, activatedUser.getStatus());
+    }
+
+    @Test
+    void patchStatus_unauthenticated_returns401() throws Exception {
+        Teacher teacher = createTeacherAccount("status_unauth_target", "Status Unauth Target");
+
+        mockMvc.perform(patch("/api/teacher/accounts/{teacherId}/status", teacher.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"ARCHIVED\"}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("Unauthenticated."))
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+    }
+
+    @Test
+    void patchStatus_nonAdmin_returns403() throws Exception {
+        User teacherOperator = createTeacherUser("status_non_admin_operator");
+        Teacher teacher = createTeacherAccount("status_non_admin_target", "Status Non Admin Target");
+
+        mockMvc.perform(patch("/api/teacher/accounts/{teacherId}/status", teacher.getId())
+                        .header("Authorization", bearerFor(teacherOperator))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"ARCHIVED\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("Forbidden: admin role required."))
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+    }
+
+    @Test
+    void patchStatus_teacherNotFound_returns404() throws Exception {
+        User admin = createAdmin("status_nf_admin");
+
+        mockMvc.perform(patch("/api/teacher/accounts/{teacherId}/status", 999999L)
+                        .header("Authorization", bearerFor(admin))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"ARCHIVED\"}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Teacher account not found: 999999"))
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
+    }
+
+    @Test
+    void patchStatus_invalidStatus_returns400() throws Exception {
+        User admin = createAdmin("status_invalid_admin");
+        Teacher teacher = createTeacherAccount("status_invalid_target", "Status Invalid Target");
+
+        mockMvc.perform(patch("/api/teacher/accounts/{teacherId}/status", teacher.getId())
+                        .header("Authorization", bearerFor(admin))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"DISABLED\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Invalid account status. Expected ACTIVE or ARCHIVED."))
+                .andExpect(jsonPath("$.code").value("BAD_REQUEST"));
+    }
+
+    @Test
+    void archiveAndEnable_teacherLoginFlow_matchesAcceptance() throws Exception {
+        User admin = createAdmin("status_flow_admin");
+        Teacher teacher = createTeacherAccount("status_flow_teacher", "Status Flow Teacher");
+
+        mockMvc.perform(patch("/api/teacher/accounts/{teacherId}/status", teacher.getId())
+                        .header("Authorization", bearerFor(admin))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"ARCHIVED\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("ARCHIVED"));
+
+        mockMvc.perform(get("/api/teacher/accounts")
+                        .header("Authorization", bearerFor(admin)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[?(@.username=='status_flow_teacher')].status", hasItem("ARCHIVED")));
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"status_flow_teacher\",\"password\":\"Teacher!234\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("ACCOUNT_ARCHIVED"))
+                .andExpect(jsonPath("$.message")
+                        .value("This account has been archived. Please contact an admin to enable it."));
+
+        mockMvc.perform(patch("/api/teacher/accounts/{teacherId}/status", teacher.getId())
+                        .header("Authorization", bearerFor(admin))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"ACTIVE\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("ACTIVE"));
+
+        mockMvc.perform(get("/api/teacher/accounts")
+                        .header("Authorization", bearerFor(admin)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[?(@.username=='status_flow_teacher')].status", hasItem("ACTIVE")));
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"status_flow_teacher\",\"password\":\"Teacher!234\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.role").value("TEACHER"))
+                .andExpect(jsonPath("$.teacherId").value(teacher.getId()))
+                .andExpect(jsonPath("$.accessToken").isString());
     }
 
     @Test
