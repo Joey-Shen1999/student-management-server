@@ -4,6 +4,7 @@ import com.studentmanagement.studentmanagementserver.domain.user.User;
 import com.studentmanagement.studentmanagementserver.service.ManagementAccessService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -47,5 +48,29 @@ public class TeacherAccountController {
         TeacherAccountService.ResetTeacherPasswordResponse response =
                 teacherAccountService.resetTeacherPassword(teacherId, operator);
         return ResponseEntity.ok(response);
+    }
+
+    @PatchMapping("/{teacherId}/role")
+    public ResponseEntity<TeacherAccountService.UpdateTeacherRoleResponse> updateRole(
+            @PathVariable Long teacherId,
+            @RequestBody(required = false) UpdateTeacherRoleRequest req,
+            HttpServletRequest request) {
+        managementAccessService.requireTeacherManagementAccess(request);
+        String role = req == null ? null : req.getRole();
+        TeacherAccountService.UpdateTeacherRoleResponse response =
+                teacherAccountService.updateTeacherRole(teacherId, role);
+        return ResponseEntity.ok(response);
+    }
+
+    public static class UpdateTeacherRoleRequest {
+        private String role;
+
+        public String getRole() {
+            return role;
+        }
+
+        public void setRole(String role) {
+            this.role = role;
+        }
     }
 }

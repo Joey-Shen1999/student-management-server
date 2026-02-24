@@ -43,6 +43,9 @@ class AuthServiceTest {
         assertEquals(UserRole.STUDENT, resp.getRole());
         assertEquals(s.getId(), resp.getStudentId());
         assertNull(resp.getTeacherId());
+        assertNotNull(resp.getAccessToken());
+        assertEquals("Bearer", resp.getTokenType());
+        assertNotNull(resp.getTokenExpiresAt());
     }
 
     @Test
@@ -55,6 +58,9 @@ class AuthServiceTest {
         assertEquals(UserRole.TEACHER, resp.getRole());
         assertEquals(t.getId(), resp.getTeacherId());
         assertNull(resp.getStudentId());
+        assertNotNull(resp.getAccessToken());
+        assertEquals("Bearer", resp.getTokenType());
+        assertNotNull(resp.getTokenExpiresAt());
     }
 
     @Test

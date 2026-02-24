@@ -3,6 +3,7 @@ package com.studentmanagement.studentmanagementserver.api;
 import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
 import com.studentmanagement.studentmanagementserver.domain.user.User;
 import com.studentmanagement.studentmanagementserver.repo.UserRepository;
+import com.studentmanagement.studentmanagementserver.service.AuthSessionService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -30,6 +31,9 @@ class AuthPasswordPolicyApiTest {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private AuthSessionService authSessionService;
+
     @Test
     void register_returnsStructuredPasswordPolicyError() throws Exception {
         String body = "{"
@@ -52,6 +56,8 @@ class AuthPasswordPolicyApiTest {
     @Test
     void setPassword_returnsStructuredPasswordPolicyError() throws Exception {
         User user = userRepository.save(new User("teacherApi", passwordEncoder.encode("Valid!9A"), UserRole.TEACHER));
+        user.setMustChangePassword(true);
+        userRepository.save(user);
 
         String body = "{"
                 + "\"userId\":" + user.getId() + ","
@@ -59,6 +65,7 @@ class AuthPasswordPolicyApiTest {
                 + "}";
 
         mockMvc.perform(post("/api/auth/set-password")
+                        .header("Authorization", bearerFor(user))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isBadRequest())
@@ -68,18 +75,40 @@ class AuthPasswordPolicyApiTest {
     }
 
     @Test
-    void setPassword_userNotFound_returnsNotFoundErrorPayload() throws Exception {
+    void setPassword_userIdMismatch_returnsForbiddenErrorPayload() throws Exception {
+        User self = userRepository.save(new User("setpwd_self_api", passwordEncoder.encode("Valid!9A"), UserRole.TEACHER));
+        self.setMustChangePassword(true);
+        userRepository.save(self);
+
+        User other = userRepository.save(new User("setpwd_other_api", passwordEncoder.encode("Valid!9A"), UserRole.TEACHER));
+
         String body = "{"
-                + "\"userId\":999999,"
+                + "\"userId\":" + other.getId() + ","
+                + "\"newPassword\":\"Valid!9A\""
+                + "}";
+
+        mockMvc.perform(post("/api/auth/set-password")
+                        .header("Authorization", bearerFor(self))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("Cannot set password for another user."))
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"))
+                .andExpect(jsonPath("$.details").isArray());
+    }
+
+    @Test
+    void setPassword_unauthenticated_returnsUnauthorizedErrorPayload() throws Exception {
+        String body = "{"
                 + "\"newPassword\":\"Valid!9A\""
                 + "}";
 
         mockMvc.perform(post("/api/auth/set-password")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.message").value("User not found."))
-                .andExpect(jsonPath("$.code").value("NOT_FOUND"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("Unauthenticated."))
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"))
                 .andExpect(jsonPath("$.details").isArray());
     }
 
@@ -102,5 +131,10 @@ class AuthPasswordPolicyApiTest {
                 .andExpect(jsonPath("$.message").value("Username already exists"))
                 .andExpect(jsonPath("$.code").value("RESOURCE_CONFLICT"))
                 .andExpect(jsonPath("$.details").isArray());
+    }
+
+    private String bearerFor(User user) {
+        AuthSessionService.IssuedSession issuedSession = authSessionService.issueSession(user);
+        return issuedSession.getTokenType() + " " + issuedSession.getAccessToken();
     }
 }

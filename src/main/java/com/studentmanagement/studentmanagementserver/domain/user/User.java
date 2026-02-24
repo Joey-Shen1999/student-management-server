@@ -47,6 +47,7 @@ public class User extends BaseEntity {
     public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
 
     public UserRole getRole() { return role; }
+    public void setRole(UserRole role) { this.role = role; }
 
     public LocalDateTime getLastLoginAt() { return lastLoginAt; }
     public void setLastLoginAt(LocalDateTime lastLoginAt) { this.lastLoginAt = lastLoginAt; }

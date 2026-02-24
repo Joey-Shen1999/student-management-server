@@ -43,7 +43,7 @@ public class TeacherInviteService {
             throw new IllegalArgumentException("username too long (max 80)");
         }
         if (isBlankCompat(name)) {
-            throw new IllegalArgumentException("teacher name is required");
+            name = username;
         }
         if (name.length() > 120) {
             throw new IllegalArgumentException("teacher name too long (max 120)");

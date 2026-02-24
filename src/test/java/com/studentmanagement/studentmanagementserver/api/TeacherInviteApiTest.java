@@ -8,6 +8,7 @@ import com.studentmanagement.studentmanagementserver.domain.user.User;
 import com.studentmanagement.studentmanagementserver.repo.TeacherInviteAuditLogRepository;
 import com.studentmanagement.studentmanagementserver.repo.TeacherRepository;
 import com.studentmanagement.studentmanagementserver.repo.UserRepository;
+import com.studentmanagement.studentmanagementserver.service.AuthSessionService;
 import com.studentmanagement.studentmanagementserver.service.PasswordPolicyValidator;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -54,6 +55,9 @@ class TeacherInviteApiTest {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Autowired
+    private AuthSessionService authSessionService;
+
     @Test
     void createInvite_success_returnsPolicyCompliantTempPassword() throws Exception {
         User admin = createAdmin("invite_admin_001");
@@ -63,7 +67,7 @@ class TeacherInviteApiTest {
                 + "}";
 
         MvcResult result = mockMvc.perform(post("/api/teacher/invites")
-                        .header("X-User-Id", admin.getId())
+                        .header("Authorization", bearerFor(admin))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isOk())
@@ -101,7 +105,7 @@ class TeacherInviteApiTest {
                 + "}";
 
         mockMvc.perform(post("/api/teacher/invites")
-                        .header("X-User-Id", admin.getId())
+                        .header("Authorization", bearerFor(admin))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isConflict())
@@ -115,7 +119,7 @@ class TeacherInviteApiTest {
         User teacher = userRepository.save(new User("invite_teacher_non_admin", passwordEncoder.encode("Valid!9A"), UserRole.TEACHER));
 
         mockMvc.perform(post("/api/teacher/invites")
-                        .header("X-User-Id", teacher.getId())
+                        .header("Authorization", bearerFor(teacher))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"invite_user_non_admin\"}"))
                 .andExpect(status().isForbidden())
@@ -142,7 +146,7 @@ class TeacherInviteApiTest {
         userRepository.save(admin);
 
         mockMvc.perform(post("/api/teacher/invites")
-                        .header("X-User-Id", admin.getId())
+                        .header("Authorization", bearerFor(admin))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"invite_user_blocked\"}"))
                 .andExpect(status().isForbidden())
@@ -153,5 +157,10 @@ class TeacherInviteApiTest {
 
     private User createAdmin(String username) {
         return userRepository.save(new User(username, passwordEncoder.encode("Admin!234"), UserRole.ADMIN));
+    }
+
+    private String bearerFor(User user) {
+        AuthSessionService.IssuedSession issuedSession = authSessionService.issueSession(user);
+        return issuedSession.getTokenType() + " " + issuedSession.getAccessToken();
     }
 }

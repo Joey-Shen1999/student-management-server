@@ -26,17 +26,20 @@ public class AuthService {
     private final TeacherRepository teacherRepository;
     private final PasswordEncoder passwordEncoder;
     private final PasswordPolicyValidator passwordPolicyValidator;
+    private final AuthSessionService authSessionService;
 
     public AuthService(UserRepository userRepository,
                        StudentRepository studentRepository,
                        TeacherRepository teacherRepository,
                        PasswordEncoder passwordEncoder,
-                       PasswordPolicyValidator passwordPolicyValidator) {
+                       PasswordPolicyValidator passwordPolicyValidator,
+                       AuthSessionService authSessionService) {
         this.userRepository = userRepository;
         this.studentRepository = studentRepository;
         this.teacherRepository = teacherRepository;
         this.passwordEncoder = passwordEncoder;
         this.passwordPolicyValidator = passwordPolicyValidator;
+        this.authSessionService = authSessionService;
     }
 
     @Transactional
@@ -123,13 +126,17 @@ public class AuthService {
 
         user.setLastLoginAt(LocalDateTime.now());
         userRepository.save(user);
+        AuthSessionService.IssuedSession issuedSession = authSessionService.issueSession(user);
 
         return new LoginResponse(
                 user.getId(),
                 user.getRole(),
                 studentId,
                 teacherId,
-                user.isMustChangePassword()
+                user.isMustChangePassword(),
+                issuedSession.getAccessToken(),
+                issuedSession.getTokenType(),
+                issuedSession.getExpiresAt()
         );
     }
 

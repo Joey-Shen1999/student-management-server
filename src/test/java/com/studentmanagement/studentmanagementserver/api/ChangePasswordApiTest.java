@@ -3,6 +3,7 @@ package com.studentmanagement.studentmanagementserver.api;
 import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
 import com.studentmanagement.studentmanagementserver.domain.user.User;
 import com.studentmanagement.studentmanagementserver.repo.UserRepository;
+import com.studentmanagement.studentmanagementserver.service.AuthSessionService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -32,26 +33,28 @@ class ChangePasswordApiTest {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private AuthSessionService authSessionService;
+
     @Test
     void changePassword_success_updatesPasswordAndMustChangeFlag() throws Exception {
-        String username = "cp_success_user";
-        User user = userRepository.save(new User(username, passwordEncoder.encode("OldPass!1"), UserRole.TEACHER));
+        User user = userRepository.save(new User("cp_success_user", passwordEncoder.encode("OldPass!1"), UserRole.TEACHER));
         user.setMustChangePassword(true);
         userRepository.save(user);
 
         String body = "{"
-                + "\"username\":\"" + username + "\","
                 + "\"oldPassword\":\"OldPass!1\","
                 + "\"newPassword\":\"NewPass!2\""
                 + "}";
 
         mockMvc.perform(post("/api/auth/change-password")
+                        .header("Authorization", bearerFor(user))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.ok").value(true));
 
-        User updated = userRepository.findByUsername(username)
+        User updated = userRepository.findByUsername("cp_success_user")
                 .orElseThrow(() -> new RuntimeException("user not found"));
 
         assertFalse(updated.isMustChangePassword());
@@ -60,21 +63,41 @@ class ChangePasswordApiTest {
 
     @Test
     void changePassword_oldPasswordIncorrect_returnsReadableError() throws Exception {
-        String username = "cp_fail_user";
-        userRepository.save(new User(username, passwordEncoder.encode("OldPass!1"), UserRole.TEACHER));
+        User user = userRepository.save(new User("cp_fail_user", passwordEncoder.encode("OldPass!1"), UserRole.TEACHER));
 
         String body = "{"
-                + "\"username\":\"" + username + "\","
                 + "\"oldPassword\":\"WrongPass!1\","
                 + "\"newPassword\":\"NewPass!2\""
                 + "}";
 
         mockMvc.perform(post("/api/auth/change-password")
+                        .header("Authorization", bearerFor(user))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("oldPassword incorrect"))
                 .andExpect(jsonPath("$.code").value("BAD_REQUEST"))
                 .andExpect(jsonPath("$.details").isArray());
+    }
+
+    @Test
+    void changePassword_unauthenticated_returnsUnauthorized() throws Exception {
+        String body = "{"
+                + "\"oldPassword\":\"OldPass!1\","
+                + "\"newPassword\":\"NewPass!2\""
+                + "}";
+
+        mockMvc.perform(post("/api/auth/change-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("Unauthenticated."))
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"))
+                .andExpect(jsonPath("$.details").isArray());
+    }
+
+    private String bearerFor(User user) {
+        AuthSessionService.IssuedSession issuedSession = authSessionService.issueSession(user);
+        return issuedSession.getTokenType() + " " + issuedSession.getAccessToken();
     }
 }
