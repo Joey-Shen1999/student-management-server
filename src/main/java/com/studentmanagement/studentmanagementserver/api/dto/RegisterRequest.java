@@ -15,6 +15,9 @@ public class RegisterRequest {
     // teacher minimal
     private String displayName;
 
+    // optional invite for student registration
+    private String inviteToken;
+
     public String getUsername() { return username; }
     public void setUsername(String username) { this.username = username; }
 
@@ -35,4 +38,7 @@ public class RegisterRequest {
 
     public String getDisplayName() { return displayName; }
     public void setDisplayName(String displayName) { this.displayName = displayName; }
+
+    public String getInviteToken() { return inviteToken; }
+    public void setInviteToken(String inviteToken) { this.inviteToken = inviteToken; }
 }

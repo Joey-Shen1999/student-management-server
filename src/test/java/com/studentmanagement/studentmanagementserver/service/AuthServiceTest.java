@@ -81,4 +81,15 @@ class AuthServiceTest {
                 assertThrows(AccountArchivedException.class, () -> authService.login("archived_user", "pw"));
         assertEquals("ACCOUNT_ARCHIVED", ex.getCode());
     }
+
+    @Test
+    void login_adminWithTeacherBinding_returnsTeacherId() {
+        User admin = userRepository.save(new User("admin_login_teacher", encoder.encode("Admin!234"), UserRole.ADMIN));
+        Teacher teacher = teacherRepository.save(new Teacher(admin, "Admin Teacher"));
+
+        LoginResponse resp = authService.login("admin_login_teacher", "Admin!234");
+
+        assertEquals(UserRole.ADMIN, resp.getRole());
+        assertEquals(teacher.getId(), resp.getTeacherId());
+    }
 }

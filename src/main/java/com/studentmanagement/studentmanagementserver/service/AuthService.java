@@ -6,6 +6,7 @@ import com.studentmanagement.studentmanagementserver.api.dto.RegisterResponse;
 import com.studentmanagement.studentmanagementserver.domain.enums.UserAccountStatus;
 import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
 import com.studentmanagement.studentmanagementserver.domain.student.Student;
+import com.studentmanagement.studentmanagementserver.domain.student.StudentInvite;
 import com.studentmanagement.studentmanagementserver.domain.teacher.Teacher;
 import com.studentmanagement.studentmanagementserver.domain.user.User;
 import com.studentmanagement.studentmanagementserver.repo.StudentRepository;
@@ -28,19 +29,22 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final PasswordPolicyValidator passwordPolicyValidator;
     private final AuthSessionService authSessionService;
+    private final StudentInviteService studentInviteService;
 
     public AuthService(UserRepository userRepository,
                        StudentRepository studentRepository,
                        TeacherRepository teacherRepository,
                        PasswordEncoder passwordEncoder,
                        PasswordPolicyValidator passwordPolicyValidator,
-                       AuthSessionService authSessionService) {
+                       AuthSessionService authSessionService,
+                       StudentInviteService studentInviteService) {
         this.userRepository = userRepository;
         this.studentRepository = studentRepository;
         this.teacherRepository = teacherRepository;
         this.passwordEncoder = passwordEncoder;
         this.passwordPolicyValidator = passwordPolicyValidator;
         this.authSessionService = authSessionService;
+        this.studentInviteService = studentInviteService;
     }
 
     @Transactional
@@ -57,10 +61,19 @@ public class AuthService {
         if (role == null) {
             throw new IllegalArgumentException("Role is required (STUDENT or TEACHER)");
         }
+        String inviteToken = req.getInviteToken() == null ? null : req.getInviteToken().trim();
+        if (inviteToken != null && inviteToken.isEmpty()) {
+            inviteToken = null;
+        }
+        if (inviteToken != null && role != UserRole.STUDENT) {
+            throw StudentInviteException.roleMismatch();
+        }
 
         if (userRepository.findByUsername(username).isPresent()) {
             throw new IllegalArgumentException("Username already exists");
         }
+        StudentInvite studentInvite = inviteToken == null ? null : studentInviteService.lockPendingInviteForRegistration(inviteToken);
+        Teacher invitedTeacher = studentInvite == null ? null : studentInvite.getTeacher();
 
         User user = new User(username, passwordEncoder.encode(password), role);
         user = userRepository.save(user);
@@ -77,9 +90,12 @@ public class AuthService {
                 throw new IllegalArgumentException("First name and last name are required for students");
             }
 
-            Student student = new Student(user, firstName, lastName, preferredName);
+            Student student = new Student(user, firstName, lastName, preferredName, invitedTeacher);
             student = studentRepository.save(student);
             studentId = student.getId();
+            if (studentInvite != null) {
+                studentInviteService.markInviteUsed(studentInvite, user.getId());
+            }
         } else if (role == UserRole.TEACHER) {
             String displayName = req.getDisplayName() == null ? "" : req.getDisplayName().trim();
             if (displayName.isEmpty()) {
@@ -122,9 +138,9 @@ public class AuthService {
             studentId = studentRepository.findByUser_Id(user.getId())
                     .orElseThrow(() -> new IllegalStateException("Student profile missing"))
                     .getId();
-        } else if (user.getRole() == UserRole.TEACHER) {
+        } else if (user.getRole() == UserRole.TEACHER || user.getRole() == UserRole.ADMIN) {
             teacherId = teacherRepository.findByUser_Id(user.getId())
-                    .orElseThrow(() -> new IllegalStateException("Teacher profile missing"))
+                    .orElseThrow(TeacherBindingRequiredException::new)
                     .getId();
         }
 

@@ -3,6 +3,8 @@ package com.studentmanagement.studentmanagementserver.web;
 import com.studentmanagement.studentmanagementserver.service.AccountArchivedException;
 import com.studentmanagement.studentmanagementserver.service.MustChangePasswordRequiredException;
 import com.studentmanagement.studentmanagementserver.service.PasswordPolicyViolationException;
+import com.studentmanagement.studentmanagementserver.service.StudentInviteException;
+import com.studentmanagement.studentmanagementserver.service.TeacherBindingRequiredException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -46,6 +48,29 @@ public class GlobalExceptionHandler {
                 Collections.<String>emptyList()
         );
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
+    }
+
+    @ExceptionHandler(StudentInviteException.class)
+    public ResponseEntity<ApiError> handleStudentInvite(StudentInviteException e) {
+        HttpStatus status = e.getStatus() == null ? HttpStatus.BAD_REQUEST : e.getStatus();
+        ApiError body = new ApiError(
+                status.value(),
+                e.getMessage(),
+                e.getCode(),
+                Collections.<String>emptyList()
+        );
+        return ResponseEntity.status(status).body(body);
+    }
+
+    @ExceptionHandler(TeacherBindingRequiredException.class)
+    public ResponseEntity<ApiError> handleTeacherBindingRequired(TeacherBindingRequiredException e) {
+        ApiError body = new ApiError(
+                HttpStatus.BAD_REQUEST.value(),
+                e.getMessage(),
+                e.getCode(),
+                Collections.<String>emptyList()
+        );
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
