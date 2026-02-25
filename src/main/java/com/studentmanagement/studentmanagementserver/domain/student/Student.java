@@ -46,4 +46,10 @@ public class Student extends BaseEntity {
     public String getLastName() { return lastName; }
     public String getNickName() { return nickName; }
     public Teacher getTeacher() { return teacher; }
+
+    public void updateProfileNames(String firstName, String lastName, String nickName) {
+        this.firstName = firstName;
+        this.lastName = lastName;
+        this.nickName = nickName;
+    }
 }

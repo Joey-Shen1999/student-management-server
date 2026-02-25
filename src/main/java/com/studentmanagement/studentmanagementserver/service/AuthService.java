@@ -8,9 +8,12 @@ import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
 import com.studentmanagement.studentmanagementserver.domain.student.Student;
 import com.studentmanagement.studentmanagementserver.domain.student.StudentInvite;
 import com.studentmanagement.studentmanagementserver.domain.teacher.Teacher;
+import com.studentmanagement.studentmanagementserver.domain.teacher.TeacherStudent;
+import com.studentmanagement.studentmanagementserver.domain.enums.TeacherStudentStatus;
 import com.studentmanagement.studentmanagementserver.domain.user.User;
 import com.studentmanagement.studentmanagementserver.repo.StudentRepository;
 import com.studentmanagement.studentmanagementserver.repo.TeacherRepository;
+import com.studentmanagement.studentmanagementserver.repo.TeacherStudentRepository;
 import com.studentmanagement.studentmanagementserver.repo.UserRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -30,10 +33,12 @@ public class AuthService {
     private final PasswordPolicyValidator passwordPolicyValidator;
     private final AuthSessionService authSessionService;
     private final StudentInviteService studentInviteService;
+    private final TeacherStudentRepository teacherStudentRepository;
 
     public AuthService(UserRepository userRepository,
                        StudentRepository studentRepository,
                        TeacherRepository teacherRepository,
+                       TeacherStudentRepository teacherStudentRepository,
                        PasswordEncoder passwordEncoder,
                        PasswordPolicyValidator passwordPolicyValidator,
                        AuthSessionService authSessionService,
@@ -41,6 +46,7 @@ public class AuthService {
         this.userRepository = userRepository;
         this.studentRepository = studentRepository;
         this.teacherRepository = teacherRepository;
+        this.teacherStudentRepository = teacherStudentRepository;
         this.passwordEncoder = passwordEncoder;
         this.passwordPolicyValidator = passwordPolicyValidator;
         this.authSessionService = authSessionService;
@@ -92,6 +98,21 @@ public class AuthService {
 
             Student student = new Student(user, firstName, lastName, preferredName, invitedTeacher);
             student = studentRepository.save(student);
+            if (invitedTeacher != null) {
+                boolean hasActiveRelation = teacherStudentRepository.existsByTeacher_IdAndStudent_IdAndStatus(
+                        invitedTeacher.getId(),
+                        student.getId(),
+                        TeacherStudentStatus.ACTIVE
+                );
+                if (!hasActiveRelation) {
+                    teacherStudentRepository.save(new TeacherStudent(
+                            invitedTeacher,
+                            student,
+                            TeacherStudentStatus.ACTIVE,
+                            "Created by student invite registration"
+                    ));
+                }
+            }
             studentId = student.getId();
             if (studentInvite != null) {
                 studentInviteService.markInviteUsed(studentInvite, user.getId());
