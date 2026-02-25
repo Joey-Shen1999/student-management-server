@@ -106,6 +106,7 @@ class TeacherStudentProfileApiTest {
                         .header("Authorization", bearerFor(teacher.getUser())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.legalFirstName").value("Amy"))
+                .andExpect(jsonPath("$.schools").isArray())
                 .andExpect(jsonPath("$.otherCourses").isArray());
 
         Map<String, Object> payload = buildProfilePayload();
@@ -119,7 +120,9 @@ class TeacherStudentProfileApiTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.legalFirstName").value("TeacherEdited"))
                 .andExpect(jsonPath("$.preferredName").value("TE"))
-                .andExpect(jsonPath("$.otherCourses[0].courseCode").value("MHF4U"));
+                .andExpect(jsonPath("$.otherCourses[0].courseCode").value("MHF4U"))
+                .andExpect(jsonPath("$.externalCourses[0].courseCode").value("MHF4U"))
+                .andExpect(jsonPath("$.schoolRecords[0].schoolType").value("MAIN"));
     }
 
     @Test
@@ -225,8 +228,8 @@ class TeacherStudentProfileApiTest {
 
         Map<String, Object> firstPayload = buildProfilePayload();
         firstPayload.put("otherCourses", Arrays.asList(
-                buildCourse("OTHER", "ABC Private School", "MHF4U", 93, 12, "2025-02-01", "2025-06-30"),
-                buildCourse("MAIN", "Main School", "ENG4U", 90, 12, "2025-02-01", "2025-06-30")
+                buildCourse("ABC Private School", "MHF4U", 93, 12, "2025-02-01", "2025-06-30"),
+                buildCourse("Night School", "ENG4U", 90, 12, "2025-02-01", "2025-06-30")
         ));
 
         mockMvc.perform(put("/api/teacher/students/{studentId}/profile", student.getId())
@@ -238,7 +241,7 @@ class TeacherStudentProfileApiTest {
 
         Map<String, Object> secondPayload = buildProfilePayload();
         secondPayload.put("otherCourses", Arrays.asList(
-                buildCourse("OTHER", "ABC Private School", "MHF4U", 95, 12, "2025-02-01", "2025-06-30")
+                buildCourse("ABC Private School", "MHF4U", 95, 12, "2025-02-01", "2025-06-30")
         ));
 
         mockMvc.perform(put("/api/teacher/students/{studentId}/profile", student.getId())
@@ -297,8 +300,12 @@ class TeacherStudentProfileApiTest {
         payload.put("ap", Boolean.TRUE);
         payload.put("identityFileNote", "Passport on file");
         payload.put("address", buildAddress());
+        payload.put("schools", Arrays.asList(
+                buildSchool("MAIN", "A High School", "2023-09-01", null),
+                buildSchool("OTHER", "B High School", "2021-09-01", "2023-06-30")
+        ));
         payload.put("otherCourses", Arrays.asList(
-                buildCourse("OTHER", "ABC Private School", "MHF4U", 93, 12, "2025-02-01", "2025-06-30")
+                buildCourse("ABC Private School", "MHF4U", 93, 12, "2025-02-01", "2025-06-30")
         ));
         return payload;
     }
@@ -314,15 +321,25 @@ class TeacherStudentProfileApiTest {
         return address;
     }
 
-    private Map<String, Object> buildCourse(String schoolType,
+    private Map<String, Object> buildSchool(String schoolType,
                                             String schoolName,
+                                            String startTime,
+                                            String endTime) {
+        Map<String, Object> school = new LinkedHashMap<String, Object>();
+        school.put("schoolType", schoolType);
+        school.put("schoolName", schoolName);
+        school.put("startTime", startTime);
+        school.put("endTime", endTime);
+        return school;
+    }
+
+    private Map<String, Object> buildCourse(String schoolName,
                                             String courseCode,
                                             Integer mark,
                                             Integer gradeLevel,
                                             String startTime,
                                             String endTime) {
         Map<String, Object> course = new LinkedHashMap<String, Object>();
-        course.put("schoolType", schoolType);
         course.put("schoolName", schoolName);
         course.put("courseCode", courseCode);
         course.put("mark", mark);

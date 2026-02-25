@@ -6,6 +6,7 @@ import com.studentmanagement.studentmanagementserver.domain.user.User;
 import com.studentmanagement.studentmanagementserver.repo.StudentCourseRecordRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentProfileRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentRepository;
+import com.studentmanagement.studentmanagementserver.repo.StudentSchoolRecordRepository;
 import com.studentmanagement.studentmanagementserver.service.AuthSessionService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -28,15 +29,18 @@ public class StudentProfileService {
     private final AuthSessionService authSessionService;
     private final StudentRepository studentRepository;
     private final StudentProfileRepository studentProfileRepository;
+    private final StudentSchoolRecordRepository studentSchoolRecordRepository;
     private final StudentCourseRecordRepository studentCourseRecordRepository;
 
     public StudentProfileService(AuthSessionService authSessionService,
                                  StudentRepository studentRepository,
                                  StudentProfileRepository studentProfileRepository,
+                                 StudentSchoolRecordRepository studentSchoolRecordRepository,
                                  StudentCourseRecordRepository studentCourseRecordRepository) {
         this.authSessionService = authSessionService;
         this.studentRepository = studentRepository;
         this.studentProfileRepository = studentProfileRepository;
+        this.studentSchoolRecordRepository = studentSchoolRecordRepository;
         this.studentCourseRecordRepository = studentCourseRecordRepository;
     }
 
@@ -83,8 +87,9 @@ public class StudentProfileService {
 
     private StudentProfileDto getProfileForStudent(Student student) {
         StudentProfile profile = studentProfileRepository.findByStudent_Id(student.getId()).orElse(null);
+        List<StudentSchoolRecord> schools = studentSchoolRecordRepository.findByStudent_IdOrderByIdAsc(student.getId());
         List<StudentCourseRecord> courses = studentCourseRecordRepository.findByStudent_IdOrderByIdAsc(student.getId());
-        return toDto(student, profile, courses);
+        return toDto(student, profile, schools, courses);
     }
 
     private StudentProfileDto saveProfileForStudent(Student student, StudentProfileDto requestBody, Long operatorUserId) {
@@ -102,12 +107,28 @@ public class StudentProfileService {
         );
         studentRepository.save(student);
 
+        studentSchoolRecordRepository.deleteByStudent_Id(student.getId());
+        List<StudentSchoolRecord> savedSchools = new ArrayList<StudentSchoolRecord>();
+        for (NormalizedSchool school : normalized.schools) {
+            savedSchools.add(new StudentSchoolRecord(
+                    student,
+                    school.schoolType,
+                    school.schoolName,
+                    school.startTime,
+                    school.endTime
+            ));
+        }
+        if (!savedSchools.isEmpty()) {
+            savedSchools = studentSchoolRecordRepository.saveAll(savedSchools);
+        }
+
         studentCourseRecordRepository.deleteByStudent_Id(student.getId());
         List<StudentCourseRecord> savedCourses = new ArrayList<StudentCourseRecord>();
         for (NormalizedCourse course : normalized.otherCourses) {
+            // Keep school_type populated for backward DB compatibility.
             savedCourses.add(new StudentCourseRecord(
                     student,
-                    course.schoolType,
+                    SchoolType.OTHER,
                     course.schoolName,
                     course.courseCode,
                     course.mark,
@@ -120,7 +141,7 @@ public class StudentProfileService {
             savedCourses = studentCourseRecordRepository.saveAll(savedCourses);
         }
 
-        return toDto(student, profile, savedCourses);
+        return toDto(student, profile, savedSchools, savedCourses);
     }
 
     private void applyProfile(StudentProfile profile, NormalizedProfile normalized, Long operatorUserId) {
@@ -145,7 +166,10 @@ public class StudentProfileService {
         profile.setUpdatedBy(operatorUserId);
     }
 
-    private StudentProfileDto toDto(Student student, StudentProfile profile, List<StudentCourseRecord> courses) {
+    private StudentProfileDto toDto(Student student,
+                                    StudentProfile profile,
+                                    List<StudentSchoolRecord> schools,
+                                    List<StudentCourseRecord> courses) {
         StudentProfileDto dto = new StudentProfileDto();
 
         dto.setLegalFirstName(student.getFirstName());
@@ -180,11 +204,24 @@ public class StudentProfileService {
             dto.setAddress(address);
         }
 
+        List<StudentProfileDto.SchoolDto> schoolDtos = new ArrayList<StudentProfileDto.SchoolDto>();
+        if (schools != null) {
+            for (StudentSchoolRecord school : schools) {
+                StudentProfileDto.SchoolDto schoolDto = new StudentProfileDto.SchoolDto();
+                schoolDto.setSchoolType(school.getSchoolType() == null ? null : school.getSchoolType().name());
+                schoolDto.setSchoolName(school.getSchoolName());
+                schoolDto.setStartTime(formatDate(school.getStartTime()));
+                schoolDto.setEndTime(formatDate(school.getEndTime()));
+                schoolDtos.add(schoolDto);
+            }
+        }
+        dto.setSchools(schoolDtos);
+        dto.setSchoolRecords(new ArrayList<StudentProfileDto.SchoolDto>(schoolDtos));
+
         List<StudentProfileDto.CourseDto> courseDtos = new ArrayList<StudentProfileDto.CourseDto>();
         if (courses != null) {
             for (StudentCourseRecord course : courses) {
                 StudentProfileDto.CourseDto courseDto = new StudentProfileDto.CourseDto();
-                courseDto.setSchoolType(course.getSchoolType() == null ? null : course.getSchoolType().name());
                 courseDto.setSchoolName(course.getSchoolName());
                 courseDto.setCourseCode(course.getCourseCode());
                 courseDto.setMark(course.getMark());
@@ -195,6 +232,7 @@ public class StudentProfileService {
             }
         }
         dto.setOtherCourses(courseDtos);
+        dto.setExternalCourses(new ArrayList<StudentProfileDto.CourseDto>(courseDtos));
 
         return dto;
     }
@@ -246,8 +284,37 @@ public class StudentProfileService {
                 trimToNull(addressDto.getPostal())
         );
 
+        List<NormalizedSchool> schools = new ArrayList<NormalizedSchool>();
+        List<StudentProfileDto.SchoolDto> incomingSchools = chooseIncomingSchools(requestBody);
+        for (int i = 0; i < incomingSchools.size(); i++) {
+            StudentProfileDto.SchoolDto incomingSchool = incomingSchools.get(i);
+            String pathPrefix = "schools[" + i + "]";
+            if (incomingSchool == null) {
+                throw new IllegalArgumentException(pathPrefix + " is required");
+            }
+
+            SchoolType schoolType = parseSchoolType(incomingSchool.getSchoolType(), pathPrefix + ".schoolType");
+            String schoolName = trimToNull(incomingSchool.getSchoolName());
+            if (schoolName == null) {
+                throw new IllegalArgumentException(pathPrefix + ".schoolName is required");
+            }
+
+            LocalDate startTime = parseDateOrNull(incomingSchool.getStartTime(), pathPrefix + ".startTime");
+            LocalDate endTime = parseDateOrNull(incomingSchool.getEndTime(), pathPrefix + ".endTime");
+            if (startTime != null && endTime != null && startTime.isAfter(endTime)) {
+                throw new IllegalArgumentException(pathPrefix + ".startTime must be on or before endTime");
+            }
+
+            schools.add(new NormalizedSchool(
+                    schoolType,
+                    schoolName,
+                    startTime,
+                    endTime
+            ));
+        }
+
         List<NormalizedCourse> courses = new ArrayList<NormalizedCourse>();
-        List<StudentProfileDto.CourseDto> incomingCourses = requestBody.getOtherCourses();
+        List<StudentProfileDto.CourseDto> incomingCourses = chooseIncomingCourses(requestBody);
         for (int i = 0; i < incomingCourses.size(); i++) {
             StudentProfileDto.CourseDto incomingCourse = incomingCourses.get(i);
             String pathPrefix = "otherCourses[" + i + "]";
@@ -255,7 +322,6 @@ public class StudentProfileService {
                 throw new IllegalArgumentException(pathPrefix + " is required");
             }
 
-            SchoolType schoolType = parseSchoolType(incomingCourse.getSchoolType(), pathPrefix + ".schoolType");
             Integer mark = incomingCourse.getMark();
             if (mark != null && (mark < 0 || mark > 100)) {
                 throw new IllegalArgumentException(pathPrefix + ".mark must be between 0 and 100");
@@ -273,7 +339,6 @@ public class StudentProfileService {
             }
 
             courses.add(new NormalizedCourse(
-                    schoolType,
                     trimToNull(incomingCourse.getSchoolName()),
                     trimToNull(incomingCourse.getCourseCode()),
                     mark,
@@ -300,8 +365,29 @@ public class StudentProfileService {
                 apRaw.booleanValue(),
                 identityFileNote,
                 address,
+                schools,
                 courses
         );
+    }
+
+    private List<StudentProfileDto.SchoolDto> chooseIncomingSchools(StudentProfileDto requestBody) {
+        if (requestBody.getSchools() != null) {
+            return requestBody.getSchools();
+        }
+        if (requestBody.getSchoolRecords() != null) {
+            return requestBody.getSchoolRecords();
+        }
+        return new ArrayList<StudentProfileDto.SchoolDto>();
+    }
+
+    private List<StudentProfileDto.CourseDto> chooseIncomingCourses(StudentProfileDto requestBody) {
+        if (requestBody.getOtherCourses() != null) {
+            return requestBody.getOtherCourses();
+        }
+        if (requestBody.getExternalCourses() != null) {
+            return requestBody.getExternalCourses();
+        }
+        return new ArrayList<StudentProfileDto.CourseDto>();
     }
 
     private SchoolType parseSchoolType(String schoolTypeRaw, String fieldPath) {
@@ -364,6 +450,7 @@ public class StudentProfileService {
         private final boolean ap;
         private final String identityFileNote;
         private final NormalizedAddress address;
+        private final List<NormalizedSchool> schools;
         private final List<NormalizedCourse> otherCourses;
 
         private NormalizedProfile(String legalFirstName,
@@ -382,6 +469,7 @@ public class StudentProfileService {
                                   boolean ap,
                                   String identityFileNote,
                                   NormalizedAddress address,
+                                  List<NormalizedSchool> schools,
                                   List<NormalizedCourse> otherCourses) {
             this.legalFirstName = legalFirstName;
             this.legalLastName = legalLastName;
@@ -399,6 +487,7 @@ public class StudentProfileService {
             this.ap = ap;
             this.identityFileNote = identityFileNote;
             this.address = address;
+            this.schools = schools;
             this.otherCourses = otherCourses;
         }
     }
@@ -426,8 +515,24 @@ public class StudentProfileService {
         }
     }
 
-    private static class NormalizedCourse {
+    private static class NormalizedSchool {
         private final SchoolType schoolType;
+        private final String schoolName;
+        private final LocalDate startTime;
+        private final LocalDate endTime;
+
+        private NormalizedSchool(SchoolType schoolType,
+                                 String schoolName,
+                                 LocalDate startTime,
+                                 LocalDate endTime) {
+            this.schoolType = schoolType;
+            this.schoolName = schoolName;
+            this.startTime = startTime;
+            this.endTime = endTime;
+        }
+    }
+
+    private static class NormalizedCourse {
         private final String schoolName;
         private final String courseCode;
         private final Integer mark;
@@ -435,14 +540,12 @@ public class StudentProfileService {
         private final LocalDate startTime;
         private final LocalDate endTime;
 
-        private NormalizedCourse(SchoolType schoolType,
-                                 String schoolName,
+        private NormalizedCourse(String schoolName,
                                  String courseCode,
                                  Integer mark,
                                  Integer gradeLevel,
                                  LocalDate startTime,
                                  LocalDate endTime) {
-            this.schoolType = schoolType;
             this.schoolName = schoolName;
             this.courseCode = courseCode;
             this.mark = mark;

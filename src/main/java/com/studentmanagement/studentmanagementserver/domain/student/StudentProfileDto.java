@@ -27,7 +27,16 @@ public class StudentProfileDto {
     private String ib;
     private Boolean ap = Boolean.FALSE;
     private String identityFileNote;
-    private List<CourseDto> otherCourses = new ArrayList<CourseDto>();
+
+    // Preferred field for school history.
+    private List<SchoolDto> schools;
+    // Backward-compatible alias for school history.
+    private List<SchoolDto> schoolRecords;
+
+    // Preferred field for external courses.
+    private List<CourseDto> otherCourses;
+    // Backward-compatible alias for external courses.
+    private List<CourseDto> externalCourses;
 
     public String getLegalFirstName() {
         return legalFirstName;
@@ -184,15 +193,52 @@ public class StudentProfileDto {
         this.identityFileNote = identityFileNote;
     }
 
+    public List<SchoolDto> getSchools() {
+        return schools;
+    }
+
+    public void setSchools(List<SchoolDto> schools) {
+        this.schools = schools;
+    }
+
+    public List<SchoolDto> getSchoolRecords() {
+        return schoolRecords;
+    }
+
+    public void setSchoolRecords(List<SchoolDto> schoolRecords) {
+        this.schoolRecords = schoolRecords;
+    }
+
     public List<CourseDto> getOtherCourses() {
-        if (otherCourses == null) {
-            otherCourses = new ArrayList<CourseDto>();
-        }
         return otherCourses;
     }
 
     public void setOtherCourses(List<CourseDto> otherCourses) {
-        this.otherCourses = otherCourses == null ? new ArrayList<CourseDto>() : otherCourses;
+        this.otherCourses = otherCourses;
+    }
+
+    public List<CourseDto> getExternalCourses() {
+        return externalCourses;
+    }
+
+    public void setExternalCourses(List<CourseDto> externalCourses) {
+        this.externalCourses = externalCourses;
+    }
+
+    public List<SchoolDto> getSchoolsOrEmpty() {
+        return schools == null ? new ArrayList<SchoolDto>() : schools;
+    }
+
+    public List<SchoolDto> getSchoolRecordsOrEmpty() {
+        return schoolRecords == null ? new ArrayList<SchoolDto>() : schoolRecords;
+    }
+
+    public List<CourseDto> getOtherCoursesOrEmpty() {
+        return otherCourses == null ? new ArrayList<CourseDto>() : otherCourses;
+    }
+
+    public List<CourseDto> getExternalCoursesOrEmpty() {
+        return externalCourses == null ? new ArrayList<CourseDto>() : externalCourses;
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -254,12 +300,9 @@ public class StudentProfileDto {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public static class CourseDto {
+    public static class SchoolDto {
         private String schoolType;
         private String schoolName;
-        private String courseCode;
-        private Integer mark;
-        private Integer gradeLevel;
         private String startTime;
         private String endTime;
 
@@ -270,6 +313,40 @@ public class StudentProfileDto {
         public void setSchoolType(String schoolType) {
             this.schoolType = schoolType;
         }
+
+        public String getSchoolName() {
+            return schoolName;
+        }
+
+        public void setSchoolName(String schoolName) {
+            this.schoolName = schoolName;
+        }
+
+        public String getStartTime() {
+            return startTime;
+        }
+
+        public void setStartTime(String startTime) {
+            this.startTime = startTime;
+        }
+
+        public String getEndTime() {
+            return endTime;
+        }
+
+        public void setEndTime(String endTime) {
+            this.endTime = endTime;
+        }
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class CourseDto {
+        private String schoolName;
+        private String courseCode;
+        private Integer mark;
+        private Integer gradeLevel;
+        private String startTime;
+        private String endTime;
 
         public String getSchoolName() {
             return schoolName;

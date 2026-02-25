@@ -76,8 +76,12 @@ class StudentProfileApiTest {
                 .andExpect(jsonPath("$.nickName").value("Amy"))
                 .andExpect(jsonPath("$.ap").value(false))
                 .andExpect(jsonPath("$.address").isMap())
+                .andExpect(jsonPath("$.schools").isArray())
+                .andExpect(jsonPath("$.schools").isEmpty())
                 .andExpect(jsonPath("$.otherCourses").isArray())
-                .andExpect(jsonPath("$.otherCourses").isEmpty());
+                .andExpect(jsonPath("$.otherCourses").isEmpty())
+                .andExpect(jsonPath("$.schoolRecords").isArray())
+                .andExpect(jsonPath("$.externalCourses").isArray());
     }
 
     @Test
@@ -90,7 +94,11 @@ class StudentProfileApiTest {
                 "  A. Chen ",
                 true,
                 Arrays.asList(
-                        buildCourse("OTHER", "ABC Private School", "MHF4U", 93, 12, "2025-02-01", "2025-06-30")
+                        buildSchool("MAIN", "A High School", "2023-09-01", null),
+                        buildSchool("OTHER", "B High School", "2021-09-01", "2023-06-30")
+                ),
+                Arrays.asList(
+                        buildCourse("Summer School C", "MHF4U", 93, 12, "2025-07-02", "2025-08-20")
                 )
         );
 
@@ -103,6 +111,8 @@ class StudentProfileApiTest {
                 .andExpect(jsonPath("$.legalLastName").value("Chen"))
                 .andExpect(jsonPath("$.preferredName").value("A. Chen"))
                 .andExpect(jsonPath("$.address.streetAddress").value("123 Main St"))
+                .andExpect(jsonPath("$.schools[0].schoolType").value("MAIN"))
+                .andExpect(jsonPath("$.schools[0].schoolName").value("A High School"))
                 .andExpect(jsonPath("$.otherCourses[0].courseCode").value("MHF4U"))
                 .andExpect(jsonPath("$.ap").value(true));
 
@@ -119,9 +129,11 @@ class StudentProfileApiTest {
                 .andExpect(jsonPath("$.email").value("amy@example.com"))
                 .andExpect(jsonPath("$.birthday").value("2008-06-01"))
                 .andExpect(jsonPath("$.firstBoardingDate").value("2024-09-01"))
-                .andExpect(jsonPath("$.otherCourses[0].schoolType").value("OTHER"))
+                .andExpect(jsonPath("$.schools[1].schoolType").value("OTHER"))
                 .andExpect(jsonPath("$.otherCourses[0].mark").value(93))
-                .andExpect(jsonPath("$.otherCourses[0].gradeLevel").value(12));
+                .andExpect(jsonPath("$.otherCourses[0].gradeLevel").value(12))
+                .andExpect(jsonPath("$.externalCourses[0].courseCode").value("MHF4U"))
+                .andExpect(jsonPath("$.schoolRecords[0].schoolType").value("MAIN"));
     }
 
     @Test
@@ -133,6 +145,7 @@ class StudentProfileApiTest {
                 "Chen",
                 "Amy",
                 false,
+                new ArrayList<Map<String, Object>>(),
                 new ArrayList<Map<String, Object>>()
         );
         payload.put("birthday", "2008/06/01");
@@ -144,6 +157,36 @@ class StudentProfileApiTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("birthday must be yyyy-mm-dd"))
                 .andExpect(jsonPath("$.code").value("BAD_REQUEST"));
+    }
+
+    @Test
+    void putProfile_aliasLists_schoolRecordsAndExternalCourses_supported() throws Exception {
+        Student student = createStudentAccount("profile_alias_lists_student", "Amy", "Chen", "Amy");
+
+        Map<String, Object> payload = new LinkedHashMap<String, Object>();
+        payload.put("legalFirstName", "Amy");
+        payload.put("legalLastName", "Chen");
+        payload.put("preferredName", "Amy");
+        payload.put("birthday", "2008-06-01");
+        payload.put("firstBoardingDate", "2024-09-01");
+        payload.put("ap", Boolean.FALSE);
+        payload.put("address", buildAddress());
+        payload.put("schoolRecords", Arrays.asList(
+                buildSchool("MAIN", "A High School", "2023-09-01", null)
+        ));
+        payload.put("externalCourses", Arrays.asList(
+                buildCourse("Summer School C", "MHF4U", 95, 12, "2025-07-02", "2025-08-20")
+        ));
+
+        mockMvc.perform(put("/api/student/profile")
+                        .header("Authorization", bearerFor(student.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(payload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.schools[0].schoolName").value("A High School"))
+                .andExpect(jsonPath("$.otherCourses[0].courseCode").value("MHF4U"))
+                .andExpect(jsonPath("$.schoolRecords[0].schoolName").value("A High School"))
+                .andExpect(jsonPath("$.externalCourses[0].courseCode").value("MHF4U"));
     }
 
     @Test
@@ -178,8 +221,11 @@ class StudentProfileApiTest {
                 "Amy",
                 false,
                 Arrays.asList(
-                        buildCourse("OTHER", "ABC Private School", "MHF4U", 93, 12, "2025-02-01", "2025-06-30"),
-                        buildCourse("MAIN", "Main School", "ENG4U", 90, 12, "2025-02-01", "2025-06-30")
+                        buildSchool("MAIN", "A High School", "2023-09-01", null)
+                ),
+                Arrays.asList(
+                        buildCourse("ABC Private School", "MHF4U", 93, 12, "2025-02-01", "2025-06-30"),
+                        buildCourse("Night School", "ENG4U", 90, 12, "2025-02-01", "2025-06-30")
                 )
         );
 
@@ -197,7 +243,10 @@ class StudentProfileApiTest {
                 "Amy",
                 false,
                 Arrays.asList(
-                        buildCourse("OTHER", "ABC Private School", "MHF4U", 95, 12, "2025-02-01", "2025-06-30")
+                        buildSchool("MAIN", "A High School", "2023-09-01", null)
+                ),
+                Arrays.asList(
+                        buildCourse("ABC Private School", "MHF4U", 95, 12, "2025-02-01", "2025-06-30")
                 )
         );
 
@@ -233,6 +282,7 @@ class StudentProfileApiTest {
                                                     String legalLastName,
                                                     String preferredName,
                                                     Boolean ap,
+                                                    List<Map<String, Object>> schools,
                                                     List<Map<String, Object>> courses) {
         Map<String, Object> payload = new LinkedHashMap<String, Object>();
         payload.put("legalFirstName", legalFirstName);
@@ -251,6 +301,7 @@ class StudentProfileApiTest {
         payload.put("ap", ap);
         payload.put("identityFileNote", "Passport on file");
         payload.put("address", buildAddress());
+        payload.put("schools", schools);
         payload.put("otherCourses", courses);
         return payload;
     }
@@ -266,15 +317,25 @@ class StudentProfileApiTest {
         return address;
     }
 
-    private Map<String, Object> buildCourse(String schoolType,
+    private Map<String, Object> buildSchool(String schoolType,
                                             String schoolName,
+                                            String startTime,
+                                            String endTime) {
+        Map<String, Object> school = new LinkedHashMap<String, Object>();
+        school.put("schoolType", schoolType);
+        school.put("schoolName", schoolName);
+        school.put("startTime", startTime);
+        school.put("endTime", endTime);
+        return school;
+    }
+
+    private Map<String, Object> buildCourse(String schoolName,
                                             String courseCode,
                                             Integer mark,
                                             Integer gradeLevel,
                                             String startTime,
                                             String endTime) {
         Map<String, Object> course = new LinkedHashMap<String, Object>();
-        course.put("schoolType", schoolType);
         course.put("schoolName", schoolName);
         course.put("courseCode", courseCode);
         course.put("mark", mark);

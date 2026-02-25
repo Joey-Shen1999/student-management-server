@@ -16,29 +16,21 @@ import java.time.LocalDate;
 
 @Entity
 @Table(
-        name = "student_course_record",
-        indexes = @Index(name = "idx_student_course_record_student_id", columnList = "student_id")
+        name = "student_school_record",
+        indexes = @Index(name = "idx_student_school_record_student_id", columnList = "student_id")
 )
-public class StudentCourseRecord extends BaseEntity {
+public class StudentSchoolRecord extends BaseEntity {
 
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "student_id", nullable = false)
     private Student student;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "school_type", length = 10)
+    @Column(name = "school_type", nullable = false, length = 10)
     private SchoolType schoolType;
 
-    @Column(name = "school_name", length = 200)
+    @Column(name = "school_name", nullable = false, length = 200)
     private String schoolName;
-
-    @Column(name = "course_code", length = 80)
-    private String courseCode;
-
-    private Integer mark;
-
-    @Column(name = "grade_level")
-    private Integer gradeLevel;
 
     @Column(name = "start_time")
     private LocalDate startTime;
@@ -46,33 +38,17 @@ public class StudentCourseRecord extends BaseEntity {
     @Column(name = "end_time")
     private LocalDate endTime;
 
-    protected StudentCourseRecord() {
+    protected StudentSchoolRecord() {
     }
 
-    public StudentCourseRecord(Student student,
-                               String schoolName,
-                               String courseCode,
-                               Integer mark,
-                               Integer gradeLevel,
-                               LocalDate startTime,
-                               LocalDate endTime) {
-        this(student, null, schoolName, courseCode, mark, gradeLevel, startTime, endTime);
-    }
-
-    public StudentCourseRecord(Student student,
+    public StudentSchoolRecord(Student student,
                                SchoolType schoolType,
                                String schoolName,
-                               String courseCode,
-                               Integer mark,
-                               Integer gradeLevel,
                                LocalDate startTime,
                                LocalDate endTime) {
         this.student = student;
         this.schoolType = schoolType;
         this.schoolName = schoolName;
-        this.courseCode = courseCode;
-        this.mark = mark;
-        this.gradeLevel = gradeLevel;
         this.startTime = startTime;
         this.endTime = endTime;
     }
@@ -87,18 +63,6 @@ public class StudentCourseRecord extends BaseEntity {
 
     public String getSchoolName() {
         return schoolName;
-    }
-
-    public String getCourseCode() {
-        return courseCode;
-    }
-
-    public Integer getMark() {
-        return mark;
-    }
-
-    public Integer getGradeLevel() {
-        return gradeLevel;
     }
 
     public LocalDate getStartTime() {
