@@ -303,6 +303,12 @@ public class StudentProfileDto {
     public static class SchoolDto {
         private String schoolType;
         private String schoolName;
+        private AddressDto address = new AddressDto();
+        private String streetAddress;
+        private String city;
+        private String state;
+        private String country;
+        private String postal;
         private String startTime;
         private String endTime;
 
@@ -320,6 +326,57 @@ public class StudentProfileDto {
 
         public void setSchoolName(String schoolName) {
             this.schoolName = schoolName;
+        }
+
+        public AddressDto getAddress() {
+            if (address == null) {
+                address = new AddressDto();
+            }
+            return address;
+        }
+
+        public void setAddress(AddressDto address) {
+            this.address = address == null ? new AddressDto() : address;
+        }
+
+        public String getStreetAddress() {
+            return streetAddress;
+        }
+
+        public void setStreetAddress(String streetAddress) {
+            this.streetAddress = streetAddress;
+        }
+
+        public String getCity() {
+            return city;
+        }
+
+        public void setCity(String city) {
+            this.city = city;
+        }
+
+        public String getState() {
+            return state;
+        }
+
+        public void setState(String state) {
+            this.state = state;
+        }
+
+        public String getCountry() {
+            return country;
+        }
+
+        public void setCountry(String country) {
+            this.country = country;
+        }
+
+        public String getPostal() {
+            return postal;
+        }
+
+        public void setPostal(String postal) {
+            this.postal = postal;
         }
 
         public String getStartTime() {
@@ -342,6 +399,12 @@ public class StudentProfileDto {
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class CourseDto {
         private String schoolName;
+        private AddressDto address = new AddressDto();
+        private String streetAddress;
+        private String city;
+        private String state;
+        private String country;
+        private String postal;
         private String courseCode;
         private Integer mark;
         private Integer gradeLevel;
@@ -354,6 +417,57 @@ public class StudentProfileDto {
 
         public void setSchoolName(String schoolName) {
             this.schoolName = schoolName;
+        }
+
+        public AddressDto getAddress() {
+            if (address == null) {
+                address = new AddressDto();
+            }
+            return address;
+        }
+
+        public void setAddress(AddressDto address) {
+            this.address = address == null ? new AddressDto() : address;
+        }
+
+        public String getStreetAddress() {
+            return streetAddress;
+        }
+
+        public void setStreetAddress(String streetAddress) {
+            this.streetAddress = streetAddress;
+        }
+
+        public String getCity() {
+            return city;
+        }
+
+        public void setCity(String city) {
+            this.city = city;
+        }
+
+        public String getState() {
+            return state;
+        }
+
+        public void setState(String state) {
+            this.state = state;
+        }
+
+        public String getCountry() {
+            return country;
+        }
+
+        public void setCountry(String country) {
+            this.country = country;
+        }
+
+        public String getPostal() {
+            return postal;
+        }
+
+        public void setPostal(String postal) {
+            this.postal = postal;
         }
 
         public String getCourseCode() {

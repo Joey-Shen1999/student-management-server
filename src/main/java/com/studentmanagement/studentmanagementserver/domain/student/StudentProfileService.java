@@ -114,6 +114,11 @@ public class StudentProfileService {
                     student,
                     school.schoolType,
                     school.schoolName,
+                    school.streetAddress,
+                    school.city,
+                    school.state,
+                    school.country,
+                    school.postal,
                     school.startTime,
                     school.endTime
             ));
@@ -130,6 +135,11 @@ public class StudentProfileService {
                     student,
                     SchoolType.OTHER,
                     course.schoolName,
+                    course.streetAddress,
+                    course.city,
+                    course.state,
+                    course.country,
+                    course.postal,
                     course.courseCode,
                     course.mark,
                     course.gradeLevel,
@@ -210,6 +220,18 @@ public class StudentProfileService {
                 StudentProfileDto.SchoolDto schoolDto = new StudentProfileDto.SchoolDto();
                 schoolDto.setSchoolType(school.getSchoolType() == null ? null : school.getSchoolType().name());
                 schoolDto.setSchoolName(school.getSchoolName());
+                StudentProfileDto.AddressDto schoolAddress = new StudentProfileDto.AddressDto();
+                schoolAddress.setStreetAddress(school.getStreetAddress());
+                schoolAddress.setCity(school.getCity());
+                schoolAddress.setState(school.getState());
+                schoolAddress.setCountry(school.getCountry());
+                schoolAddress.setPostal(school.getPostal());
+                schoolDto.setAddress(schoolAddress);
+                schoolDto.setStreetAddress(school.getStreetAddress());
+                schoolDto.setCity(school.getCity());
+                schoolDto.setState(school.getState());
+                schoolDto.setCountry(school.getCountry());
+                schoolDto.setPostal(school.getPostal());
                 schoolDto.setStartTime(formatDate(school.getStartTime()));
                 schoolDto.setEndTime(formatDate(school.getEndTime()));
                 schoolDtos.add(schoolDto);
@@ -223,6 +245,18 @@ public class StudentProfileService {
             for (StudentCourseRecord course : courses) {
                 StudentProfileDto.CourseDto courseDto = new StudentProfileDto.CourseDto();
                 courseDto.setSchoolName(course.getSchoolName());
+                StudentProfileDto.AddressDto courseAddress = new StudentProfileDto.AddressDto();
+                courseAddress.setStreetAddress(course.getStreetAddress());
+                courseAddress.setCity(course.getCity());
+                courseAddress.setState(course.getState());
+                courseAddress.setCountry(course.getCountry());
+                courseAddress.setPostal(course.getPostal());
+                courseDto.setAddress(courseAddress);
+                courseDto.setStreetAddress(course.getStreetAddress());
+                courseDto.setCity(course.getCity());
+                courseDto.setState(course.getState());
+                courseDto.setCountry(course.getCountry());
+                courseDto.setPostal(course.getPostal());
                 courseDto.setCourseCode(course.getCourseCode());
                 courseDto.setMark(course.getMark());
                 courseDto.setGradeLevel(course.getGradeLevel());
@@ -299,6 +333,13 @@ public class StudentProfileService {
                 throw new IllegalArgumentException(pathPrefix + ".schoolName is required");
             }
 
+            StudentProfileDto.AddressDto schoolAddressDto = incomingSchool.getAddress();
+            String schoolStreetAddress = firstNonBlank(incomingSchool.getStreetAddress(), schoolAddressDto.getStreetAddress());
+            String schoolCity = firstNonBlank(incomingSchool.getCity(), schoolAddressDto.getCity());
+            String schoolState = firstNonBlank(incomingSchool.getState(), schoolAddressDto.getState());
+            String schoolCountry = firstNonBlank(incomingSchool.getCountry(), schoolAddressDto.getCountry());
+            String schoolPostal = firstNonBlank(incomingSchool.getPostal(), schoolAddressDto.getPostal());
+
             LocalDate startTime = parseDateOrNull(incomingSchool.getStartTime(), pathPrefix + ".startTime");
             LocalDate endTime = parseDateOrNull(incomingSchool.getEndTime(), pathPrefix + ".endTime");
             if (startTime != null && endTime != null && startTime.isAfter(endTime)) {
@@ -308,6 +349,11 @@ public class StudentProfileService {
             schools.add(new NormalizedSchool(
                     schoolType,
                     schoolName,
+                    schoolStreetAddress,
+                    schoolCity,
+                    schoolState,
+                    schoolCountry,
+                    schoolPostal,
                     startTime,
                     endTime
             ));
@@ -338,8 +384,20 @@ public class StudentProfileService {
                 throw new IllegalArgumentException(pathPrefix + ".startTime must be on or before endTime");
             }
 
+            StudentProfileDto.AddressDto courseAddressDto = incomingCourse.getAddress();
+            String courseStreetAddress = firstNonBlank(incomingCourse.getStreetAddress(), courseAddressDto.getStreetAddress());
+            String courseCity = firstNonBlank(incomingCourse.getCity(), courseAddressDto.getCity());
+            String courseState = firstNonBlank(incomingCourse.getState(), courseAddressDto.getState());
+            String courseCountry = firstNonBlank(incomingCourse.getCountry(), courseAddressDto.getCountry());
+            String coursePostal = firstNonBlank(incomingCourse.getPostal(), courseAddressDto.getPostal());
+
             courses.add(new NormalizedCourse(
                     trimToNull(incomingCourse.getSchoolName()),
+                    courseStreetAddress,
+                    courseCity,
+                    courseState,
+                    courseCountry,
+                    coursePostal,
                     trimToNull(incomingCourse.getCourseCode()),
                     mark,
                     gradeLevel,
@@ -518,15 +576,30 @@ public class StudentProfileService {
     private static class NormalizedSchool {
         private final SchoolType schoolType;
         private final String schoolName;
+        private final String streetAddress;
+        private final String city;
+        private final String state;
+        private final String country;
+        private final String postal;
         private final LocalDate startTime;
         private final LocalDate endTime;
 
         private NormalizedSchool(SchoolType schoolType,
                                  String schoolName,
+                                 String streetAddress,
+                                 String city,
+                                 String state,
+                                 String country,
+                                 String postal,
                                  LocalDate startTime,
                                  LocalDate endTime) {
             this.schoolType = schoolType;
             this.schoolName = schoolName;
+            this.streetAddress = streetAddress;
+            this.city = city;
+            this.state = state;
+            this.country = country;
+            this.postal = postal;
             this.startTime = startTime;
             this.endTime = endTime;
         }
@@ -534,6 +607,11 @@ public class StudentProfileService {
 
     private static class NormalizedCourse {
         private final String schoolName;
+        private final String streetAddress;
+        private final String city;
+        private final String state;
+        private final String country;
+        private final String postal;
         private final String courseCode;
         private final Integer mark;
         private final Integer gradeLevel;
@@ -541,12 +619,22 @@ public class StudentProfileService {
         private final LocalDate endTime;
 
         private NormalizedCourse(String schoolName,
+                                 String streetAddress,
+                                 String city,
+                                 String state,
+                                 String country,
+                                 String postal,
                                  String courseCode,
                                  Integer mark,
                                  Integer gradeLevel,
                                  LocalDate startTime,
                                  LocalDate endTime) {
             this.schoolName = schoolName;
+            this.streetAddress = streetAddress;
+            this.city = city;
+            this.state = state;
+            this.country = country;
+            this.postal = postal;
             this.courseCode = courseCode;
             this.mark = mark;
             this.gradeLevel = gradeLevel;

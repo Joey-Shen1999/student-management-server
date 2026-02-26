@@ -35,6 +35,21 @@ public class StudentCourseRecord extends BaseEntity {
     @Column(name = "course_code", length = 80)
     private String courseCode;
 
+    @Column(name = "street_address", length = 255)
+    private String streetAddress;
+
+    @Column(name = "city", length = 120)
+    private String city;
+
+    @Column(name = "state", length = 120)
+    private String state;
+
+    @Column(name = "country", length = 120)
+    private String country;
+
+    @Column(name = "postal", length = 30)
+    private String postal;
+
     private Integer mark;
 
     @Column(name = "grade_level")
@@ -56,12 +71,17 @@ public class StudentCourseRecord extends BaseEntity {
                                Integer gradeLevel,
                                LocalDate startTime,
                                LocalDate endTime) {
-        this(student, null, schoolName, courseCode, mark, gradeLevel, startTime, endTime);
+        this(student, null, schoolName, null, null, null, null, null, courseCode, mark, gradeLevel, startTime, endTime);
     }
 
     public StudentCourseRecord(Student student,
                                SchoolType schoolType,
                                String schoolName,
+                               String streetAddress,
+                               String city,
+                               String state,
+                               String country,
+                               String postal,
                                String courseCode,
                                Integer mark,
                                Integer gradeLevel,
@@ -70,6 +90,11 @@ public class StudentCourseRecord extends BaseEntity {
         this.student = student;
         this.schoolType = schoolType;
         this.schoolName = schoolName;
+        this.streetAddress = streetAddress;
+        this.city = city;
+        this.state = state;
+        this.country = country;
+        this.postal = postal;
         this.courseCode = courseCode;
         this.mark = mark;
         this.gradeLevel = gradeLevel;
@@ -91,6 +116,26 @@ public class StudentCourseRecord extends BaseEntity {
 
     public String getCourseCode() {
         return courseCode;
+    }
+
+    public String getStreetAddress() {
+        return streetAddress;
+    }
+
+    public String getCity() {
+        return city;
+    }
+
+    public String getState() {
+        return state;
+    }
+
+    public String getCountry() {
+        return country;
+    }
+
+    public String getPostal() {
+        return postal;
     }
 
     public Integer getMark() {

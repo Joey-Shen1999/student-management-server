@@ -190,6 +190,108 @@ class StudentProfileApiTest {
     }
 
     @Test
+    void putProfile_withSchoolAddress_returnsAndPersistsSchoolAddress() throws Exception {
+        Student student = createStudentAccount("profile_school_address_student", "Amy", "Chen", "Amy");
+
+        Map<String, Object> payload = buildProfilePayload(
+                "Amy",
+                "Chen",
+                "Amy",
+                false,
+                Arrays.asList(
+                        buildSchoolWithAddress(
+                                "MAIN",
+                                "Unionville High School",
+                                "201 Town Centre Boulevard",
+                                "Markham",
+                                "Ontario",
+                                "Canada",
+                                "L3R 8G5",
+                                "2023-09-01",
+                                null
+                        )
+                ),
+                new ArrayList<Map<String, Object>>()
+        );
+
+        mockMvc.perform(put("/api/student/profile")
+                        .header("Authorization", bearerFor(student.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(payload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.schools[0].schoolName").value("Unionville High School"))
+                .andExpect(jsonPath("$.schools[0].address.streetAddress").value("201 Town Centre Boulevard"))
+                .andExpect(jsonPath("$.schools[0].address.city").value("Markham"))
+                .andExpect(jsonPath("$.schools[0].address.state").value("Ontario"))
+                .andExpect(jsonPath("$.schools[0].address.country").value("Canada"))
+                .andExpect(jsonPath("$.schools[0].address.postal").value("L3R 8G5"))
+                .andExpect(jsonPath("$.schools[0].streetAddress").value("201 Town Centre Boulevard"));
+
+        mockMvc.perform(get("/api/student/profile")
+                        .header("Authorization", bearerFor(student.getUser())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.schools[0].schoolName").value("Unionville High School"))
+                .andExpect(jsonPath("$.schools[0].address.streetAddress").value("201 Town Centre Boulevard"))
+                .andExpect(jsonPath("$.schools[0].address.city").value("Markham"))
+                .andExpect(jsonPath("$.schools[0].address.state").value("Ontario"))
+                .andExpect(jsonPath("$.schools[0].address.country").value("Canada"))
+                .andExpect(jsonPath("$.schools[0].address.postal").value("L3R 8G5"));
+    }
+
+    @Test
+    void putProfile_withExternalCourseAddress_returnsAndPersistsCourseAddress() throws Exception {
+        Student student = createStudentAccount("profile_course_address_student", "Amy", "Chen", "Amy");
+
+        Map<String, Object> payload = buildProfilePayload(
+                "Amy",
+                "Chen",
+                "Amy",
+                false,
+                Arrays.asList(
+                        buildSchool("MAIN", "A High School", "2023-09-01", null)
+                ),
+                Arrays.asList(
+                        buildCourseWithAddress(
+                                "Bayview Secondary Night School",
+                                "1000 Finch Ave W",
+                                "Toronto",
+                                "Ontario",
+                                "Canada",
+                                "M3J 2V5",
+                                "MHF4U",
+                                95,
+                                12,
+                                "2025-07-02",
+                                "2025-08-20"
+                        )
+                )
+        );
+
+        mockMvc.perform(put("/api/student/profile")
+                        .header("Authorization", bearerFor(student.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(payload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.otherCourses[0].schoolName").value("Bayview Secondary Night School"))
+                .andExpect(jsonPath("$.otherCourses[0].address.streetAddress").value("1000 Finch Ave W"))
+                .andExpect(jsonPath("$.otherCourses[0].address.city").value("Toronto"))
+                .andExpect(jsonPath("$.otherCourses[0].address.state").value("Ontario"))
+                .andExpect(jsonPath("$.otherCourses[0].address.country").value("Canada"))
+                .andExpect(jsonPath("$.otherCourses[0].address.postal").value("M3J 2V5"))
+                .andExpect(jsonPath("$.otherCourses[0].streetAddress").value("1000 Finch Ave W"));
+
+        mockMvc.perform(get("/api/student/profile")
+                        .header("Authorization", bearerFor(student.getUser())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.otherCourses[0].schoolName").value("Bayview Secondary Night School"))
+                .andExpect(jsonPath("$.otherCourses[0].address.streetAddress").value("1000 Finch Ave W"))
+                .andExpect(jsonPath("$.otherCourses[0].address.city").value("Toronto"))
+                .andExpect(jsonPath("$.otherCourses[0].address.state").value("Ontario"))
+                .andExpect(jsonPath("$.otherCourses[0].address.country").value("Canada"))
+                .andExpect(jsonPath("$.otherCourses[0].address.postal").value("M3J 2V5"));
+    }
+
+    @Test
     void getProfile_withoutToken_returns401() throws Exception {
         mockMvc.perform(get("/api/student/profile"))
                 .andExpect(status().isUnauthorized())
@@ -329,6 +431,26 @@ class StudentProfileApiTest {
         return school;
     }
 
+    private Map<String, Object> buildSchoolWithAddress(String schoolType,
+                                                       String schoolName,
+                                                       String streetAddress,
+                                                       String city,
+                                                       String state,
+                                                       String country,
+                                                       String postal,
+                                                       String startTime,
+                                                       String endTime) {
+        Map<String, Object> school = buildSchool(schoolType, schoolName, startTime, endTime);
+        Map<String, Object> address = new LinkedHashMap<String, Object>();
+        address.put("streetAddress", streetAddress);
+        address.put("city", city);
+        address.put("state", state);
+        address.put("country", country);
+        address.put("postal", postal);
+        school.put("address", address);
+        return school;
+    }
+
     private Map<String, Object> buildCourse(String schoolName,
                                             String courseCode,
                                             Integer mark,
@@ -342,6 +464,28 @@ class StudentProfileApiTest {
         course.put("gradeLevel", gradeLevel);
         course.put("startTime", startTime);
         course.put("endTime", endTime);
+        return course;
+    }
+
+    private Map<String, Object> buildCourseWithAddress(String schoolName,
+                                                       String streetAddress,
+                                                       String city,
+                                                       String state,
+                                                       String country,
+                                                       String postal,
+                                                       String courseCode,
+                                                       Integer mark,
+                                                       Integer gradeLevel,
+                                                       String startTime,
+                                                       String endTime) {
+        Map<String, Object> course = buildCourse(schoolName, courseCode, mark, gradeLevel, startTime, endTime);
+        Map<String, Object> address = new LinkedHashMap<String, Object>();
+        address.put("streetAddress", streetAddress);
+        address.put("city", city);
+        address.put("state", state);
+        address.put("country", country);
+        address.put("postal", postal);
+        course.put("address", address);
         return course;
     }
 }

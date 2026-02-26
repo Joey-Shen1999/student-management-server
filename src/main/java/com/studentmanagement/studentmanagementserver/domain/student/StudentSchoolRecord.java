@@ -32,6 +32,21 @@ public class StudentSchoolRecord extends BaseEntity {
     @Column(name = "school_name", nullable = false, length = 200)
     private String schoolName;
 
+    @Column(name = "street_address", length = 255)
+    private String streetAddress;
+
+    @Column(name = "city", length = 120)
+    private String city;
+
+    @Column(name = "state", length = 120)
+    private String state;
+
+    @Column(name = "country", length = 120)
+    private String country;
+
+    @Column(name = "postal", length = 30)
+    private String postal;
+
     @Column(name = "start_time")
     private LocalDate startTime;
 
@@ -46,9 +61,27 @@ public class StudentSchoolRecord extends BaseEntity {
                                String schoolName,
                                LocalDate startTime,
                                LocalDate endTime) {
+        this(student, schoolType, schoolName, null, null, null, null, null, startTime, endTime);
+    }
+
+    public StudentSchoolRecord(Student student,
+                               SchoolType schoolType,
+                               String schoolName,
+                               String streetAddress,
+                               String city,
+                               String state,
+                               String country,
+                               String postal,
+                               LocalDate startTime,
+                               LocalDate endTime) {
         this.student = student;
         this.schoolType = schoolType;
         this.schoolName = schoolName;
+        this.streetAddress = streetAddress;
+        this.city = city;
+        this.state = state;
+        this.country = country;
+        this.postal = postal;
         this.startTime = startTime;
         this.endTime = endTime;
     }
@@ -63,6 +96,26 @@ public class StudentSchoolRecord extends BaseEntity {
 
     public String getSchoolName() {
         return schoolName;
+    }
+
+    public String getStreetAddress() {
+        return streetAddress;
+    }
+
+    public String getCity() {
+        return city;
+    }
+
+    public String getState() {
+        return state;
+    }
+
+    public String getCountry() {
+        return country;
+    }
+
+    public String getPostal() {
+        return postal;
     }
 
     public LocalDate getStartTime() {
