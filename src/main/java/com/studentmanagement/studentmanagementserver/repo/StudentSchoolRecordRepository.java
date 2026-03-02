@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 public interface StudentSchoolRecordRepository extends JpaRepository<StudentSchoolRecord, Long> {
 
@@ -16,6 +17,8 @@ public interface StudentSchoolRecordRepository extends JpaRepository<StudentScho
                                                                                 String schoolName,
                                                                                 LocalDate startTime,
                                                                                 LocalDate endTime);
+
+    Optional<StudentSchoolRecord> findByIdAndStudent_Id(Long schoolRecordId, Long studentId);
 
     long deleteByStudent_Id(Long studentId);
 }

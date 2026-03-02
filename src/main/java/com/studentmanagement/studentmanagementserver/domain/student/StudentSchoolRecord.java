@@ -13,6 +13,7 @@ import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
 import javax.persistence.Table;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(
@@ -52,6 +53,21 @@ public class StudentSchoolRecord extends BaseEntity {
 
     @Column(name = "end_time")
     private LocalDate endTime;
+
+    @Column(name = "transcript_original_filename", length = 255)
+    private String transcriptOriginalFilename;
+
+    @Column(name = "transcript_content_type", length = 120)
+    private String transcriptContentType;
+
+    @Column(name = "transcript_storage_key", length = 255)
+    private String transcriptStorageKey;
+
+    @Column(name = "transcript_size_bytes")
+    private Long transcriptSizeBytes;
+
+    @Column(name = "transcript_uploaded_at")
+    private LocalDateTime transcriptUploadedAt;
 
     protected StudentSchoolRecord() {
     }
@@ -124,5 +140,45 @@ public class StudentSchoolRecord extends BaseEntity {
 
     public LocalDate getEndTime() {
         return endTime;
+    }
+
+    public String getTranscriptOriginalFilename() {
+        return transcriptOriginalFilename;
+    }
+
+    public void setTranscriptOriginalFilename(String transcriptOriginalFilename) {
+        this.transcriptOriginalFilename = transcriptOriginalFilename;
+    }
+
+    public String getTranscriptContentType() {
+        return transcriptContentType;
+    }
+
+    public void setTranscriptContentType(String transcriptContentType) {
+        this.transcriptContentType = transcriptContentType;
+    }
+
+    public String getTranscriptStorageKey() {
+        return transcriptStorageKey;
+    }
+
+    public void setTranscriptStorageKey(String transcriptStorageKey) {
+        this.transcriptStorageKey = transcriptStorageKey;
+    }
+
+    public Long getTranscriptSizeBytes() {
+        return transcriptSizeBytes;
+    }
+
+    public void setTranscriptSizeBytes(Long transcriptSizeBytes) {
+        this.transcriptSizeBytes = transcriptSizeBytes;
+    }
+
+    public LocalDateTime getTranscriptUploadedAt() {
+        return transcriptUploadedAt;
+    }
+
+    public void setTranscriptUploadedAt(LocalDateTime transcriptUploadedAt) {
+        this.transcriptUploadedAt = transcriptUploadedAt;
     }
 }

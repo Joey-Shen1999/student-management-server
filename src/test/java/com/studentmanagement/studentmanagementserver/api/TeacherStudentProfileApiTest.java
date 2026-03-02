@@ -1,5 +1,6 @@
 package com.studentmanagement.studentmanagementserver.api;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.studentmanagement.studentmanagementserver.domain.enums.TeacherStudentStatus;
 import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
@@ -22,7 +23,10 @@ import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.mock.web.MockMultipartFile;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -30,7 +34,10 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -112,6 +119,8 @@ class TeacherStudentProfileApiTest {
         Map<String, Object> payload = buildProfilePayload();
         payload.put("legalFirstName", "  TeacherEdited  ");
         payload.put("preferredName", " TE ");
+        payload.put("gender", "Other");
+        payload.put("genderOther", "Non-binary");
 
         mockMvc.perform(put("/api/teacher/students/{studentId}/profile", student.getId())
                         .header("Authorization", bearerFor(teacher.getUser()))
@@ -120,9 +129,55 @@ class TeacherStudentProfileApiTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.legalFirstName").value("TeacherEdited"))
                 .andExpect(jsonPath("$.preferredName").value("TE"))
+                .andExpect(jsonPath("$.gender").value("Other"))
+                .andExpect(jsonPath("$.genderOther").value("Non-binary"))
                 .andExpect(jsonPath("$.otherCourses[0].courseCode").value("MHF4U"))
                 .andExpect(jsonPath("$.externalCourses[0].courseCode").value("MHF4U"))
                 .andExpect(jsonPath("$.schoolRecords[0].schoolType").value("MAIN"));
+    }
+
+    @Test
+    void teacherProfile_teacherAssignedActive_canUploadAndDownloadSchoolTranscript() throws Exception {
+        Teacher teacher = createTeacherAccount("phase2_teacher_transcript", "Teacher Transcript");
+        Student student = createStudentAccount("phase2_student_transcript", "Amy", "Chen", "Amy");
+        assignTeacherStudent(teacher, student, TeacherStudentStatus.ACTIVE);
+        String bearer = bearerFor(teacher.getUser());
+
+        MvcResult saveResult = mockMvc.perform(put("/api/teacher/students/{studentId}/profile", student.getId())
+                        .header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(buildProfilePayload())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.schools[0].schoolRecordId").isNumber())
+                .andReturn();
+
+        JsonNode saveJson = objectMapper.readTree(saveResult.getResponse().getContentAsString());
+        long schoolRecordId = saveJson.path("schools").path(0).path("schoolRecordId").asLong();
+
+        byte[] transcriptBytes = "teacher upload transcript".getBytes(StandardCharsets.UTF_8);
+        MockMultipartFile transcript = new MockMultipartFile(
+                "file",
+                "teacher-uploaded-transcript.pdf",
+                "application/pdf",
+                transcriptBytes
+        );
+
+        mockMvc.perform(multipart("/api/teacher/students/{studentId}/profile/schools/{schoolRecordId}/transcript",
+                                student.getId(),
+                                schoolRecordId)
+                        .file(transcript)
+                        .header("Authorization", bearer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.schoolRecordId").value(schoolRecordId))
+                .andExpect(jsonPath("$.hasTranscript").value(true));
+
+        mockMvc.perform(get("/api/teacher/students/{studentId}/profile/schools/{schoolRecordId}/transcript",
+                                student.getId(),
+                                schoolRecordId)
+                        .header("Authorization", bearer))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "application/pdf"))
+                .andExpect(content().bytes(transcriptBytes));
     }
 
     @Test

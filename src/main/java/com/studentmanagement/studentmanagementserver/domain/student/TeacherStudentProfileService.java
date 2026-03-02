@@ -10,6 +10,7 @@ import com.studentmanagement.studentmanagementserver.service.ManagementAccessSer
 import com.studentmanagement.studentmanagementserver.service.TeacherBindingRequiredException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import javax.servlet.http.HttpServletRequest;
@@ -44,6 +45,23 @@ public class TeacherStudentProfileService {
         User operator = managementAccessService.requireStudentAccountManagementAccess(request);
         ensureCanAccessStudent(operator, studentId);
         return studentProfileService.saveProfileByStudentId(studentId, requestBody, operator.getId());
+    }
+
+    public StudentSchoolTranscriptDto uploadSchoolTranscript(Long studentId,
+                                                             Long schoolRecordId,
+                                                             MultipartFile file,
+                                                             HttpServletRequest request) {
+        User operator = managementAccessService.requireStudentAccountManagementAccess(request);
+        ensureCanAccessStudent(operator, studentId);
+        return studentProfileService.uploadStudentSchoolTranscriptByStudentId(studentId, schoolRecordId, file);
+    }
+
+    public StudentProfileService.SchoolTranscriptDownload downloadSchoolTranscript(Long studentId,
+                                                                                   Long schoolRecordId,
+                                                                                   HttpServletRequest request) {
+        User operator = managementAccessService.requireStudentAccountManagementAccess(request);
+        ensureCanAccessStudent(operator, studentId);
+        return studentProfileService.downloadStudentSchoolTranscriptByStudentId(studentId, schoolRecordId);
     }
 
     private void ensureCanAccessStudent(User operator, Long studentId) {

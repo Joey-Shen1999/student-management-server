@@ -27,6 +27,9 @@ public class StudentProfile extends BaseEntity {
     @Column(length = 40)
     private String gender;
 
+    @Column(name = "gender_other", length = 120)
+    private String genderOther;
+
     private LocalDate birthday;
 
     @Column(name = "status_in_canada", length = 80)
@@ -98,6 +101,14 @@ public class StudentProfile extends BaseEntity {
 
     public void setGender(String gender) {
         this.gender = gender;
+    }
+
+    public String getGenderOther() {
+        return genderOther;
+    }
+
+    public void setGenderOther(String genderOther) {
+        this.genderOther = genderOther;
     }
 
     public LocalDate getBirthday() {

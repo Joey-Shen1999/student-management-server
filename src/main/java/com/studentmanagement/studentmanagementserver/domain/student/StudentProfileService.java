@@ -11,14 +11,20 @@ import com.studentmanagement.studentmanagementserver.service.AuthSessionService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import javax.servlet.http.HttpServletRequest;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 @Service
@@ -31,17 +37,20 @@ public class StudentProfileService {
     private final StudentProfileRepository studentProfileRepository;
     private final StudentSchoolRecordRepository studentSchoolRecordRepository;
     private final StudentCourseRecordRepository studentCourseRecordRepository;
+    private final StudentSchoolTranscriptStorageService transcriptStorageService;
 
     public StudentProfileService(AuthSessionService authSessionService,
                                  StudentRepository studentRepository,
                                  StudentProfileRepository studentProfileRepository,
                                  StudentSchoolRecordRepository studentSchoolRecordRepository,
-                                 StudentCourseRecordRepository studentCourseRecordRepository) {
+                                 StudentCourseRecordRepository studentCourseRecordRepository,
+                                 StudentSchoolTranscriptStorageService transcriptStorageService) {
         this.authSessionService = authSessionService;
         this.studentRepository = studentRepository;
         this.studentProfileRepository = studentProfileRepository;
         this.studentSchoolRecordRepository = studentSchoolRecordRepository;
         this.studentCourseRecordRepository = studentCourseRecordRepository;
+        this.transcriptStorageService = transcriptStorageService;
     }
 
     @Transactional(readOnly = true)
@@ -66,6 +75,34 @@ public class StudentProfileService {
     public StudentProfileDto saveProfileByStudentId(Long studentId, StudentProfileDto requestBody, Long operatorUserId) {
         Student student = requireStudentById(studentId);
         return saveProfileForStudent(student, requestBody, operatorUserId);
+    }
+
+    @Transactional
+    public StudentSchoolTranscriptDto uploadCurrentStudentSchoolTranscript(Long schoolRecordId,
+                                                                           MultipartFile file,
+                                                                           HttpServletRequest request) {
+        Student student = requireCurrentStudent(request);
+        return uploadSchoolTranscriptForStudent(student, schoolRecordId, file);
+    }
+
+    @Transactional
+    public StudentSchoolTranscriptDto uploadStudentSchoolTranscriptByStudentId(Long studentId,
+                                                                               Long schoolRecordId,
+                                                                               MultipartFile file) {
+        Student student = requireStudentById(studentId);
+        return uploadSchoolTranscriptForStudent(student, schoolRecordId, file);
+    }
+
+    @Transactional(readOnly = true)
+    public SchoolTranscriptDownload downloadCurrentStudentSchoolTranscript(Long schoolRecordId, HttpServletRequest request) {
+        Student student = requireCurrentStudent(request);
+        return downloadSchoolTranscriptForStudent(student, schoolRecordId);
+    }
+
+    @Transactional(readOnly = true)
+    public SchoolTranscriptDownload downloadStudentSchoolTranscriptByStudentId(Long studentId, Long schoolRecordId) {
+        Student student = requireStudentById(studentId);
+        return downloadSchoolTranscriptForStudent(student, schoolRecordId);
     }
 
     private Student requireCurrentStudent(HttpServletRequest request) {
@@ -107,10 +144,34 @@ public class StudentProfileService {
         );
         studentRepository.save(student);
 
+        List<StudentSchoolRecord> existingSchoolRecords = studentSchoolRecordRepository.findByStudent_IdOrderByIdAsc(student.getId());
+        Map<String, TranscriptBinding> transcriptBySchoolKey = new HashMap<String, TranscriptBinding>();
+        for (StudentSchoolRecord existingSchool : existingSchoolRecords) {
+            String storageKey = trimToNull(existingSchool.getTranscriptStorageKey());
+            if (storageKey == null) {
+                continue;
+            }
+
+            String key = buildSchoolKey(
+                    existingSchool.getSchoolType(),
+                    existingSchool.getSchoolName(),
+                    existingSchool.getStartTime(),
+                    existingSchool.getEndTime()
+            );
+            transcriptBySchoolKey.put(key, new TranscriptBinding(
+                    existingSchool.getTranscriptOriginalFilename(),
+                    existingSchool.getTranscriptContentType(),
+                    existingSchool.getTranscriptStorageKey(),
+                    existingSchool.getTranscriptSizeBytes(),
+                    existingSchool.getTranscriptUploadedAt()
+            ));
+        }
+
         studentSchoolRecordRepository.deleteByStudent_Id(student.getId());
         List<StudentSchoolRecord> savedSchools = new ArrayList<StudentSchoolRecord>();
+        Set<String> reusedTranscriptKeys = new HashSet<String>();
         for (NormalizedSchool school : normalized.schools) {
-            savedSchools.add(new StudentSchoolRecord(
+            StudentSchoolRecord schoolRecord = new StudentSchoolRecord(
                     student,
                     school.schoolType,
                     school.schoolName,
@@ -121,10 +182,35 @@ public class StudentProfileService {
                     school.postal,
                     school.startTime,
                     school.endTime
-            ));
+            );
+
+            String schoolKey = buildSchoolKey(
+                    school.schoolType,
+                    school.schoolName,
+                    school.startTime,
+                    school.endTime
+            );
+            TranscriptBinding transcript = transcriptBySchoolKey.get(schoolKey);
+            if (transcript != null) {
+                schoolRecord.setTranscriptOriginalFilename(transcript.originalFilename);
+                schoolRecord.setTranscriptContentType(transcript.contentType);
+                schoolRecord.setTranscriptStorageKey(transcript.storageKey);
+                schoolRecord.setTranscriptSizeBytes(transcript.sizeBytes);
+                schoolRecord.setTranscriptUploadedAt(transcript.uploadedAt);
+                reusedTranscriptKeys.add(schoolKey);
+            }
+
+            savedSchools.add(schoolRecord);
         }
         if (!savedSchools.isEmpty()) {
             savedSchools = studentSchoolRecordRepository.saveAll(savedSchools);
+        }
+
+        for (Map.Entry<String, TranscriptBinding> entry : transcriptBySchoolKey.entrySet()) {
+            if (reusedTranscriptKeys.contains(entry.getKey())) {
+                continue;
+            }
+            transcriptStorageService.deleteIfExists(entry.getValue().storageKey);
         }
 
         studentCourseRecordRepository.deleteByStudent_Id(student.getId());
@@ -156,6 +242,7 @@ public class StudentProfileService {
 
     private void applyProfile(StudentProfile profile, NormalizedProfile normalized, Long operatorUserId) {
         profile.setGender(normalized.gender);
+        profile.setGenderOther(normalized.genderOther);
         profile.setBirthday(normalized.birthday);
         profile.setStatusInCanada(normalized.statusInCanada);
         profile.setPhone(normalized.phone);
@@ -176,6 +263,74 @@ public class StudentProfileService {
         profile.setUpdatedBy(operatorUserId);
     }
 
+    private StudentSchoolTranscriptDto uploadSchoolTranscriptForStudent(Student student,
+                                                                        Long schoolRecordId,
+                                                                        MultipartFile file) {
+        if (schoolRecordId == null || schoolRecordId.longValue() <= 0L) {
+            throw new IllegalArgumentException("schoolRecordId must be positive");
+        }
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("transcript file is required");
+        }
+
+        StudentSchoolRecord school = studentSchoolRecordRepository.findByIdAndStudent_Id(schoolRecordId, student.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "School record not found."));
+
+        String previousStorageKey = trimToNull(school.getTranscriptStorageKey());
+        StudentSchoolTranscriptStorageService.StoredTranscript stored =
+                transcriptStorageService.store(student.getId(), school.getId(), file);
+
+        school.setTranscriptOriginalFilename(stored.getOriginalFilename());
+        school.setTranscriptContentType(stored.getContentType());
+        school.setTranscriptStorageKey(stored.getStorageKey());
+        school.setTranscriptSizeBytes(Long.valueOf(stored.getSizeBytes()));
+        school.setTranscriptUploadedAt(LocalDateTime.now());
+        school = studentSchoolRecordRepository.save(school);
+
+        if (previousStorageKey != null && !previousStorageKey.equals(stored.getStorageKey())) {
+            transcriptStorageService.deleteIfExists(previousStorageKey);
+        }
+
+        return toTranscriptDto(school);
+    }
+
+    private SchoolTranscriptDownload downloadSchoolTranscriptForStudent(Student student, Long schoolRecordId) {
+        if (schoolRecordId == null || schoolRecordId.longValue() <= 0L) {
+            throw new IllegalArgumentException("schoolRecordId must be positive");
+        }
+
+        StudentSchoolRecord school = studentSchoolRecordRepository.findByIdAndStudent_Id(schoolRecordId, student.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "School record not found."));
+        String storageKey = trimToNull(school.getTranscriptStorageKey());
+        if (storageKey == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Transcript file not found.");
+        }
+
+        byte[] data = transcriptStorageService.readAllBytes(storageKey);
+        String fileName = trimToNull(school.getTranscriptOriginalFilename());
+        if (fileName == null) {
+            fileName = "transcript.bin";
+        }
+
+        String contentType = trimToNull(school.getTranscriptContentType());
+        if (contentType == null) {
+            contentType = "application/octet-stream";
+        }
+
+        return new SchoolTranscriptDownload(fileName, contentType, data);
+    }
+
+    private StudentSchoolTranscriptDto toTranscriptDto(StudentSchoolRecord school) {
+        StudentSchoolTranscriptDto dto = new StudentSchoolTranscriptDto();
+        dto.setSchoolRecordId(school.getId());
+        dto.setTranscriptFileName(school.getTranscriptOriginalFilename());
+        dto.setTranscriptContentType(school.getTranscriptContentType());
+        dto.setTranscriptSizeBytes(school.getTranscriptSizeBytes());
+        dto.setTranscriptUploadedAt(formatDateTime(school.getTranscriptUploadedAt()));
+        dto.setHasTranscript(Boolean.valueOf(trimToNull(school.getTranscriptStorageKey()) != null));
+        return dto;
+    }
+
     private StudentProfileDto toDto(Student student,
                                     StudentProfile profile,
                                     List<StudentSchoolRecord> schools,
@@ -191,7 +346,13 @@ public class StudentProfileService {
         dto.setAp(Boolean.FALSE);
 
         if (profile != null) {
-            dto.setGender(profile.getGender());
+            NormalizedGender normalizedGender = normalizeGenderFields(
+                    profile.getGender(),
+                    profile.getGenderOther(),
+                    false
+            );
+            dto.setGender(normalizedGender.gender);
+            dto.setGenderOther(normalizedGender.genderOther);
             dto.setBirthday(formatDate(profile.getBirthday()));
             dto.setPhone(profile.getPhone());
             dto.setEmail(profile.getEmail());
@@ -218,6 +379,7 @@ public class StudentProfileService {
         if (schools != null) {
             for (StudentSchoolRecord school : schools) {
                 StudentProfileDto.SchoolDto schoolDto = new StudentProfileDto.SchoolDto();
+                schoolDto.setSchoolRecordId(school.getId());
                 schoolDto.setSchoolType(school.getSchoolType() == null ? null : school.getSchoolType().name());
                 schoolDto.setSchoolName(school.getSchoolName());
                 StudentProfileDto.AddressDto schoolAddress = new StudentProfileDto.AddressDto();
@@ -234,6 +396,10 @@ public class StudentProfileService {
                 schoolDto.setPostal(school.getPostal());
                 schoolDto.setStartTime(formatDate(school.getStartTime()));
                 schoolDto.setEndTime(formatDate(school.getEndTime()));
+                schoolDto.setTranscriptFileName(school.getTranscriptOriginalFilename());
+                schoolDto.setTranscriptSizeBytes(school.getTranscriptSizeBytes());
+                schoolDto.setTranscriptUploadedAt(formatDateTime(school.getTranscriptUploadedAt()));
+                schoolDto.setHasTranscript(Boolean.valueOf(trimToNull(school.getTranscriptStorageKey()) != null));
                 schoolDtos.add(schoolDto);
             }
         }
@@ -275,6 +441,10 @@ public class StudentProfileService {
         return value == null ? null : value.toString();
     }
 
+    private String formatDateTime(LocalDateTime value) {
+        return value == null ? null : value.toString();
+    }
+
     private NormalizedProfile normalizeAndValidate(StudentProfileDto requestBody) {
         if (requestBody == null) {
             throw new IllegalArgumentException("profile payload is required");
@@ -291,7 +461,11 @@ public class StudentProfileService {
         }
 
         String preferredName = firstNonBlank(requestBody.getPreferredName(), requestBody.getNickName());
-        String gender = trimToNull(requestBody.getGender());
+        NormalizedGender normalizedGender = normalizeGenderFields(
+                requestBody.getGender(),
+                requestBody.getGenderOther(),
+                true
+        );
         LocalDate birthday = parseDateOrNull(requestBody.getBirthday(), "birthday");
         String phone = trimToNull(requestBody.getPhone());
         String email = trimToNull(requestBody.getEmail());
@@ -410,7 +584,8 @@ public class StudentProfileService {
                 legalFirstName,
                 legalLastName,
                 preferredName,
-                gender,
+                normalizedGender.gender,
+                normalizedGender.genderOther,
                 birthday,
                 phone,
                 email,
@@ -446,6 +621,87 @@ public class StudentProfileService {
             return requestBody.getExternalCourses();
         }
         return new ArrayList<StudentProfileDto.CourseDto>();
+    }
+
+    private NormalizedGender normalizeGenderFields(String genderRaw, String genderOtherRaw, boolean requireOtherDetail) {
+        String gender = trimToNull(genderRaw);
+        String genderOther = trimToNull(genderOtherRaw);
+
+        if (gender == null && genderOther == null) {
+            return new NormalizedGender(null, null);
+        }
+
+        if (gender != null) {
+            String normalized = gender.toLowerCase(Locale.ROOT);
+            if ("male".equals(normalized)) {
+                return new NormalizedGender("Male", null);
+            }
+            if ("female".equals(normalized)) {
+                return new NormalizedGender("Female", null);
+            }
+            if ("other".equals(normalized) || normalized.startsWith("other")) {
+                String parsedLegacyOther = extractLegacyGenderOther(gender);
+                if (genderOther == null) {
+                    genderOther = parsedLegacyOther;
+                }
+                if (requireOtherDetail && genderOther == null) {
+                    throw new IllegalArgumentException("genderOther is required when gender is Other");
+                }
+                return new NormalizedGender("Other", genderOther);
+            }
+
+            // Backward compatibility:
+            // historical payloads may send custom text directly in gender.
+            if (genderOther == null) {
+                genderOther = gender;
+            }
+            if (requireOtherDetail && genderOther == null) {
+                throw new IllegalArgumentException("genderOther is required when gender is Other");
+            }
+            return new NormalizedGender("Other", genderOther);
+        }
+
+        if (requireOtherDetail && genderOther == null) {
+            throw new IllegalArgumentException("genderOther is required when gender is Other");
+        }
+        return new NormalizedGender("Other", genderOther);
+    }
+
+    private String extractLegacyGenderOther(String genderRaw) {
+        String value = trimToNull(genderRaw);
+        if (value == null) {
+            return null;
+        }
+
+        String lower = value.toLowerCase(Locale.ROOT);
+        if (!lower.startsWith("other")) {
+            return null;
+        }
+        if (value.length() <= "other".length()) {
+            return null;
+        }
+
+        String suffix = value.substring("other".length()).trim();
+        while (!suffix.isEmpty()) {
+            char first = suffix.charAt(0);
+            if (first == ':' || first == '-' || first == ',' || first == ';') {
+                suffix = suffix.substring(1).trim();
+                continue;
+            }
+            break;
+        }
+        return suffix.isEmpty() ? null : suffix;
+    }
+
+    private String buildSchoolKey(SchoolType schoolType, String schoolName, LocalDate startTime, LocalDate endTime) {
+        String type = schoolType == null ? "" : schoolType.name();
+        String normalizedName = trimToNull(schoolName);
+        if (normalizedName == null) {
+            normalizedName = "";
+        } else {
+            normalizedName = normalizedName.toLowerCase(Locale.ROOT).replaceAll("\\s+", " ");
+        }
+        return type + "|" + normalizedName + "|" + formatDate(startTime) + "|" + formatDate(endTime);
     }
 
     private SchoolType parseSchoolType(String schoolTypeRaw, String fieldPath) {
@@ -491,11 +747,66 @@ public class StudentProfileService {
         return trimToNull(fallback);
     }
 
+    private static class NormalizedGender {
+        private final String gender;
+        private final String genderOther;
+
+        private NormalizedGender(String gender, String genderOther) {
+            this.gender = gender;
+            this.genderOther = genderOther;
+        }
+    }
+
+    private static class TranscriptBinding {
+        private final String originalFilename;
+        private final String contentType;
+        private final String storageKey;
+        private final Long sizeBytes;
+        private final LocalDateTime uploadedAt;
+
+        private TranscriptBinding(String originalFilename,
+                                  String contentType,
+                                  String storageKey,
+                                  Long sizeBytes,
+                                  LocalDateTime uploadedAt) {
+            this.originalFilename = originalFilename;
+            this.contentType = contentType;
+            this.storageKey = storageKey;
+            this.sizeBytes = sizeBytes;
+            this.uploadedAt = uploadedAt;
+        }
+    }
+
+    public static class SchoolTranscriptDownload {
+        private final String fileName;
+        private final String contentType;
+        private final byte[] content;
+
+        public SchoolTranscriptDownload(String fileName, String contentType, byte[] content) {
+            this.fileName = fileName;
+            this.contentType = contentType;
+            this.content = content;
+        }
+
+        public String getFileName() {
+            return fileName;
+        }
+
+        public String getContentType() {
+            return contentType;
+        }
+
+        public byte[] getContent() {
+            return content;
+        }
+    }
+
     private static class NormalizedProfile {
         private final String legalFirstName;
         private final String legalLastName;
         private final String preferredName;
         private final String gender;
+        private final String genderOther;
         private final LocalDate birthday;
         private final String phone;
         private final String email;
@@ -515,6 +826,7 @@ public class StudentProfileService {
                                   String legalLastName,
                                   String preferredName,
                                   String gender,
+                                  String genderOther,
                                   LocalDate birthday,
                                   String phone,
                                   String email,
@@ -533,6 +845,7 @@ public class StudentProfileService {
             this.legalLastName = legalLastName;
             this.preferredName = preferredName;
             this.gender = gender;
+            this.genderOther = genderOther;
             this.birthday = birthday;
             this.phone = phone;
             this.email = email;
@@ -643,3 +956,4 @@ public class StudentProfileService {
         }
     }
 }
+

@@ -15,6 +15,7 @@ public class StudentProfileDto {
     private String lastName;
     private String nickName;
     private String gender;
+    private String genderOther;
     private String birthday;
     private String phone;
     private String email;
@@ -92,6 +93,14 @@ public class StudentProfileDto {
 
     public void setGender(String gender) {
         this.gender = gender;
+    }
+
+    public String getGenderOther() {
+        return genderOther;
+    }
+
+    public void setGenderOther(String genderOther) {
+        this.genderOther = genderOther;
     }
 
     public String getBirthday() {
@@ -301,6 +310,7 @@ public class StudentProfileDto {
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class SchoolDto {
+        private Long schoolRecordId;
         private String schoolType;
         private String schoolName;
         private AddressDto address = new AddressDto();
@@ -311,6 +321,18 @@ public class StudentProfileDto {
         private String postal;
         private String startTime;
         private String endTime;
+        private String transcriptFileName;
+        private Long transcriptSizeBytes;
+        private String transcriptUploadedAt;
+        private Boolean hasTranscript;
+
+        public Long getSchoolRecordId() {
+            return schoolRecordId;
+        }
+
+        public void setSchoolRecordId(Long schoolRecordId) {
+            this.schoolRecordId = schoolRecordId;
+        }
 
         public String getSchoolType() {
             return schoolType;
@@ -393,6 +415,38 @@ public class StudentProfileDto {
 
         public void setEndTime(String endTime) {
             this.endTime = endTime;
+        }
+
+        public String getTranscriptFileName() {
+            return transcriptFileName;
+        }
+
+        public void setTranscriptFileName(String transcriptFileName) {
+            this.transcriptFileName = transcriptFileName;
+        }
+
+        public Long getTranscriptSizeBytes() {
+            return transcriptSizeBytes;
+        }
+
+        public void setTranscriptSizeBytes(Long transcriptSizeBytes) {
+            this.transcriptSizeBytes = transcriptSizeBytes;
+        }
+
+        public String getTranscriptUploadedAt() {
+            return transcriptUploadedAt;
+        }
+
+        public void setTranscriptUploadedAt(String transcriptUploadedAt) {
+            this.transcriptUploadedAt = transcriptUploadedAt;
+        }
+
+        public Boolean getHasTranscript() {
+            return hasTranscript;
+        }
+
+        public void setHasTranscript(Boolean hasTranscript) {
+            this.hasTranscript = hasTranscript;
         }
     }
 

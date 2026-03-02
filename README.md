@@ -42,21 +42,42 @@ Use returned bearer token:
 ### Teacher/Admin managed profile
 - `GET /api/teacher/students/{studentId}/profile`
 - `PUT /api/teacher/students/{studentId}/profile`
+- `POST /api/teacher/students/{studentId}/profile/schools/{schoolRecordId}/transcript` (multipart file upload)
+- `GET /api/teacher/students/{studentId}/profile/schools/{schoolRecordId}/transcript` (download transcript file)
 
 ## Student Profile Contract (Latest)
+
+### 0) OUAC gender fields
+- `gender`: `Male | Female | Other`
+- `genderOther`: required when `gender=Other`
+
+Backward compatibility:
+- Request still accepts legacy combined value in `gender`, for example `Other: Non-binary`
+- Response is normalized to:
+  - `gender = "Other"`
+  - `genderOther = "Non-binary"`
 
 ### 1) High-school history (`schools`)
 Represents all high-school history (past + current).
 
 Each item:
+- `schoolRecordId`: number (server-generated id)
 - `schoolType`: `MAIN | OTHER`
 - `schoolName`: string
 - `startTime`: `yyyy-MM-dd` (nullable)
 - `endTime`: `yyyy-MM-dd` (nullable)
+- `hasTranscript`: boolean
+- `transcriptFileName`: string (nullable)
+- `transcriptSizeBytes`: number (nullable)
+- `transcriptUploadedAt`: ISO datetime string (nullable)
 
 Compatibility alias:
 - response also includes `schoolRecords`
 - request supports `schools` or `schoolRecords`
+
+Transcript APIs for student self-service:
+- `POST /api/student/profile/schools/{schoolRecordId}/transcript` with `multipart/form-data`, file field name: `file`
+- `GET /api/student/profile/schools/{schoolRecordId}/transcript`
 
 ### 2) External credits (`otherCourses`)
 Represents only external/summer/night courses.
@@ -95,4 +116,3 @@ Auto-initialized on startup:
 - STUDENT: `demo_student_active_01 / Student!234`
 
 `demo_teacher_active_01` is ACTIVE-assigned to `demo_student_active_01`.
-
