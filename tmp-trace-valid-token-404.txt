@@ -1,0 +1,50 @@
+* Host localhost:8080 was resolved.
+* IPv6: ::1
+* IPv4: 127.0.0.1
+*   Trying [::1]:8080...
+* Established connection to localhost (::1 port 8080) from ::1 port 64555 
+* using HTTP/1.x
+=> Send header, 300 bytes (0x12c)
+0000: POST /api/student/profile/schools/80/transcript HTTP/1.1
+003a: Host: localhost:8080
+0050: User-Agent: curl/8.18.0
+0069: Accept: */*
+0076: Authorization: Bearer wsGzqORBwJnMUE7a94at5-DseogHWFQk0Hn0EENPXj
+00b6: k
+00b9: Content-Length: 220
+00ce: Content-Type: multipart/form-data; boundary=--------------------
+010e: ----iXncSnzFZFCyTeXGXDVgIm
+012a: 
+=> Send data, 220 bytes (0xdc)
+0000: --------------------------iXncSnzFZFCyTeXGXDVgIm
+0032: Content-Disposition: form-data; name="file"; filename="tmp-uploa
+0072: d.txt"
+007a: Content-Type: text/plain
+0094: 
+0096: hello transcript
+00a8: --------------------------iXncSnzFZFCyTeXGXDVgIm--
+* upload completely sent off: 220 bytes
+<= Recv header, 15 bytes (0xf)
+0000: HTTP/1.1 404 
+<= Recv header, 14 bytes (0xe)
+0000: Vary: Origin
+<= Recv header, 37 bytes (0x25)
+0000: Vary: Access-Control-Request-Method
+<= Recv header, 38 bytes (0x26)
+0000: Vary: Access-Control-Request-Headers
+<= Recv header, 32 bytes (0x20)
+0000: Content-Type: application/json
+<= Recv header, 28 bytes (0x1c)
+0000: Transfer-Encoding: chunked
+<= Recv header, 37 bytes (0x25)
+0000: Date: Wed, 04 Mar 2026 16:37:30 GMT
+<= Recv header, 2 bytes (0x2)
+0000: 
+<= Recv data, 89 bytes (0x59)
+0000: 53
+0004: {"status":404,"message":"School record not found.","code":"NOT_F
+0044: OUND","details":[]}
+<= Recv data, 5 bytes (0x5)
+0000: 0
+0003: 
+* Connection #0 to host localhost:8080 left intact

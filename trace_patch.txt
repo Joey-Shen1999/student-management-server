@@ -1,0 +1,43 @@
+== Info: Host localhost:8080 was resolved.
+== Info: IPv6: ::1
+== Info: IPv4: 127.0.0.1
+== Info:   Trying [::1]:8080...
+== Info: Established connection to localhost (::1 port 8080) from ::1 port 50950 
+== Info: using HTTP/1.x
+=> Send header, 164 bytes (0xa4)
+0000: PATCH /api/teacher/accounts/999999/role HTTP/1.1
+0032: Host: localhost:8080
+0048: User-Agent: curl/8.16.0
+0061: Accept: */*
+006e: Content-Type: application/json
+008e: Content-Length: 12
+00a2: 
+=> Send data, 12 bytes (0xc)
+0000: {role:ADMIN}
+== Info: upload completely sent off: 12 bytes
+<= Recv header, 15 bytes (0xf)
+0000: HTTP/1.1 500 
+<= Recv header, 14 bytes (0xe)
+0000: Vary: Origin
+<= Recv header, 37 bytes (0x25)
+0000: Vary: Access-Control-Request-Method
+<= Recv header, 38 bytes (0x26)
+0000: Vary: Access-Control-Request-Headers
+<= Recv header, 32 bytes (0x20)
+0000: Content-Type: application/json
+<= Recv header, 28 bytes (0x1c)
+0000: Transfer-Encoding: chunked
+<= Recv header, 37 bytes (0x25)
+0000: Date: Tue, 24 Feb 2026 04:37:05 GMT
+<= Recv header, 19 bytes (0x13)
+0000: Connection: close
+<= Recv header, 2 bytes (0x2)
+0000: 
+<= Recv data, 89 bytes (0x59)
+0000: 53
+0004: {"status":500,"message":"Server error","code":"INTERNAL_SERVER_E
+0044: RROR","details":[]}
+<= Recv data, 5 bytes (0x5)
+0000: 0
+0003: 
+== Info: shutting down connection #0

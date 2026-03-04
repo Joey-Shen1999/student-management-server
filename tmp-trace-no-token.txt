@@ -1,0 +1,48 @@
+* Host localhost:8080 was resolved.
+* IPv6: ::1
+* IPv4: 127.0.0.1
+*   Trying [::1]:8080...
+* Established connection to localhost (::1 port 8080) from ::1 port 55652 
+* using HTTP/1.x
+=> Send header, 233 bytes (0xe9)
+0000: POST /api/student/profile/schools/80/transcript HTTP/1.1
+003a: Host: localhost:8080
+0050: User-Agent: curl/8.18.0
+0069: Accept: */*
+0076: Content-Length: 220
+008b: Content-Type: multipart/form-data; boundary=--------------------
+00cb: ----YYtKh6R3ZthbesU1VZGFVd
+00e7: 
+=> Send data, 220 bytes (0xdc)
+0000: --------------------------YYtKh6R3ZthbesU1VZGFVd
+0032: Content-Disposition: form-data; name="file"; filename="tmp-uploa
+0072: d.txt"
+007a: Content-Type: text/plain
+0094: 
+0096: hello transcript
+00a8: --------------------------YYtKh6R3ZthbesU1VZGFVd--
+* upload completely sent off: 220 bytes
+<= Recv header, 15 bytes (0xf)
+0000: HTTP/1.1 401 
+<= Recv header, 14 bytes (0xe)
+0000: Vary: Origin
+<= Recv header, 37 bytes (0x25)
+0000: Vary: Access-Control-Request-Method
+<= Recv header, 38 bytes (0x26)
+0000: Vary: Access-Control-Request-Headers
+<= Recv header, 32 bytes (0x20)
+0000: Content-Type: application/json
+<= Recv header, 28 bytes (0x1c)
+0000: Transfer-Encoding: chunked
+<= Recv header, 37 bytes (0x25)
+0000: Date: Wed, 04 Mar 2026 16:37:13 GMT
+<= Recv header, 2 bytes (0x2)
+0000: 
+<= Recv data, 87 bytes (0x57)
+0000: 51
+0004: {"status":401,"message":"Unauthenticated.","code":"UNAUTHENTICAT
+0044: ED","details":[]}
+<= Recv data, 5 bytes (0x5)
+0000: 0
+0003: 
+* Connection #0 to host localhost:8080 left intact
