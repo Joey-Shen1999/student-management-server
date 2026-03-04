@@ -18,8 +18,11 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import javax.servlet.http.HttpServletRequest;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -1308,8 +1311,18 @@ public class StudentProfileService {
         }
         try {
             return LocalDateTime.parse(value);
+        } catch (DateTimeParseException ignored) {
+            // Try zone-aware formats like 2026-03-04T10:00:00Z.
+        }
+        try {
+            return OffsetDateTime.parse(value).toLocalDateTime();
+        } catch (DateTimeParseException ignored) {
+            // Try instant format.
+        }
+        try {
+            return LocalDateTime.ofInstant(Instant.parse(value), ZoneOffset.UTC);
         } catch (DateTimeParseException ex) {
-            throw new IllegalArgumentException(fieldName + " must be ISO local datetime");
+            throw new IllegalArgumentException(fieldName + " must be ISO datetime");
         }
     }
 

@@ -414,7 +414,7 @@ class StudentProfileApiTest {
 
         byte[] transcriptBytes1 = "mock transcript payload 1".getBytes(StandardCharsets.UTF_8);
         MockMultipartFile transcript1 = new MockMultipartFile(
-                "file",
+                "transcript",
                 "unionville-transcript-1.pdf",
                 "application/pdf",
                 transcriptBytes1

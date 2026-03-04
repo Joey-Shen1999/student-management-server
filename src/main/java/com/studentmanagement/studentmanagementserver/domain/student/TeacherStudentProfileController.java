@@ -43,10 +43,12 @@ public class TeacherStudentProfileController {
     @PostMapping(value = "/schools/{schoolRecordId}/transcript", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<StudentSchoolTranscriptDto> uploadSchoolTranscript(@PathVariable Long studentId,
                                                                               @PathVariable Long schoolRecordId,
-                                                                              @RequestParam("file") MultipartFile file,
+                                                                              @RequestParam(value = "file", required = false) MultipartFile file,
+                                                                              @RequestParam(value = "transcript", required = false) MultipartFile transcript,
                                                                               HttpServletRequest request) {
+        MultipartFile effectiveFile = chooseUploadFile(file, transcript);
         return ResponseEntity.ok(
-                teacherStudentProfileService.uploadSchoolTranscript(studentId, schoolRecordId, file, request)
+                teacherStudentProfileService.uploadSchoolTranscript(studentId, schoolRecordId, effectiveFile, request)
         );
     }
 
@@ -84,5 +86,15 @@ public class TeacherStudentProfileController {
                 .contentType(MediaType.parseMediaType(download.getContentType()))
                 .contentLength(download.getContent().length)
                 .body(download.getContent());
+    }
+
+    private MultipartFile chooseUploadFile(MultipartFile file, MultipartFile transcript) {
+        if (file != null && !file.isEmpty()) {
+            return file;
+        }
+        if (transcript != null && !transcript.isEmpty()) {
+            return transcript;
+        }
+        return file != null ? file : transcript;
     }
 }

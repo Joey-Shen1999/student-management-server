@@ -156,7 +156,7 @@ class TeacherStudentProfileApiTest {
 
         byte[] transcriptBytes = "teacher upload transcript".getBytes(StandardCharsets.UTF_8);
         MockMultipartFile transcript = new MockMultipartFile(
-                "file",
+                "transcript",
                 "teacher-uploaded-transcript.pdf",
                 "application/pdf",
                 transcriptBytes

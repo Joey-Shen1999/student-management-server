@@ -32,7 +32,7 @@
 ## 2. API examples
 
 ### 2.1 Append upload (student self)
-`POST /api/student/profile/schools/{schoolRecordId}/transcript` (`multipart/form-data`, field=`file`)
+`POST /api/student/profile/schools/{schoolRecordId}/transcript` (`multipart/form-data`, field=`file` or `transcript`)
 
 Response:
 ```json
