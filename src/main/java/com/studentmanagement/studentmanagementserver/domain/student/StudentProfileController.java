@@ -49,6 +49,16 @@ public class StudentProfileController {
         );
     }
 
+    @PostMapping(value = "/identity-files", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<StudentIdentityFileUploadDto> uploadIdentityFile(
+            @RequestParam(value = "file", required = false) MultipartFile file,
+            @RequestParam(value = "identity", required = false) MultipartFile identity,
+            HttpServletRequest request
+    ) {
+        MultipartFile effectiveFile = chooseUploadFile(file, identity);
+        return ResponseEntity.ok(studentProfileService.uploadCurrentStudentIdentityFile(effectiveFile, request));
+    }
+
     @GetMapping("/schools/{schoolRecordId}/transcript")
     public ResponseEntity<byte[]> downloadSchoolTranscript(@PathVariable Long schoolRecordId,
                                                            HttpServletRequest request) {
@@ -70,7 +80,27 @@ public class StudentProfileController {
         return buildTranscriptDownloadResponse(download);
     }
 
+    @GetMapping("/identity-files/{identityFileId}")
+    public ResponseEntity<byte[]> downloadIdentityFileById(@PathVariable Long identityFileId,
+                                                           HttpServletRequest request) {
+        StudentProfileService.IdentityFileDownload download =
+                studentProfileService.downloadCurrentStudentIdentityFileByIdentityFileId(identityFileId, request);
+        return buildIdentityDownloadResponse(download);
+    }
+
     private ResponseEntity<byte[]> buildTranscriptDownloadResponse(StudentProfileService.SchoolTranscriptDownload download) {
+        ContentDisposition contentDisposition = ContentDisposition.attachment()
+                .filename(download.getFileName(), StandardCharsets.UTF_8)
+                .build();
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition.toString())
+                .contentType(MediaType.parseMediaType(download.getContentType()))
+                .contentLength(download.getContent().length)
+                .body(download.getContent());
+    }
+
+    private ResponseEntity<byte[]> buildIdentityDownloadResponse(StudentProfileService.IdentityFileDownload download) {
         ContentDisposition contentDisposition = ContentDisposition.attachment()
                 .filename(download.getFileName(), StandardCharsets.UTF_8)
                 .build();

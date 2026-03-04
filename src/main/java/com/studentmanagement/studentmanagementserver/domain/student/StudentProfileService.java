@@ -4,6 +4,7 @@ import com.studentmanagement.studentmanagementserver.domain.enums.SchoolType;
 import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
 import com.studentmanagement.studentmanagementserver.domain.user.User;
 import com.studentmanagement.studentmanagementserver.repo.StudentCourseRecordRepository;
+import com.studentmanagement.studentmanagementserver.repo.StudentIdentityFileRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentProfileRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentSchoolRecordRepository;
@@ -14,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -40,29 +42,36 @@ public class StudentProfileService {
 
     private static final Logger log = LoggerFactory.getLogger(StudentProfileService.class);
     private static final Pattern DATE_PATTERN = Pattern.compile("\\d{4}-\\d{2}-\\d{2}");
+    private static final long MAX_UPLOAD_SIZE_BYTES = 50L * 1024L * 1024L;
 
     private final AuthSessionService authSessionService;
     private final StudentRepository studentRepository;
     private final StudentProfileRepository studentProfileRepository;
     private final StudentSchoolRecordRepository studentSchoolRecordRepository;
     private final StudentSchoolTranscriptRepository studentSchoolTranscriptRepository;
+    private final StudentIdentityFileRepository studentIdentityFileRepository;
     private final StudentCourseRecordRepository studentCourseRecordRepository;
     private final StudentSchoolTranscriptStorageService transcriptStorageService;
+    private final StudentIdentityFileStorageService identityFileStorageService;
 
     public StudentProfileService(AuthSessionService authSessionService,
                                  StudentRepository studentRepository,
                                  StudentProfileRepository studentProfileRepository,
                                  StudentSchoolRecordRepository studentSchoolRecordRepository,
                                  StudentSchoolTranscriptRepository studentSchoolTranscriptRepository,
+                                 StudentIdentityFileRepository studentIdentityFileRepository,
                                  StudentCourseRecordRepository studentCourseRecordRepository,
-                                 StudentSchoolTranscriptStorageService transcriptStorageService) {
+                                 StudentSchoolTranscriptStorageService transcriptStorageService,
+                                 StudentIdentityFileStorageService identityFileStorageService) {
         this.authSessionService = authSessionService;
         this.studentRepository = studentRepository;
         this.studentProfileRepository = studentProfileRepository;
         this.studentSchoolRecordRepository = studentSchoolRecordRepository;
         this.studentSchoolTranscriptRepository = studentSchoolTranscriptRepository;
+        this.studentIdentityFileRepository = studentIdentityFileRepository;
         this.studentCourseRecordRepository = studentCourseRecordRepository;
         this.transcriptStorageService = transcriptStorageService;
+        this.identityFileStorageService = identityFileStorageService;
     }
 
     @Transactional(readOnly = true)
@@ -157,6 +166,36 @@ public class StudentProfileService {
         return downloadSchoolTranscriptForStudentByTranscriptId(student, schoolRecordId, transcriptId);
     }
 
+    @Transactional
+    public StudentIdentityFileUploadDto uploadCurrentStudentIdentityFile(MultipartFile file, HttpServletRequest request) {
+        Student student = requireCurrentStudent(request);
+        return uploadIdentityFileForStudent(student, file, student.getUser().getId(), resolveTraceId(request));
+    }
+
+    @Transactional
+    public StudentIdentityFileUploadDto uploadStudentIdentityFileByStudentId(Long studentId,
+                                                                              MultipartFile file,
+                                                                              Long uploadedBy,
+                                                                              String traceId) {
+        Student student = requireStudentById(studentId);
+        Long operatorUserId = uploadedBy == null ? student.getUser().getId() : uploadedBy;
+        return uploadIdentityFileForStudent(student, file, operatorUserId, traceId);
+    }
+
+    @Transactional(readOnly = true)
+    public IdentityFileDownload downloadCurrentStudentIdentityFileByIdentityFileId(Long identityFileId,
+                                                                                    HttpServletRequest request) {
+        Student student = requireCurrentStudent(request);
+        return downloadIdentityFileForStudentById(student, identityFileId);
+    }
+
+    @Transactional(readOnly = true)
+    public IdentityFileDownload downloadStudentIdentityFileByStudentIdAndIdentityFileId(Long studentId,
+                                                                                         Long identityFileId) {
+        Student student = requireStudentById(studentId);
+        return downloadIdentityFileForStudentById(student, identityFileId);
+    }
+
     private Student requireCurrentStudent(HttpServletRequest request) {
         User user = authSessionService.requireAuthenticatedUser(request);
         if (user.getRole() != UserRole.STUDENT) {
@@ -172,6 +211,11 @@ public class StudentProfileService {
         }
         return studentRepository.findById(studentId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Student not found: " + studentId));
+    }
+
+    private StudentProfile requireProfileForStudent(Student student) {
+        return studentProfileRepository.findByStudent_Id(student.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Student profile not found."));
     }
 
     private StudentSchoolRecord requireOwnedSchoolRecord(Student student, Long schoolRecordId) {
@@ -194,8 +238,11 @@ public class StudentProfileService {
         StudentProfile profile = studentProfileRepository.findByStudent_Id(student.getId()).orElse(null);
         List<StudentSchoolRecord> schools = studentSchoolRecordRepository.findByStudent_IdOrderByIdAsc(student.getId());
         List<StudentSchoolTranscript> transcripts = findTranscriptsBySchoolRecords(schools);
+        List<StudentIdentityFile> identityFiles = profile == null
+                ? Collections.<StudentIdentityFile>emptyList()
+                : studentIdentityFileRepository.findByStudentProfile_IdOrderByUploadedAtDescIdDesc(profile.getId());
         List<StudentCourseRecord> courses = studentCourseRecordRepository.findByStudent_IdOrderByIdAsc(student.getId());
-        return toDto(student, profile, schools, transcripts, courses);
+        return toDto(student, profile, schools, transcripts, identityFiles, courses);
     }
 
     private StudentProfileDto saveProfileForStudent(Student student,
@@ -208,6 +255,16 @@ public class StudentProfileService {
                 .orElseGet(() -> new StudentProfile(student));
         applyProfile(profile, normalized, operatorUserId);
         profile = studentProfileRepository.save(profile);
+
+        List<StudentIdentityFile> existingIdentityFiles =
+                studentIdentityFileRepository.findByStudentProfile_IdOrderByUploadedAtDescIdDesc(profile.getId());
+        List<StudentIdentityFile> savedIdentityFiles = syncIdentityFiles(
+                profile,
+                normalized.identityFiles,
+                existingIdentityFiles,
+                operatorUserId,
+                traceId
+        );
 
         student.updateProfileNames(
                 normalized.legalFirstName,
@@ -326,7 +383,7 @@ public class StudentProfileService {
             savedCourses = studentCourseRecordRepository.saveAll(savedCourses);
         }
 
-        return toDto(student, profile, savedSchools, savedTranscripts, savedCourses);
+        return toDto(student, profile, savedSchools, savedTranscripts, savedIdentityFiles, savedCourses);
     }
 
     private void applyProfile(StudentProfile profile, NormalizedProfile normalized, Long operatorUserId) {
@@ -342,7 +399,6 @@ public class StudentProfileService {
         profile.setOenNumber(normalized.oenNumber);
         profile.setIb(normalized.ib);
         profile.setAp(normalized.ap);
-        profile.setIdentityFileNote(normalized.identityFileNote);
         profile.setStreetAddress(normalized.address.streetAddress);
         profile.setStreetAddressLine2(normalized.address.streetAddressLine2);
         profile.setCity(normalized.address.city);
@@ -363,6 +419,7 @@ public class StudentProfileService {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("transcript file is required");
         }
+        assertUploadSizeWithinLimit(file);
 
         StudentSchoolRecord school = requireOwnedSchoolRecord(student, schoolRecordId);
 
@@ -465,10 +522,94 @@ public class StudentProfileService {
         return dto;
     }
 
+    private StudentIdentityFileUploadDto uploadIdentityFileForStudent(Student student,
+                                                                       MultipartFile file,
+                                                                       Long uploadedBy,
+                                                                       String traceId) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("identity file is required");
+        }
+        assertUploadSizeWithinLimit(file);
+
+        StudentProfile profile = studentProfileRepository.findByStudent_Id(student.getId())
+                .orElseGet(() -> {
+                    StudentProfile created = new StudentProfile(student);
+                    created.setUpdatedBy(uploadedBy);
+                    return studentProfileRepository.save(created);
+                });
+
+        LocalDateTime now = LocalDateTime.now();
+        StudentIdentityFileStorageService.StoredIdentityFile stored = identityFileStorageService.store(student.getId(), file);
+        StudentIdentityFile identityFile = new StudentIdentityFile(
+                profile,
+                stored.getStorageKey(),
+                stored.getOriginalFilename(),
+                stored.getContentType(),
+                Long.valueOf(stored.getSizeBytes()),
+                now,
+                uploadedBy
+        );
+        identityFile = studentIdentityFileRepository.save(identityFile);
+
+        List<StudentIdentityFile> identityFiles =
+                studentIdentityFileRepository.findByStudentProfile_IdOrderByUploadedAtDescIdDesc(profile.getId());
+        log.info(
+                "Identity file appended. traceId={}, userId={}, profileId={}, identityFileId={}",
+                safeTraceId(traceId),
+                uploadedBy,
+                profile.getId(),
+                identityFile.getId()
+        );
+
+        return toIdentityFileUploadDto(identityFiles);
+    }
+
+    private IdentityFileDownload downloadIdentityFileForStudentById(Student student, Long identityFileId) {
+        if (identityFileId == null || identityFileId.longValue() <= 0L) {
+            throw new IllegalArgumentException("identityFileId must be positive");
+        }
+
+        StudentProfile profile = requireProfileForStudent(student);
+        StudentIdentityFile identityFile = studentIdentityFileRepository
+                .findByIdAndStudentProfile_Id(identityFileId, profile.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Identity file not found."));
+        return toIdentityDownload(identityFile);
+    }
+
+    private StudentIdentityFileUploadDto toIdentityFileUploadDto(List<StudentIdentityFile> identityFiles) {
+        StudentIdentityFileUploadDto dto = new StudentIdentityFileUploadDto();
+        List<StudentIdentityFile> sorted = sortIdentityFilesLatestFirst(identityFiles);
+        List<StudentIdentityFileUploadDto.IdentityFileItemDto> items =
+                new ArrayList<StudentIdentityFileUploadDto.IdentityFileItemDto>();
+        for (StudentIdentityFile identityFile : sorted) {
+            items.add(toIdentityUploadItemDto(identityFile));
+        }
+        dto.setIdentityFiles(items);
+
+        if (!sorted.isEmpty()) {
+            StudentIdentityFile latest = sorted.get(0);
+            dto.setIdentityFileId(latest.getId());
+            dto.setIdentityFileName(latest.getOriginalFilename());
+            dto.setIdentityFileContentType(latest.getMimeType());
+            dto.setIdentityFileSizeBytes(latest.getSizeBytes());
+            dto.setIdentityFileUploadedAt(formatDateTime(latest.getUploadedAt()));
+            dto.setHasIdentityFile(Boolean.TRUE);
+        } else {
+            dto.setIdentityFileId(null);
+            dto.setIdentityFileName(null);
+            dto.setIdentityFileContentType(null);
+            dto.setIdentityFileSizeBytes(null);
+            dto.setIdentityFileUploadedAt(null);
+            dto.setHasIdentityFile(Boolean.FALSE);
+        }
+        return dto;
+    }
+
     private StudentProfileDto toDto(Student student,
                                     StudentProfile profile,
                                     List<StudentSchoolRecord> schools,
                                     List<StudentSchoolTranscript> transcripts,
+                                    List<StudentIdentityFile> identityFiles,
                                     List<StudentCourseRecord> courses) {
         StudentProfileDto dto = new StudentProfileDto();
 
@@ -498,7 +639,6 @@ public class StudentProfileService {
             dto.setOenNumber(profile.getOenNumber());
             dto.setIb(profile.getIb());
             dto.setAp(profile.isAp());
-            dto.setIdentityFileNote(profile.getIdentityFileNote());
 
             StudentProfileDto.AddressDto address = new StudentProfileDto.AddressDto();
             address.setStreetAddress(profile.getStreetAddress());
@@ -509,6 +649,13 @@ public class StudentProfileService {
             address.setPostal(profile.getPostal());
             dto.setAddress(address);
         }
+
+        List<StudentProfileDto.IdentityFileDto> identityFileDtos = new ArrayList<StudentProfileDto.IdentityFileDto>();
+        List<StudentIdentityFile> sortedIdentityFiles = sortIdentityFilesLatestFirst(identityFiles);
+        for (StudentIdentityFile identityFile : sortedIdentityFiles) {
+            identityFileDtos.add(toProfileIdentityFileDto(identityFile));
+        }
+        dto.setIdentityFiles(identityFileDtos);
 
         List<StudentProfileDto.SchoolDto> schoolDtos = new ArrayList<StudentProfileDto.SchoolDto>();
         Map<Long, List<StudentSchoolTranscript>> transcriptsBySchoolId = new HashMap<Long, List<StudentSchoolTranscript>>();
@@ -910,6 +1057,197 @@ public class StudentProfileService {
         }
     }
 
+    private List<StudentIdentityFile> syncIdentityFiles(StudentProfile profile,
+                                                        List<NormalizedIdentityFile> normalizedIdentityFiles,
+                                                        List<StudentIdentityFile> legacyIdentityFiles,
+                                                        Long operatorUserId,
+                                                        String traceId) {
+        if (normalizedIdentityFiles == null) {
+            List<StudentIdentityFile> retained = sortIdentityFilesLatestFirst(legacyIdentityFiles);
+            if (retained.isEmpty()) {
+                return Collections.emptyList();
+            }
+            for (StudentIdentityFile identityFile : retained) {
+                log.info(
+                        "Identity file retained by PUT sync. traceId={}, userId={}, profileId={}, identityFileId={}",
+                        safeTraceId(traceId),
+                        operatorUserId,
+                        profile.getId(),
+                        identityFile.getId()
+                );
+            }
+            return retained;
+        }
+
+        List<StudentIdentityFile> finalState = new ArrayList<StudentIdentityFile>();
+        Map<Long, StudentIdentityFile> legacyById = new HashMap<Long, StudentIdentityFile>();
+        for (StudentIdentityFile legacy : legacyIdentityFiles) {
+            legacyById.put(legacy.getId(), legacy);
+        }
+
+        Set<Long> keptIds = new HashSet<Long>();
+        for (NormalizedIdentityFile normalizedIdentityFile : normalizedIdentityFiles) {
+            if (normalizedIdentityFile.id != null) {
+                StudentIdentityFile existing = legacyById.get(normalizedIdentityFile.id);
+                if (existing != null) {
+                    keptIds.add(existing.getId());
+                    applyIdentityFileOverride(existing, normalizedIdentityFile, operatorUserId);
+                    finalState.add(existing);
+                    continue;
+                }
+            }
+
+            if (normalizedIdentityFile.storageKey == null) {
+                throw new ResponseStatusException(
+                        HttpStatus.UNPROCESSABLE_ENTITY,
+                        "Identity file entry cannot be inserted without storageKey."
+                );
+            }
+            finalState.add(createIdentityFileFromRequest(profile, normalizedIdentityFile, operatorUserId));
+        }
+
+        for (StudentIdentityFile legacy : legacyIdentityFiles) {
+            if (keptIds.contains(legacy.getId())) {
+                continue;
+            }
+            deleteIdentityFileStorageOrThrow(legacy, operatorUserId, traceId, "put_sync_removed");
+            studentIdentityFileRepository.delete(legacy);
+        }
+
+        if (finalState.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<StudentIdentityFile> persisted =
+                sortIdentityFilesLatestFirst(studentIdentityFileRepository.saveAll(finalState));
+        for (StudentIdentityFile identityFile : persisted) {
+            log.info(
+                    "Identity file upserted by PUT sync. traceId={}, userId={}, profileId={}, identityFileId={}",
+                    safeTraceId(traceId),
+                    operatorUserId,
+                    profile.getId(),
+                    identityFile.getId()
+            );
+        }
+        return persisted;
+    }
+
+    private StudentIdentityFile createIdentityFileFromRequest(StudentProfile profile,
+                                                              NormalizedIdentityFile normalizedIdentityFile,
+                                                              Long operatorUserId) {
+        String fileName = trimToNull(normalizedIdentityFile.fileName);
+        if (fileName == null) {
+            fileName = "identity.bin";
+        }
+        String contentType = trimToNull(normalizedIdentityFile.contentType);
+        if (contentType == null) {
+            contentType = "application/octet-stream";
+        }
+        Long size = normalizedIdentityFile.sizeBytes == null ? Long.valueOf(0L) : normalizedIdentityFile.sizeBytes;
+        LocalDateTime uploadedAt = normalizedIdentityFile.uploadedAt == null
+                ? LocalDateTime.now()
+                : normalizedIdentityFile.uploadedAt;
+        Long uploadedBy = normalizedIdentityFile.uploadedBy == null
+                ? operatorUserId
+                : normalizedIdentityFile.uploadedBy;
+        return new StudentIdentityFile(
+                profile,
+                normalizedIdentityFile.storageKey,
+                fileName,
+                contentType,
+                size,
+                uploadedAt,
+                uploadedBy
+        );
+    }
+
+    private void applyIdentityFileOverride(StudentIdentityFile existing,
+                                           NormalizedIdentityFile override,
+                                           Long operatorUserId) {
+        String fileName = firstNonBlank(override.fileName, existing.getOriginalFilename());
+        if (fileName == null) {
+            fileName = "identity.bin";
+        }
+        String contentType = firstNonBlank(override.contentType, existing.getMimeType());
+        if (contentType == null) {
+            contentType = "application/octet-stream";
+        }
+        Long size = override.sizeBytes == null ? existing.getSizeBytes() : override.sizeBytes;
+        if (size == null) {
+            size = Long.valueOf(0L);
+        }
+        LocalDateTime uploadedAt = override.uploadedAt == null ? existing.getUploadedAt() : override.uploadedAt;
+        if (uploadedAt == null) {
+            uploadedAt = LocalDateTime.now();
+        }
+        Long uploadedBy = override.uploadedBy == null ? existing.getUploadedBy() : override.uploadedBy;
+        if (uploadedBy == null) {
+            uploadedBy = operatorUserId;
+        }
+        existing.setOriginalFilename(fileName);
+        existing.setMimeType(contentType);
+        existing.setSizeBytes(size);
+        existing.setUploadedAt(uploadedAt);
+        existing.setUploadedBy(uploadedBy);
+    }
+
+    private List<StudentIdentityFile> sortIdentityFilesLatestFirst(List<StudentIdentityFile> identityFiles) {
+        if (identityFiles == null || identityFiles.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<StudentIdentityFile> sorted = new ArrayList<StudentIdentityFile>(identityFiles);
+        Collections.sort(sorted, (left, right) -> {
+            LocalDateTime leftAt = left.getUploadedAt();
+            LocalDateTime rightAt = right.getUploadedAt();
+            if (leftAt == null && rightAt == null) {
+                Long leftId = left.getId() == null ? Long.valueOf(0L) : left.getId();
+                Long rightId = right.getId() == null ? Long.valueOf(0L) : right.getId();
+                return rightId.compareTo(leftId);
+            }
+            if (leftAt == null) {
+                return 1;
+            }
+            if (rightAt == null) {
+                return -1;
+            }
+            int byTime = rightAt.compareTo(leftAt);
+            if (byTime != 0) {
+                return byTime;
+            }
+            Long leftId = left.getId() == null ? Long.valueOf(0L) : left.getId();
+            Long rightId = right.getId() == null ? Long.valueOf(0L) : right.getId();
+            return rightId.compareTo(leftId);
+        });
+        return sorted;
+    }
+
+    private void deleteIdentityFileStorageOrThrow(StudentIdentityFile identityFile,
+                                                  Long operatorUserId,
+                                                  String traceId,
+                                                  String reason) {
+        try {
+            identityFileStorageService.deleteRequired(identityFile.getStorageKey());
+            log.info(
+                    "Identity file storage deleted. traceId={}, userId={}, profileId={}, identityFileId={}, reason={}",
+                    safeTraceId(traceId),
+                    operatorUserId,
+                    identityFile.getStudentProfile().getId(),
+                    identityFile.getId(),
+                    reason
+            );
+        } catch (RuntimeException ex) {
+            log.error(
+                    "Identity file storage delete failed. traceId={}, userId={}, profileId={}, identityFileId={}, reason={}",
+                    safeTraceId(traceId),
+                    operatorUserId,
+                    identityFile.getStudentProfile().getId(),
+                    identityFile.getId(),
+                    reason,
+                    ex
+            );
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Failed to delete identity file.");
+        }
+    }
+
     private StudentProfileDto.TranscriptDto toProfileTranscriptDto(StudentSchoolTranscript transcript) {
         StudentProfileDto.TranscriptDto dto = new StudentProfileDto.TranscriptDto();
         dto.setId(transcript.getId());
@@ -919,6 +1257,30 @@ public class StudentProfileService {
         dto.setTranscriptSizeBytes(transcript.getSizeBytes());
         dto.setTranscriptUploadedAt(formatDateTime(transcript.getUploadedAt()));
         dto.setUploadedBy(transcript.getUploadedBy());
+        return dto;
+    }
+
+    private StudentProfileDto.IdentityFileDto toProfileIdentityFileDto(StudentIdentityFile identityFile) {
+        StudentProfileDto.IdentityFileDto dto = new StudentProfileDto.IdentityFileDto();
+        dto.setId(identityFile.getId());
+        dto.setStorageKey(identityFile.getStorageKey());
+        dto.setIdentityFileName(identityFile.getOriginalFilename());
+        dto.setIdentityFileContentType(identityFile.getMimeType());
+        dto.setIdentityFileSizeBytes(identityFile.getSizeBytes());
+        dto.setIdentityFileUploadedAt(formatDateTime(identityFile.getUploadedAt()));
+        dto.setUploadedBy(identityFile.getUploadedBy());
+        return dto;
+    }
+
+    private StudentIdentityFileUploadDto.IdentityFileItemDto toIdentityUploadItemDto(StudentIdentityFile identityFile) {
+        StudentIdentityFileUploadDto.IdentityFileItemDto dto = new StudentIdentityFileUploadDto.IdentityFileItemDto();
+        dto.setId(identityFile.getId());
+        dto.setStorageKey(identityFile.getStorageKey());
+        dto.setIdentityFileName(identityFile.getOriginalFilename());
+        dto.setIdentityFileContentType(identityFile.getMimeType());
+        dto.setIdentityFileSizeBytes(identityFile.getSizeBytes());
+        dto.setIdentityFileUploadedAt(formatDateTime(identityFile.getUploadedAt()));
+        dto.setUploadedBy(identityFile.getUploadedBy());
         return dto;
     }
 
@@ -960,6 +1322,19 @@ public class StudentProfileService {
         return new SchoolTranscriptDownload(fileName, contentType, data);
     }
 
+    private IdentityFileDownload toIdentityDownload(StudentIdentityFile identityFile) {
+        byte[] data = identityFileStorageService.readAllBytes(identityFile.getStorageKey());
+        String fileName = trimToNull(identityFile.getOriginalFilename());
+        if (fileName == null) {
+            fileName = "identity.bin";
+        }
+        String contentType = trimToNull(identityFile.getMimeType());
+        if (contentType == null) {
+            contentType = "application/octet-stream";
+        }
+        return new IdentityFileDownload(fileName, contentType, data);
+    }
+
     private String resolveTraceId(HttpServletRequest request) {
         String traceId = request == null ? null : request.getHeader("X-Trace-Id");
         return safeTraceId(traceId);
@@ -978,6 +1353,15 @@ public class StudentProfileService {
 
     private String formatDateTime(LocalDateTime value) {
         return value == null ? null : value.toString();
+    }
+
+    private void assertUploadSizeWithinLimit(MultipartFile file) {
+        if (file == null) {
+            return;
+        }
+        if (file.getSize() > MAX_UPLOAD_SIZE_BYTES) {
+            throw new MaxUploadSizeExceededException(MAX_UPLOAD_SIZE_BYTES);
+        }
     }
 
     private NormalizedProfile normalizeAndValidate(StudentProfileDto requestBody) {
@@ -1010,7 +1394,6 @@ public class StudentProfileService {
         LocalDate firstBoardingDate = parseDateOrNull(requestBody.getFirstBoardingDate(), "firstBoardingDate");
         String oenNumber = trimToNull(requestBody.getOenNumber());
         String ib = trimToNull(requestBody.getIb());
-        String identityFileNote = trimToNull(requestBody.getIdentityFileNote());
 
         Boolean apRaw = requestBody.getAp();
         if (apRaw == null) {
@@ -1106,6 +1489,43 @@ public class StudentProfileService {
             ));
         }
 
+        List<NormalizedIdentityFile> identityFiles = null;
+        if (requestBody.getIdentityFiles() != null) {
+            identityFiles = new ArrayList<NormalizedIdentityFile>();
+            for (int i = 0; i < requestBody.getIdentityFiles().size(); i++) {
+                StudentProfileDto.IdentityFileDto identityFileDto = requestBody.getIdentityFiles().get(i);
+                String pathPrefix = "identityFiles[" + i + "]";
+                if (identityFileDto == null) {
+                    throw new IllegalArgumentException(pathPrefix + " is required");
+                }
+
+                Long identityFileId = identityFileDto.getId();
+                if (identityFileId != null && identityFileId.longValue() <= 0L) {
+                    throw new IllegalArgumentException(pathPrefix + ".id must be positive");
+                }
+
+                Long sizeBytes = identityFileDto.getIdentityFileSizeBytes();
+                if (sizeBytes != null && sizeBytes.longValue() < 0L) {
+                    throw new IllegalArgumentException(pathPrefix + ".identityFileSizeBytes must be >= 0");
+                }
+
+                Long uploadedBy = identityFileDto.getUploadedBy();
+                if (uploadedBy != null && uploadedBy.longValue() <= 0L) {
+                    throw new IllegalArgumentException(pathPrefix + ".uploadedBy must be positive");
+                }
+
+                identityFiles.add(new NormalizedIdentityFile(
+                        identityFileId,
+                        trimToNull(identityFileDto.getStorageKey()),
+                        trimToNull(identityFileDto.getIdentityFileName()),
+                        trimToNull(identityFileDto.getIdentityFileContentType()),
+                        sizeBytes,
+                        parseDateTimeOrNull(identityFileDto.getIdentityFileUploadedAt(), pathPrefix + ".identityFileUploadedAt"),
+                        uploadedBy
+                ));
+            }
+        }
+
         List<NormalizedCourse> courses = new ArrayList<NormalizedCourse>();
         List<StudentProfileDto.CourseDto> incomingCourses = chooseIncomingCourses(requestBody);
         for (int i = 0; i < incomingCourses.size(); i++) {
@@ -1169,9 +1589,9 @@ public class StudentProfileService {
                 oenNumber,
                 ib,
                 apRaw.booleanValue(),
-                identityFileNote,
                 address,
                 schools,
+                identityFiles,
                 courses
         );
     }
@@ -1376,6 +1796,30 @@ public class StudentProfileService {
         }
     }
 
+    public static class IdentityFileDownload {
+        private final String fileName;
+        private final String contentType;
+        private final byte[] content;
+
+        public IdentityFileDownload(String fileName, String contentType, byte[] content) {
+            this.fileName = fileName;
+            this.contentType = contentType;
+            this.content = content;
+        }
+
+        public String getFileName() {
+            return fileName;
+        }
+
+        public String getContentType() {
+            return contentType;
+        }
+
+        public byte[] getContent() {
+            return content;
+        }
+    }
+
     private static class NormalizedProfile {
         private final String legalFirstName;
         private final String legalLastName;
@@ -1392,9 +1836,9 @@ public class StudentProfileService {
         private final String oenNumber;
         private final String ib;
         private final boolean ap;
-        private final String identityFileNote;
         private final NormalizedAddress address;
         private final List<NormalizedSchool> schools;
+        private final List<NormalizedIdentityFile> identityFiles;
         private final List<NormalizedCourse> otherCourses;
 
         private NormalizedProfile(String legalFirstName,
@@ -1412,9 +1856,9 @@ public class StudentProfileService {
                                   String oenNumber,
                                   String ib,
                                   boolean ap,
-                                  String identityFileNote,
                                   NormalizedAddress address,
                                   List<NormalizedSchool> schools,
+                                  List<NormalizedIdentityFile> identityFiles,
                                   List<NormalizedCourse> otherCourses) {
             this.legalFirstName = legalFirstName;
             this.legalLastName = legalLastName;
@@ -1431,9 +1875,9 @@ public class StudentProfileService {
             this.oenNumber = oenNumber;
             this.ib = ib;
             this.ap = ap;
-            this.identityFileNote = identityFileNote;
             this.address = address;
             this.schools = schools;
+            this.identityFiles = identityFiles;
             this.otherCourses = otherCourses;
         }
     }
@@ -1512,6 +1956,32 @@ public class StudentProfileService {
                                      Long sizeBytes,
                                      LocalDateTime uploadedAt,
                                      Long uploadedBy) {
+            this.id = id;
+            this.storageKey = storageKey;
+            this.fileName = fileName;
+            this.contentType = contentType;
+            this.sizeBytes = sizeBytes;
+            this.uploadedAt = uploadedAt;
+            this.uploadedBy = uploadedBy;
+        }
+    }
+
+    private static class NormalizedIdentityFile {
+        private final Long id;
+        private final String storageKey;
+        private final String fileName;
+        private final String contentType;
+        private final Long sizeBytes;
+        private final LocalDateTime uploadedAt;
+        private final Long uploadedBy;
+
+        private NormalizedIdentityFile(Long id,
+                                       String storageKey,
+                                       String fileName,
+                                       String contentType,
+                                       Long sizeBytes,
+                                       LocalDateTime uploadedAt,
+                                       Long uploadedBy) {
             this.id = id;
             this.storageKey = storageKey;
             this.fileName = fileName;

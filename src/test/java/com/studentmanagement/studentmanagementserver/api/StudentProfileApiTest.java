@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
 import com.studentmanagement.studentmanagementserver.domain.student.Student;
 import com.studentmanagement.studentmanagementserver.domain.student.StudentCourseRecord;
+import com.studentmanagement.studentmanagementserver.domain.student.StudentIdentityFileStorageService;
 import com.studentmanagement.studentmanagementserver.domain.student.StudentSchoolTranscriptStorageService;
 import com.studentmanagement.studentmanagementserver.domain.user.User;
 import com.studentmanagement.studentmanagementserver.repo.StudentCourseRecordRepository;
@@ -77,6 +78,9 @@ class StudentProfileApiTest {
     @SpyBean
     private StudentSchoolTranscriptStorageService transcriptStorageService;
 
+    @SpyBean
+    private StudentIdentityFileStorageService identityFileStorageService;
+
     @Test
     void getProfile_withStudentToken_returns200AndDefaultStructure() throws Exception {
         Student student = createStudentAccount("profile_get_student", "Amy", "Chen", "Amy");
@@ -94,6 +98,8 @@ class StudentProfileApiTest {
                 .andExpect(jsonPath("$.address").isMap())
                 .andExpect(jsonPath("$.schools").isArray())
                 .andExpect(jsonPath("$.schools").isEmpty())
+                .andExpect(jsonPath("$.identityFiles").isArray())
+                .andExpect(jsonPath("$.identityFiles").isEmpty())
                 .andExpect(jsonPath("$.otherCourses").isArray())
                 .andExpect(jsonPath("$.otherCourses").isEmpty())
                 .andExpect(jsonPath("$.schoolRecords").isArray())
@@ -383,6 +389,144 @@ class StudentProfileApiTest {
                 .andExpect(jsonPath("$.otherCourses[0].address.state").value("Ontario"))
                 .andExpect(jsonPath("$.otherCourses[0].address.country").value("Canada"))
                 .andExpect(jsonPath("$.otherCourses[0].address.postal").value("M3J 2V5"));
+    }
+
+    @Test
+    void identityFiles_uploadThreeSizes_thenPutDeleteOne_keepsFinalState() throws Exception {
+        Student student = createStudentAccount("profile_identity_file_student", "Amy", "Chen", "Amy");
+        String bearer = bearerFor(student.getUser());
+
+        Map<String, Object> payload = buildProfilePayload(
+                "Amy",
+                "Chen",
+                "Amy",
+                false,
+                Arrays.asList(buildSchool("MAIN", "Unionville High School", "2023-09-01", null)),
+                new ArrayList<Map<String, Object>>()
+        );
+
+        mockMvc.perform(put("/api/student/profile")
+                        .header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(payload)))
+                .andExpect(status().isOk());
+
+        MockMultipartFile file1Mb = new MockMultipartFile(
+                "file",
+                "id-1mb.pdf",
+                "application/pdf",
+                new byte[1 * 1024 * 1024]
+        );
+        mockMvc.perform(multipart("/api/student/profile/identity-files")
+                        .file(file1Mb)
+                        .header("Authorization", bearer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.hasIdentityFile").value(true))
+                .andExpect(jsonPath("$.identityFiles.length()").value(1));
+
+        MockMultipartFile file20Mb = new MockMultipartFile(
+                "identity",
+                "id-20mb.pdf",
+                "application/pdf",
+                new byte[20 * 1024 * 1024]
+        );
+        mockMvc.perform(multipart("/api/student/profile/identity-files")
+                        .file(file20Mb)
+                        .header("Authorization", bearer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.hasIdentityFile").value(true))
+                .andExpect(jsonPath("$.identityFiles.length()").value(2));
+
+        MockMultipartFile file45Mb = new MockMultipartFile(
+                "file",
+                "id-45mb.pdf",
+                "application/pdf",
+                new byte[45 * 1024 * 1024]
+        );
+        mockMvc.perform(multipart("/api/student/profile/identity-files")
+                        .file(file45Mb)
+                        .header("Authorization", bearer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.hasIdentityFile").value(true))
+                .andExpect(jsonPath("$.identityFiles.length()").value(3));
+
+        MvcResult profileResult = mockMvc.perform(get("/api/student/profile")
+                        .header("Authorization", bearer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.identityFiles.length()").value(3))
+                .andReturn();
+        JsonNode profile = objectMapper.readTree(profileResult.getResponse().getContentAsString());
+        JsonNode identityFiles = profile.path("identityFiles");
+        long removedId = identityFiles.path(1).path("id").asLong();
+
+        List<Map<String, Object>> finalIdentityFiles = new ArrayList<Map<String, Object>>();
+        for (int i = 0; i < identityFiles.size(); i++) {
+            JsonNode node = identityFiles.path(i);
+            if (node.path("id").asLong() == removedId) {
+                continue;
+            }
+            Map<String, Object> item = new LinkedHashMap<String, Object>();
+            item.put("id", node.path("id").asLong());
+            item.put("storageKey", node.path("storageKey").isNull() ? null : node.path("storageKey").asText());
+            item.put("identityFileName", node.path("identityFileName").isNull() ? null : node.path("identityFileName").asText());
+            item.put(
+                    "identityFileContentType",
+                    node.path("identityFileContentType").isNull() ? null : node.path("identityFileContentType").asText()
+            );
+            item.put("identityFileSizeBytes", node.path("identityFileSizeBytes").isNull() ? null : node.path("identityFileSizeBytes").asLong());
+            item.put("identityFileUploadedAt", node.path("identityFileUploadedAt").isNull() ? null : node.path("identityFileUploadedAt").asText());
+            finalIdentityFiles.add(item);
+        }
+
+        Map<String, Object> putPayload = buildProfilePayload(
+                "Amy",
+                "Chen",
+                "Amy",
+                false,
+                Arrays.asList(buildSchool("MAIN", "Unionville High School", "2023-09-01", null)),
+                new ArrayList<Map<String, Object>>()
+        );
+        putPayload.put("identityFiles", finalIdentityFiles);
+
+        reset(identityFileStorageService);
+
+        mockMvc.perform(put("/api/student/profile")
+                        .header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(putPayload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.identityFiles.length()").value(2));
+
+        MvcResult afterDeleteResult = mockMvc.perform(get("/api/student/profile")
+                        .header("Authorization", bearer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.identityFiles.length()").value(2))
+                .andReturn();
+        JsonNode afterDelete = objectMapper.readTree(afterDeleteResult.getResponse().getContentAsString());
+        for (JsonNode identityFile : afterDelete.path("identityFiles")) {
+            assertTrue(identityFile.path("id").asLong() != removedId);
+        }
+
+        verify(identityFileStorageService, atLeastOnce()).deleteRequired(anyString());
+    }
+
+    @Test
+    void identityFiles_upload60Mb_returns413() throws Exception {
+        Student student = createStudentAccount("profile_identity_file_413_student", "Amy", "Chen", "Amy");
+
+        MockMultipartFile tooLarge = new MockMultipartFile(
+                "file",
+                "id-60mb.pdf",
+                "application/pdf",
+                new byte[60 * 1024 * 1024]
+        );
+
+        mockMvc.perform(multipart("/api/student/profile/identity-files")
+                        .file(tooLarge)
+                        .header("Authorization", bearerFor(student.getUser())))
+                .andExpect(status().isPayloadTooLarge())
+                .andExpect(jsonPath("$.code").value("FILE_TOO_LARGE"))
+                .andExpect(jsonPath("$.message").value("Max upload size is 50MB"));
     }
 
     @Test
@@ -740,7 +884,6 @@ class StudentProfileApiTest {
         payload.put("oenNumber", "123456789");
         payload.put("ib", "IB DP");
         payload.put("ap", ap);
-        payload.put("identityFileNote", "Passport on file");
         payload.put("address", buildAddress());
         payload.put("schools", schools);
         payload.put("otherCourses", courses);

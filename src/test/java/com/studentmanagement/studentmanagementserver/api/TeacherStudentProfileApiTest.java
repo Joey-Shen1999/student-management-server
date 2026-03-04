@@ -197,6 +197,50 @@ class TeacherStudentProfileApiTest {
     }
 
     @Test
+    void teacherProfile_teacherAssignedActive_canUploadAndDownloadIdentityFile() throws Exception {
+        Teacher teacher = createTeacherAccount("phase2_teacher_identity", "Teacher Identity");
+        Student student = createStudentAccount("phase2_student_identity", "Amy", "Chen", "Amy");
+        assignTeacherStudent(teacher, student, TeacherStudentStatus.ACTIVE);
+        String bearer = bearerFor(teacher.getUser());
+
+        mockMvc.perform(put("/api/teacher/students/{studentId}/profile", student.getId())
+                        .header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(buildProfilePayload())))
+                .andExpect(status().isOk());
+
+        byte[] identityBytes = "teacher upload identity".getBytes(StandardCharsets.UTF_8);
+        MockMultipartFile identityFile = new MockMultipartFile(
+                "identity",
+                "teacher-uploaded-identity.pdf",
+                "application/pdf",
+                identityBytes
+        );
+
+        MvcResult uploadResult = mockMvc.perform(multipart("/api/teacher/students/{studentId}/profile/identity-files",
+                                student.getId())
+                        .file(identityFile)
+                        .header("Authorization", bearer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.hasIdentityFile").value(true))
+                .andExpect(jsonPath("$.identityFiles.length()").value(1))
+                .andReturn();
+        long identityFileId = objectMapper.readTree(uploadResult.getResponse().getContentAsString())
+                .path("identityFiles")
+                .path(0)
+                .path("id")
+                .asLong();
+
+        mockMvc.perform(get("/api/teacher/students/{studentId}/profile/identity-files/{identityFileId}",
+                                student.getId(),
+                                identityFileId)
+                        .header("Authorization", bearer))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "application/pdf"))
+                .andExpect(content().bytes(identityBytes));
+    }
+
+    @Test
     void teacherProfile_teacherUnassigned_forbidden403() throws Exception {
         Teacher teacher = createTeacherAccount("phase2_teacher_unassigned", "Teacher Unassigned");
         Student student = createStudentAccount("phase2_student_unassigned", "Amy", "Chen", "Amy");
@@ -224,6 +268,18 @@ class TeacherStudentProfileApiTest {
                                 student.getId(),
                                 1L)
                         .file(transcript)
+                        .header("Authorization", bearerFor(teacher.getUser())))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+
+        MockMultipartFile identity = new MockMultipartFile(
+                "file",
+                "teacher-unassigned-identity.pdf",
+                "application/pdf",
+                "teacher-unassigned-identity".getBytes(StandardCharsets.UTF_8)
+        );
+        mockMvc.perform(multipart("/api/teacher/students/{studentId}/profile/identity-files", student.getId())
+                        .file(identity)
                         .header("Authorization", bearerFor(teacher.getUser())))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("FORBIDDEN"));
@@ -383,7 +439,6 @@ class TeacherStudentProfileApiTest {
         payload.put("oenNumber", "123456789");
         payload.put("ib", "IB DP");
         payload.put("ap", Boolean.TRUE);
-        payload.put("identityFileNote", "Passport on file");
         payload.put("address", buildAddress());
         payload.put("schools", Arrays.asList(
                 buildSchool("MAIN", "A High School", "2023-09-01", null),

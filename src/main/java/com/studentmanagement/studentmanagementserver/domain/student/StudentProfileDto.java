@@ -27,7 +27,7 @@ public class StudentProfileDto {
     private String oenNumber;
     private String ib;
     private Boolean ap = Boolean.FALSE;
-    private String identityFileNote;
+    private List<IdentityFileDto> identityFiles;
 
     // Preferred field for school history.
     private List<SchoolDto> schools;
@@ -194,12 +194,12 @@ public class StudentProfileDto {
         this.ap = ap;
     }
 
-    public String getIdentityFileNote() {
-        return identityFileNote;
+    public List<IdentityFileDto> getIdentityFiles() {
+        return identityFiles;
     }
 
-    public void setIdentityFileNote(String identityFileNote) {
-        this.identityFileNote = identityFileNote;
+    public void setIdentityFiles(List<IdentityFileDto> identityFiles) {
+        this.identityFiles = identityFiles;
     }
 
     public List<SchoolDto> getSchools() {
@@ -248,6 +248,10 @@ public class StudentProfileDto {
 
     public List<CourseDto> getExternalCoursesOrEmpty() {
         return externalCourses == null ? new ArrayList<CourseDto>() : externalCourses;
+    }
+
+    public List<IdentityFileDto> getIdentityFilesOrEmpty() {
+        return identityFiles == null ? new ArrayList<IdentityFileDto>() : identityFiles;
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -519,6 +523,73 @@ public class StudentProfileDto {
 
         public void setTranscriptUploadedAt(String transcriptUploadedAt) {
             this.transcriptUploadedAt = transcriptUploadedAt;
+        }
+
+        public Long getUploadedBy() {
+            return uploadedBy;
+        }
+
+        public void setUploadedBy(Long uploadedBy) {
+            this.uploadedBy = uploadedBy;
+        }
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class IdentityFileDto {
+        private Long id;
+        private String storageKey;
+        private String identityFileName;
+        private String identityFileContentType;
+        private Long identityFileSizeBytes;
+        private String identityFileUploadedAt;
+        private Long uploadedBy;
+
+        public Long getId() {
+            return id;
+        }
+
+        public void setId(Long id) {
+            this.id = id;
+        }
+
+        public String getStorageKey() {
+            return storageKey;
+        }
+
+        public void setStorageKey(String storageKey) {
+            this.storageKey = storageKey;
+        }
+
+        public String getIdentityFileName() {
+            return identityFileName;
+        }
+
+        public void setIdentityFileName(String identityFileName) {
+            this.identityFileName = identityFileName;
+        }
+
+        public String getIdentityFileContentType() {
+            return identityFileContentType;
+        }
+
+        public void setIdentityFileContentType(String identityFileContentType) {
+            this.identityFileContentType = identityFileContentType;
+        }
+
+        public Long getIdentityFileSizeBytes() {
+            return identityFileSizeBytes;
+        }
+
+        public void setIdentityFileSizeBytes(Long identityFileSizeBytes) {
+            this.identityFileSizeBytes = identityFileSizeBytes;
+        }
+
+        public String getIdentityFileUploadedAt() {
+            return identityFileUploadedAt;
+        }
+
+        public void setIdentityFileUploadedAt(String identityFileUploadedAt) {
+            this.identityFileUploadedAt = identityFileUploadedAt;
         }
 
         public Long getUploadedBy() {

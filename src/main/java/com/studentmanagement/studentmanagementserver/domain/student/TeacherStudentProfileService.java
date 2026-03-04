@@ -88,6 +88,27 @@ public class TeacherStudentProfileService {
         );
     }
 
+    public StudentIdentityFileUploadDto uploadIdentityFile(Long studentId,
+                                                           MultipartFile file,
+                                                           HttpServletRequest request) {
+        User operator = managementAccessService.requireStudentAccountManagementAccess(request);
+        ensureCanAccessStudent(operator, studentId);
+        return studentProfileService.uploadStudentIdentityFileByStudentId(
+                studentId,
+                file,
+                operator.getId(),
+                resolveTraceId(request)
+        );
+    }
+
+    public StudentProfileService.IdentityFileDownload downloadIdentityFileByIdentityFileId(Long studentId,
+                                                                                            Long identityFileId,
+                                                                                            HttpServletRequest request) {
+        User operator = managementAccessService.requireStudentAccountManagementAccess(request);
+        ensureCanAccessStudent(operator, studentId);
+        return studentProfileService.downloadStudentIdentityFileByStudentIdAndIdentityFileId(studentId, identityFileId);
+    }
+
     private String resolveTraceId(HttpServletRequest request) {
         String traceId = request == null ? null : request.getHeader("X-Trace-Id");
         if (traceId == null || traceId.trim().isEmpty()) {

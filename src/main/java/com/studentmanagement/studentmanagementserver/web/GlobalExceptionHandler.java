@@ -127,17 +127,14 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<ApiError> handleMaxUploadSize(MaxUploadSizeExceededException e) {
-        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
-                .body(new ApiError(
-                        HttpStatus.PAYLOAD_TOO_LARGE.value(),
-                        "Upload file is too large.",
-                        "PAYLOAD_TOO_LARGE",
-                        Collections.<String>emptyList()
-                ));
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(fileTooLargeError());
     }
 
     @ExceptionHandler(MultipartException.class)
     public ResponseEntity<ApiError> handleMultipartError(MultipartException e) {
+        if (isFileTooLargeError(e)) {
+            return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(fileTooLargeError());
+        }
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(new ApiError(
                         HttpStatus.BAD_REQUEST.value(),
@@ -191,6 +188,28 @@ public class GlobalExceptionHandler {
             depth++;
         }
         return null;
+    }
+
+    private ApiError fileTooLargeError() {
+        return new ApiError(
+                HttpStatus.PAYLOAD_TOO_LARGE.value(),
+                "Max upload size is 50MB",
+                "FILE_TOO_LARGE",
+                Collections.<String>emptyList()
+        );
+    }
+
+    private boolean isFileTooLargeError(Throwable throwable) {
+        Throwable current = throwable;
+        int depth = 0;
+        while (current != null && depth < 8) {
+            if (current instanceof MaxUploadSizeExceededException) {
+                return true;
+            }
+            current = current.getCause();
+            depth++;
+        }
+        return false;
     }
 
     public static class ApiError {
