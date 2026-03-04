@@ -162,18 +162,34 @@ class TeacherStudentProfileApiTest {
                 transcriptBytes
         );
 
-        mockMvc.perform(multipart("/api/teacher/students/{studentId}/profile/schools/{schoolRecordId}/transcript",
+        MvcResult uploadResult = mockMvc.perform(multipart("/api/teacher/students/{studentId}/profile/schools/{schoolRecordId}/transcript",
                                 student.getId(),
                                 schoolRecordId)
                         .file(transcript)
                         .header("Authorization", bearer))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.schoolRecordId").value(schoolRecordId))
-                .andExpect(jsonPath("$.hasTranscript").value(true));
+                .andExpect(jsonPath("$.hasTranscript").value(true))
+                .andExpect(jsonPath("$.transcripts.length()").value(1))
+                .andReturn();
+        long transcriptId = objectMapper.readTree(uploadResult.getResponse().getContentAsString())
+                .path("transcripts")
+                .path(0)
+                .path("id")
+                .asLong();
 
         mockMvc.perform(get("/api/teacher/students/{studentId}/profile/schools/{schoolRecordId}/transcript",
                                 student.getId(),
                                 schoolRecordId)
+                        .header("Authorization", bearer))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "application/pdf"))
+                .andExpect(content().bytes(transcriptBytes));
+
+        mockMvc.perform(get("/api/teacher/students/{studentId}/profile/schools/{schoolRecordId}/transcripts/{transcriptId}",
+                                student.getId(),
+                                schoolRecordId,
+                                transcriptId)
                         .header("Authorization", bearer))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Content-Type", "application/pdf"))
@@ -195,6 +211,20 @@ class TeacherStudentProfileApiTest {
                         .header("Authorization", bearerFor(teacher.getUser()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(toJson(buildProfilePayload())))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+
+        MockMultipartFile transcript = new MockMultipartFile(
+                "file",
+                "teacher-unassigned.pdf",
+                "application/pdf",
+                "teacher-unassigned".getBytes(StandardCharsets.UTF_8)
+        );
+        mockMvc.perform(multipart("/api/teacher/students/{studentId}/profile/schools/{schoolRecordId}/transcript",
+                                student.getId(),
+                                1L)
+                        .file(transcript)
+                        .header("Authorization", bearerFor(teacher.getUser())))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("FORBIDDEN"));
     }

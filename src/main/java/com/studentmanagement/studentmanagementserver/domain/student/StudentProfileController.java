@@ -50,7 +50,23 @@ public class StudentProfileController {
                                                            HttpServletRequest request) {
         StudentProfileService.SchoolTranscriptDownload download =
                 studentProfileService.downloadCurrentStudentSchoolTranscript(schoolRecordId, request);
+        return buildTranscriptDownloadResponse(download);
+    }
 
+    @GetMapping("/schools/{schoolRecordId}/transcripts/{transcriptId}")
+    public ResponseEntity<byte[]> downloadSchoolTranscriptById(@PathVariable Long schoolRecordId,
+                                                               @PathVariable Long transcriptId,
+                                                               HttpServletRequest request) {
+        StudentProfileService.SchoolTranscriptDownload download =
+                studentProfileService.downloadCurrentStudentSchoolTranscriptByTranscriptId(
+                        schoolRecordId,
+                        transcriptId,
+                        request
+                );
+        return buildTranscriptDownloadResponse(download);
+    }
+
+    private ResponseEntity<byte[]> buildTranscriptDownloadResponse(StudentProfileService.SchoolTranscriptDownload download) {
         ContentDisposition contentDisposition = ContentDisposition.attachment()
                 .filename(download.getFileName(), StandardCharsets.UTF_8)
                 .build();

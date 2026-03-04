@@ -8,6 +8,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -81,6 +82,17 @@ public class StudentSchoolTranscriptStorageService {
             Files.deleteIfExists(path);
         } catch (IOException ignored) {
             // Best effort cleanup.
+        }
+    }
+
+    public void deleteRequired(String storageKey) {
+        Path path = resolveStoragePath(storageKey);
+        try {
+            Files.delete(path);
+        } catch (NoSuchFileException ex) {
+            // Treat missing file as already deleted.
+        } catch (IOException ex) {
+            throw new IllegalStateException("Failed to delete transcript file");
         }
     }
 

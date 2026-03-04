@@ -44,7 +44,12 @@ public class TeacherStudentProfileService {
                                          HttpServletRequest request) {
         User operator = managementAccessService.requireStudentAccountManagementAccess(request);
         ensureCanAccessStudent(operator, studentId);
-        return studentProfileService.saveProfileByStudentId(studentId, requestBody, operator.getId());
+        return studentProfileService.saveProfileByStudentId(
+                studentId,
+                requestBody,
+                operator.getId(),
+                resolveTraceId(request)
+        );
     }
 
     public StudentSchoolTranscriptDto uploadSchoolTranscript(Long studentId,
@@ -53,7 +58,13 @@ public class TeacherStudentProfileService {
                                                              HttpServletRequest request) {
         User operator = managementAccessService.requireStudentAccountManagementAccess(request);
         ensureCanAccessStudent(operator, studentId);
-        return studentProfileService.uploadStudentSchoolTranscriptByStudentId(studentId, schoolRecordId, file);
+        return studentProfileService.uploadStudentSchoolTranscriptByStudentId(
+                studentId,
+                schoolRecordId,
+                file,
+                operator.getId(),
+                resolveTraceId(request)
+        );
     }
 
     public StudentProfileService.SchoolTranscriptDownload downloadSchoolTranscript(Long studentId,
@@ -62,6 +73,27 @@ public class TeacherStudentProfileService {
         User operator = managementAccessService.requireStudentAccountManagementAccess(request);
         ensureCanAccessStudent(operator, studentId);
         return studentProfileService.downloadStudentSchoolTranscriptByStudentId(studentId, schoolRecordId);
+    }
+
+    public StudentProfileService.SchoolTranscriptDownload downloadSchoolTranscriptByTranscriptId(Long studentId,
+                                                                                                  Long schoolRecordId,
+                                                                                                  Long transcriptId,
+                                                                                                  HttpServletRequest request) {
+        User operator = managementAccessService.requireStudentAccountManagementAccess(request);
+        ensureCanAccessStudent(operator, studentId);
+        return studentProfileService.downloadStudentSchoolTranscriptByStudentIdAndTranscriptId(
+                studentId,
+                schoolRecordId,
+                transcriptId
+        );
+    }
+
+    private String resolveTraceId(HttpServletRequest request) {
+        String traceId = request == null ? null : request.getHeader("X-Trace-Id");
+        if (traceId == null || traceId.trim().isEmpty()) {
+            return "N/A";
+        }
+        return traceId.trim();
     }
 
     private void ensureCanAccessStudent(User operator, Long studentId) {

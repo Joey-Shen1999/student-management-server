@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
 import com.studentmanagement.studentmanagementserver.domain.student.Student;
 import com.studentmanagement.studentmanagementserver.domain.student.StudentCourseRecord;
+import com.studentmanagement.studentmanagementserver.domain.student.StudentSchoolTranscriptStorageService;
 import com.studentmanagement.studentmanagementserver.domain.user.User;
 import com.studentmanagement.studentmanagementserver.repo.StudentCourseRecordRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentProfileRepository;
@@ -14,6 +15,7 @@ import com.studentmanagement.studentmanagementserver.service.AuthSessionService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.mock.mockito.SpyBean;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -31,6 +33,10 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -67,6 +73,9 @@ class StudentProfileApiTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @SpyBean
+    private StudentSchoolTranscriptStorageService transcriptStorageService;
 
     @Test
     void getProfile_withStudentToken_returns200AndDefaultStructure() throws Exception {
@@ -377,7 +386,7 @@ class StudentProfileApiTest {
     }
 
     @Test
-    void schoolTranscript_uploadAndDownload_roundTripSuccess() throws Exception {
+    void schoolTranscript_uploadTwice_getReturnsTwo_andDownloadByIdWorks() throws Exception {
         Student student = createStudentAccount("profile_transcript_student", "Amy", "Chen", "Amy");
         String bearer = bearerFor(student.getUser());
 
@@ -403,34 +412,222 @@ class StudentProfileApiTest {
         JsonNode saveJson = objectMapper.readTree(saveResult.getResponse().getContentAsString());
         long schoolRecordId = saveJson.path("schools").path(0).path("schoolRecordId").asLong();
 
-        byte[] transcriptBytes = "mock transcript payload".getBytes(StandardCharsets.UTF_8);
-        MockMultipartFile transcript = new MockMultipartFile(
+        byte[] transcriptBytes1 = "mock transcript payload 1".getBytes(StandardCharsets.UTF_8);
+        MockMultipartFile transcript1 = new MockMultipartFile(
                 "file",
-                "unionville-transcript.pdf",
+                "unionville-transcript-1.pdf",
                 "application/pdf",
-                transcriptBytes
+                transcriptBytes1
         );
 
-        mockMvc.perform(multipart("/api/student/profile/schools/{schoolRecordId}/transcript", schoolRecordId)
-                        .file(transcript)
-                        .header("Authorization", bearer))
+        MvcResult uploadResult1 = mockMvc.perform(
+                        multipart("/api/student/profile/schools/{schoolRecordId}/transcript", schoolRecordId)
+                                .file(transcript1)
+                                .header("Authorization", bearer)
+                )
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.schoolRecordId").value(schoolRecordId))
-                .andExpect(jsonPath("$.transcriptFileName").value("unionville-transcript.pdf"))
-                .andExpect(jsonPath("$.hasTranscript").value(true));
+                .andExpect(jsonPath("$.transcriptFileName").value("unionville-transcript-1.pdf"))
+                .andExpect(jsonPath("$.hasTranscript").value(true))
+                .andExpect(jsonPath("$.transcripts.length()").value(1))
+                .andReturn();
+        long transcriptId1 = objectMapper.readTree(uploadResult1.getResponse().getContentAsString())
+                .path("transcripts")
+                .path(0)
+                .path("id")
+                .asLong();
+
+        byte[] transcriptBytes2 = "mock transcript payload 2".getBytes(StandardCharsets.UTF_8);
+        MockMultipartFile transcript2 = new MockMultipartFile(
+                "file",
+                "unionville-transcript-2.pdf",
+                "application/pdf",
+                transcriptBytes2
+        );
+
+        MvcResult uploadResult2 = mockMvc.perform(
+                        multipart("/api/student/profile/schools/{schoolRecordId}/transcript", schoolRecordId)
+                                .file(transcript2)
+                                .header("Authorization", bearer)
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.schoolRecordId").value(schoolRecordId))
+                .andExpect(jsonPath("$.transcriptFileName").value("unionville-transcript-2.pdf"))
+                .andExpect(jsonPath("$.hasTranscript").value(true))
+                .andExpect(jsonPath("$.transcripts.length()").value(2))
+                .andReturn();
+        long transcriptId2 = objectMapper.readTree(uploadResult2.getResponse().getContentAsString())
+                .path("transcripts")
+                .path(0)
+                .path("id")
+                .asLong();
 
         mockMvc.perform(get("/api/student/profile")
                         .header("Authorization", bearer))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.schools[0].transcripts.length()").value(2))
                 .andExpect(jsonPath("$.schools[0].hasTranscript").value(true))
-                .andExpect(jsonPath("$.schools[0].transcriptFileName").value("unionville-transcript.pdf"));
+                .andExpect(jsonPath("$.schools[0].transcriptFileName").value("unionville-transcript-2.pdf"))
+                .andExpect(jsonPath("$.schools[0].transcripts[0].id").value(transcriptId2))
+                .andExpect(jsonPath("$.schools[0].transcripts[0].transcriptFileName").value("unionville-transcript-2.pdf"))
+                .andExpect(jsonPath("$.schools[0].transcripts[1].id").value(transcriptId1))
+                .andExpect(jsonPath("$.schools[0].transcripts[1].transcriptFileName").value("unionville-transcript-1.pdf"));
 
         mockMvc.perform(get("/api/student/profile/schools/{schoolRecordId}/transcript", schoolRecordId)
                         .header("Authorization", bearer))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Content-Type", "application/pdf"))
                 .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("attachment")))
-                .andExpect(content().bytes(transcriptBytes));
+                .andExpect(content().bytes(transcriptBytes2));
+
+        mockMvc.perform(get("/api/student/profile/schools/{schoolRecordId}/transcripts/{transcriptId}",
+                                schoolRecordId,
+                                transcriptId1)
+                        .header("Authorization", bearer))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "application/pdf"))
+                .andExpect(content().bytes(transcriptBytes1));
+    }
+
+    @Test
+    void putProfile_transcriptFinalState_deletesMissingTranscriptAndStorage() throws Exception {
+        Student student = createStudentAccount("profile_transcript_put_delete_student", "Amy", "Chen", "Amy");
+        String bearer = bearerFor(student.getUser());
+
+        Map<String, Object> payload = buildProfilePayload(
+                "Amy",
+                "Chen",
+                "Amy",
+                false,
+                Arrays.asList(buildSchool("MAIN", "Unionville High School", "2023-09-01", null)),
+                new ArrayList<Map<String, Object>>()
+        );
+
+        MvcResult saveResult = mockMvc.perform(put("/api/student/profile")
+                        .header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(payload)))
+                .andExpect(status().isOk())
+                .andReturn();
+        long schoolRecordId = objectMapper.readTree(saveResult.getResponse().getContentAsString())
+                .path("schools")
+                .path(0)
+                .path("schoolRecordId")
+                .asLong();
+
+        MockMultipartFile transcript1 = new MockMultipartFile(
+                "file",
+                "delete-target-1.pdf",
+                "application/pdf",
+                "delete-target-1".getBytes(StandardCharsets.UTF_8)
+        );
+        MockMultipartFile transcript2 = new MockMultipartFile(
+                "file",
+                "keep-target-2.pdf",
+                "application/pdf",
+                "keep-target-2".getBytes(StandardCharsets.UTF_8)
+        );
+
+        mockMvc.perform(multipart("/api/student/profile/schools/{schoolRecordId}/transcript", schoolRecordId)
+                        .file(transcript1)
+                        .header("Authorization", bearer))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(multipart("/api/student/profile/schools/{schoolRecordId}/transcript", schoolRecordId)
+                        .file(transcript2)
+                        .header("Authorization", bearer))
+                .andExpect(status().isOk());
+
+        MvcResult profileWithTwoResult = mockMvc.perform(get("/api/student/profile")
+                        .header("Authorization", bearer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.schools[0].transcripts.length()").value(2))
+                .andReturn();
+
+        JsonNode profileWithTwo = objectMapper.readTree(profileWithTwoResult.getResponse().getContentAsString());
+        JsonNode schoolNode = profileWithTwo.path("schools").path(0);
+        JsonNode keptTranscript = schoolNode.path("transcripts").path(0);
+
+        Map<String, Object> schoolPayload = buildSchool("MAIN", "Unionville High School", "2023-09-01", null);
+        schoolPayload.put("schoolRecordId", schoolNode.path("schoolRecordId").asLong());
+        List<Map<String, Object>> finalTranscripts = new ArrayList<Map<String, Object>>();
+        Map<String, Object> keptTranscriptPayload = new LinkedHashMap<String, Object>();
+        keptTranscriptPayload.put("id", keptTranscript.path("id").asLong());
+        keptTranscriptPayload.put("transcriptFileName", keptTranscript.path("transcriptFileName").asText());
+        keptTranscriptPayload.put("transcriptSizeBytes", keptTranscript.path("transcriptSizeBytes").asLong());
+        keptTranscriptPayload.put("transcriptUploadedAt", keptTranscript.path("transcriptUploadedAt").asText());
+        finalTranscripts.add(keptTranscriptPayload);
+        schoolPayload.put("transcripts", finalTranscripts);
+
+        Map<String, Object> putPayload = buildProfilePayload(
+                "Amy",
+                "Chen",
+                "Amy",
+                false,
+                Arrays.asList(schoolPayload),
+                new ArrayList<Map<String, Object>>()
+        );
+
+        reset(transcriptStorageService);
+
+        mockMvc.perform(put("/api/student/profile")
+                        .header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(putPayload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.schools[0].transcripts.length()").value(1))
+                .andExpect(jsonPath("$.schools[0].transcriptFileName").value("keep-target-2.pdf"));
+
+        mockMvc.perform(get("/api/student/profile")
+                        .header("Authorization", bearer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.schools[0].transcripts.length()").value(1))
+                .andExpect(jsonPath("$.schools[0].transcriptFileName").value("keep-target-2.pdf"));
+
+        verify(transcriptStorageService, atLeastOnce()).deleteRequired(anyString());
+    }
+
+    @Test
+    void schoolTranscript_nonOwnerStudentUpload_returns403() throws Exception {
+        Student owner = createStudentAccount("profile_transcript_owner", "Amy", "Chen", "Amy");
+        Student attacker = createStudentAccount("profile_transcript_attacker", "Bob", "Li", "Bob");
+
+        String ownerBearer = bearerFor(owner.getUser());
+        String attackerBearer = bearerFor(attacker.getUser());
+
+        Map<String, Object> payload = buildProfilePayload(
+                "Amy",
+                "Chen",
+                "Amy",
+                false,
+                Arrays.asList(buildSchool("MAIN", "Unionville High School", "2023-09-01", null)),
+                new ArrayList<Map<String, Object>>()
+        );
+
+        MvcResult saveResult = mockMvc.perform(put("/api/student/profile")
+                        .header("Authorization", ownerBearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(payload)))
+                .andExpect(status().isOk())
+                .andReturn();
+        long schoolRecordId = objectMapper.readTree(saveResult.getResponse().getContentAsString())
+                .path("schools")
+                .path(0)
+                .path("schoolRecordId")
+                .asLong();
+
+        MockMultipartFile transcript = new MockMultipartFile(
+                "file",
+                "not-owner.pdf",
+                "application/pdf",
+                "not-owner".getBytes(StandardCharsets.UTF_8)
+        );
+
+        mockMvc.perform(multipart("/api/student/profile/schools/{schoolRecordId}/transcript", schoolRecordId)
+                        .file(transcript)
+                        .header("Authorization", attackerBearer))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
     }
 
     @Test

@@ -325,6 +325,7 @@ public class StudentProfileDto {
         private Long transcriptSizeBytes;
         private String transcriptUploadedAt;
         private Boolean hasTranscript;
+        private List<TranscriptDto> transcripts;
 
         public Long getSchoolRecordId() {
             return schoolRecordId;
@@ -447,6 +448,85 @@ public class StudentProfileDto {
 
         public void setHasTranscript(Boolean hasTranscript) {
             this.hasTranscript = hasTranscript;
+        }
+
+        public List<TranscriptDto> getTranscripts() {
+            return transcripts;
+        }
+
+        public void setTranscripts(List<TranscriptDto> transcripts) {
+            this.transcripts = transcripts;
+        }
+
+        public List<TranscriptDto> getTranscriptsOrEmpty() {
+            return transcripts == null ? new ArrayList<TranscriptDto>() : transcripts;
+        }
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class TranscriptDto {
+        private Long id;
+        private String storageKey;
+        private String transcriptFileName;
+        private String transcriptContentType;
+        private Long transcriptSizeBytes;
+        private String transcriptUploadedAt;
+        private Long uploadedBy;
+
+        public Long getId() {
+            return id;
+        }
+
+        public void setId(Long id) {
+            this.id = id;
+        }
+
+        public String getStorageKey() {
+            return storageKey;
+        }
+
+        public void setStorageKey(String storageKey) {
+            this.storageKey = storageKey;
+        }
+
+        public String getTranscriptFileName() {
+            return transcriptFileName;
+        }
+
+        public void setTranscriptFileName(String transcriptFileName) {
+            this.transcriptFileName = transcriptFileName;
+        }
+
+        public String getTranscriptContentType() {
+            return transcriptContentType;
+        }
+
+        public void setTranscriptContentType(String transcriptContentType) {
+            this.transcriptContentType = transcriptContentType;
+        }
+
+        public Long getTranscriptSizeBytes() {
+            return transcriptSizeBytes;
+        }
+
+        public void setTranscriptSizeBytes(Long transcriptSizeBytes) {
+            this.transcriptSizeBytes = transcriptSizeBytes;
+        }
+
+        public String getTranscriptUploadedAt() {
+            return transcriptUploadedAt;
+        }
+
+        public void setTranscriptUploadedAt(String transcriptUploadedAt) {
+            this.transcriptUploadedAt = transcriptUploadedAt;
+        }
+
+        public Long getUploadedBy() {
+            return uploadedBy;
+        }
+
+        public void setUploadedBy(Long uploadedBy) {
+            this.uploadedBy = uploadedBy;
         }
     }
 
