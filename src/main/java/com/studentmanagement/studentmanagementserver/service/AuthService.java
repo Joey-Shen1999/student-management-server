@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 
 @Service
 public class AuthService {
@@ -195,5 +196,58 @@ public class AuthService {
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         user.setMustChangePassword(false);
         userRepository.save(user);
+    }
+
+    @Transactional
+    public void changePassword(User currentUser, String oldPassword, String newPassword) {
+        if (currentUser == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthenticated.");
+        }
+        if (oldPassword == null || oldPassword.trim().isEmpty()) {
+            throw new ApiRequestException(
+                    HttpStatus.BAD_REQUEST,
+                    "VALIDATION_ERROR",
+                    "oldPassword is required",
+                    Collections.singletonList("oldPassword is required")
+            );
+        }
+        if (newPassword == null || newPassword.trim().isEmpty()) {
+            throw new ApiRequestException(
+                    HttpStatus.BAD_REQUEST,
+                    "VALIDATION_ERROR",
+                    "newPassword is required",
+                    Collections.singletonList("newPassword is required")
+            );
+        }
+        if (newPassword.equals(oldPassword)) {
+            throw new ApiRequestException(
+                    HttpStatus.BAD_REQUEST,
+                    "SAME_AS_OLD_PASSWORD",
+                    "newPassword must be different from oldPassword",
+                    Collections.singletonList("newPassword must be different from oldPassword")
+            );
+        }
+        if (!passwordEncoder.matches(oldPassword, currentUser.getPasswordHash())) {
+            throw new ApiRequestException(
+                    HttpStatus.BAD_REQUEST,
+                    "INVALID_OLD_PASSWORD",
+                    "oldPassword incorrect",
+                    Collections.singletonList("oldPassword incorrect")
+            );
+        }
+        try {
+            passwordPolicyValidator.validateOrThrow(currentUser.getUsername(), newPassword);
+        } catch (PasswordPolicyViolationException ex) {
+            throw new ApiRequestException(
+                    HttpStatus.BAD_REQUEST,
+                    "WEAK_PASSWORD",
+                    "Password does not meet policy.",
+                    ex.getDetails()
+            );
+        }
+
+        currentUser.setPasswordHash(passwordEncoder.encode(newPassword));
+        currentUser.setMustChangePassword(false);
+        userRepository.save(currentUser);
     }
 }

@@ -1,11 +1,12 @@
 package com.studentmanagement.studentmanagementserver.domain.user;
 
-import com.studentmanagement.studentmanagementserver.repo.UserRepository;
+import com.studentmanagement.studentmanagementserver.service.AuthService;
 import com.studentmanagement.studentmanagementserver.service.AuthSessionService;
-import com.studentmanagement.studentmanagementserver.service.PasswordPolicyValidator;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import javax.servlet.http.HttpServletRequest;
 
@@ -13,53 +14,24 @@ import javax.servlet.http.HttpServletRequest;
 @RequestMapping("/api/auth")
 public class ChangePasswordController {
 
-    private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
-    private final PasswordPolicyValidator passwordPolicyValidator;
+    private final AuthService authService;
     private final AuthSessionService authSessionService;
 
-    public ChangePasswordController(UserRepository userRepository,
-                                    PasswordEncoder passwordEncoder,
-                                    PasswordPolicyValidator passwordPolicyValidator,
+    public ChangePasswordController(AuthService authService,
                                     AuthSessionService authSessionService) {
-        this.userRepository = userRepository;
-        this.passwordEncoder = passwordEncoder;
-        this.passwordPolicyValidator = passwordPolicyValidator;
+        this.authService = authService;
         this.authSessionService = authSessionService;
     }
 
     @PostMapping("/change-password")
-    public ResponseEntity<?> changePassword(@RequestBody ChangePasswordRequest req, HttpServletRequest request) {
-        String oldPassword = req.getOldPassword();
-        String newPassword = req.getNewPassword();
-
-        if (isBlank(oldPassword)) {
-            throw new IllegalArgumentException("oldPassword is required");
-        }
-        if (isBlank(newPassword)) {
-            throw new IllegalArgumentException("newPassword is required");
-        }
-        if (newPassword.equals(oldPassword)) {
-            throw new IllegalArgumentException("newPassword must be different from oldPassword");
-        }
-
+    public ResponseEntity<ChangePasswordResponse> changePassword(@RequestBody(required = false) ChangePasswordRequest req,
+                                                                 HttpServletRequest request) {
         User user = authSessionService.requireAuthenticatedUser(request);
+        String oldPassword = req == null ? null : req.getOldPassword();
+        String newPassword = req == null ? null : req.getNewPassword();
 
-        if (!passwordEncoder.matches(oldPassword, user.getPasswordHash())) {
-            throw new IllegalArgumentException("oldPassword incorrect");
-        }
-
-        passwordPolicyValidator.validateOrThrow(user.getUsername(), newPassword);
-
-        user.setPasswordHash(passwordEncoder.encode(newPassword));
-        user.setMustChangePassword(false);
-        userRepository.save(user);
-
-        return ResponseEntity.ok(new ChangePasswordResponse(true));
-    }
-
-    private boolean isBlank(String s) {
-        return s == null || s.trim().isEmpty();
+        authService.changePassword(user, oldPassword, newPassword);
+        return ResponseEntity.ok(new ChangePasswordResponse(true, "Password changed successfully."));
     }
 
     public static class ChangePasswordRequest {
@@ -84,18 +56,28 @@ public class ChangePasswordController {
     }
 
     public static class ChangePasswordResponse {
-        private boolean ok;
+        private boolean success;
+        private String message;
 
-        public ChangePasswordResponse(boolean ok) {
-            this.ok = ok;
+        public ChangePasswordResponse(boolean success, String message) {
+            this.success = success;
+            this.message = message;
         }
 
-        public boolean isOk() {
-            return ok;
+        public boolean isSuccess() {
+            return success;
         }
 
-        public void setOk(boolean ok) {
-            this.ok = ok;
+        public void setSuccess(boolean success) {
+            this.success = success;
+        }
+
+        public String getMessage() {
+            return message;
+        }
+
+        public void setMessage(String message) {
+            this.message = message;
         }
     }
 }

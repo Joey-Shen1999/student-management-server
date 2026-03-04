@@ -1,6 +1,7 @@
 package com.studentmanagement.studentmanagementserver.web;
 
 import com.studentmanagement.studentmanagementserver.service.AccountArchivedException;
+import com.studentmanagement.studentmanagementserver.service.ApiRequestException;
 import com.studentmanagement.studentmanagementserver.service.MustChangePasswordRequiredException;
 import com.studentmanagement.studentmanagementserver.service.PasswordPolicyViolationException;
 import com.studentmanagement.studentmanagementserver.service.StudentInviteException;
@@ -56,6 +57,18 @@ public class GlobalExceptionHandler {
                 Collections.<String>emptyList()
         );
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
+    }
+
+    @ExceptionHandler(ApiRequestException.class)
+    public ResponseEntity<ApiError> handleApiRequest(ApiRequestException e) {
+        HttpStatus status = e.getStatus() == null ? HttpStatus.BAD_REQUEST : e.getStatus();
+        ApiError body = new ApiError(
+                status.value(),
+                e.getMessage(),
+                e.getCode(),
+                e.getDetails()
+        );
+        return ResponseEntity.status(status).body(body);
     }
 
     @ExceptionHandler(StudentInviteException.class)

@@ -34,6 +34,9 @@ public class User extends BaseEntity {
 
     private LocalDateTime lastLoginAt;
 
+    @Column(name = "password_updated_at")
+    private LocalDateTime passwordUpdatedAt;
+
     /**
      * First login should force password change when true.
      * Default false for normal accounts.
@@ -49,6 +52,7 @@ public class User extends BaseEntity {
         this.role = role;
         this.status = UserAccountStatus.ACTIVE;
         this.mustChangePassword = false;
+        this.passwordUpdatedAt = LocalDateTime.now();
     }
 
     @PrePersist
@@ -56,12 +60,18 @@ public class User extends BaseEntity {
         if (this.status == null) {
             this.status = UserAccountStatus.ACTIVE;
         }
+        if (this.passwordUpdatedAt == null) {
+            this.passwordUpdatedAt = LocalDateTime.now();
+        }
     }
 
     public String getUsername() { return username; }
 
     public String getPasswordHash() { return passwordHash; }
-    public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
+    public void setPasswordHash(String passwordHash) {
+        this.passwordHash = passwordHash;
+        this.passwordUpdatedAt = LocalDateTime.now();
+    }
 
     public UserRole getRole() { return role; }
     public void setRole(UserRole role) { this.role = role; }
@@ -90,6 +100,10 @@ public class User extends BaseEntity {
 
     public LocalDateTime getLastLoginAt() { return lastLoginAt; }
     public void setLastLoginAt(LocalDateTime lastLoginAt) { this.lastLoginAt = lastLoginAt; }
+
+    public LocalDateTime getPasswordUpdatedAt() {
+        return passwordUpdatedAt;
+    }
 
     public boolean isMustChangePassword() { return mustChangePassword; }
     public void setMustChangePassword(boolean mustChangePassword) { this.mustChangePassword = mustChangePassword; }

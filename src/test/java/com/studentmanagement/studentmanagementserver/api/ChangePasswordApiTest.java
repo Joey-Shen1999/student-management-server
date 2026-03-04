@@ -52,7 +52,8 @@ class ChangePasswordApiTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.ok").value(true));
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Password changed successfully."));
 
         User updated = userRepository.findByUsername("cp_success_user")
                 .orElseThrow(() -> new RuntimeException("user not found"));
@@ -76,7 +77,7 @@ class ChangePasswordApiTest {
                         .content(body))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("oldPassword incorrect"))
-                .andExpect(jsonPath("$.code").value("BAD_REQUEST"))
+                .andExpect(jsonPath("$.code").value("INVALID_OLD_PASSWORD"))
                 .andExpect(jsonPath("$.details").isArray());
     }
 
