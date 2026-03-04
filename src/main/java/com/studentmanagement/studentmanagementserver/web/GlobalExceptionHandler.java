@@ -5,10 +5,16 @@ import com.studentmanagement.studentmanagementserver.service.MustChangePasswordR
 import com.studentmanagement.studentmanagementserver.service.PasswordPolicyViolationException;
 import com.studentmanagement.studentmanagementserver.service.StudentInviteException;
 import com.studentmanagement.studentmanagementserver.service.TeacherBindingRequiredException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Collections;
@@ -16,6 +22,8 @@ import java.util.List;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(PasswordPolicyViolationException.class)
     public ResponseEntity<ApiError> handlePasswordPolicyViolation(PasswordPolicyViolationException e) {
@@ -90,6 +98,55 @@ public class GlobalExceptionHandler {
                 .body(new ApiError(status.value(), msg, code, Collections.<String>emptyList()));
     }
 
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiError> handleMalformedBody(HttpMessageNotReadableException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ApiError(
+                        HttpStatus.BAD_REQUEST.value(),
+                        "Malformed request body.",
+                        "BAD_REQUEST",
+                        Collections.<String>emptyList()
+                ));
+    }
+
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    public ResponseEntity<ApiError> handleMissingRequestPart(MissingServletRequestPartException e) {
+        String partName = e.getRequestPartName();
+        String message = (partName == null || partName.trim().isEmpty())
+                ? "Missing required multipart field."
+                : "Missing required multipart field: " + partName;
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ApiError(
+                        HttpStatus.BAD_REQUEST.value(),
+                        message,
+                        "BAD_REQUEST",
+                        Collections.<String>emptyList()
+                ));
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiError> handleMaxUploadSize(MaxUploadSizeExceededException e) {
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+                .body(new ApiError(
+                        HttpStatus.PAYLOAD_TOO_LARGE.value(),
+                        "Upload file is too large.",
+                        "PAYLOAD_TOO_LARGE",
+                        Collections.<String>emptyList()
+                ));
+    }
+
+    @ExceptionHandler(MultipartException.class)
+    public ResponseEntity<ApiError> handleMultipartError(MultipartException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ApiError(
+                        HttpStatus.BAD_REQUEST.value(),
+                        "Invalid multipart request.",
+                        "BAD_REQUEST",
+                        Collections.<String>emptyList()
+                ));
+    }
+
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<ApiError> handleResponseStatus(ResponseStatusException e) {
         HttpStatus status = HttpStatus.resolve(e.getStatus().value());
@@ -108,6 +165,12 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> handleOther(Exception e) {
+        ResponseStatusException unwrapped = unwrapResponseStatus(e);
+        if (unwrapped != null) {
+            return handleResponseStatus(unwrapped);
+        }
+
+        log.error("Unhandled server exception", e);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(new ApiError(
                         HttpStatus.INTERNAL_SERVER_ERROR.value(),
@@ -115,6 +178,19 @@ public class GlobalExceptionHandler {
                         "INTERNAL_SERVER_ERROR",
                         Collections.<String>emptyList()
                 ));
+    }
+
+    private ResponseStatusException unwrapResponseStatus(Throwable error) {
+        Throwable current = error;
+        int depth = 0;
+        while (current != null && depth < 8) {
+            if (current instanceof ResponseStatusException) {
+                return (ResponseStatusException) current;
+            }
+            current = current.getCause();
+            depth++;
+        }
+        return null;
     }
 
     public static class ApiError {
