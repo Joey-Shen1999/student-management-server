@@ -4,8 +4,10 @@ import com.studentmanagement.studentmanagementserver.api.dto.LoginResponse;
 import com.studentmanagement.studentmanagementserver.domain.enums.UserAccountStatus;
 import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
 import com.studentmanagement.studentmanagementserver.domain.student.Student;
+import com.studentmanagement.studentmanagementserver.domain.student.StudentProfile;
 import com.studentmanagement.studentmanagementserver.domain.teacher.Teacher;
 import com.studentmanagement.studentmanagementserver.domain.user.User;
+import com.studentmanagement.studentmanagementserver.repo.StudentProfileRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentRepository;
 import com.studentmanagement.studentmanagementserver.repo.TeacherRepository;
 import com.studentmanagement.studentmanagementserver.repo.UserRepository;
@@ -24,6 +26,7 @@ class AuthServiceTest {
     @Autowired AuthService authService;
     @Autowired UserRepository userRepository;
     @Autowired StudentRepository studentRepository;
+    @Autowired StudentProfileRepository studentProfileRepository;
     @Autowired TeacherRepository teacherRepository;
 
     private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
@@ -44,9 +47,35 @@ class AuthServiceTest {
         assertEquals(UserRole.STUDENT, resp.getRole());
         assertEquals(s.getId(), resp.getStudentId());
         assertNull(resp.getTeacherId());
+        assertTrue(resp.isRequiresProfileCompletion());
         assertNotNull(resp.getAccessToken());
         assertEquals("Bearer", resp.getTokenType());
         assertNotNull(resp.getTokenExpiresAt());
+    }
+
+    @Test
+    void login_studentWithProfileSaved_requiresProfileCompletionFalse() {
+        User u = userRepository.save(new User("stu_with_profile", encoder.encode("123456"), UserRole.STUDENT));
+        Student s = studentRepository.save(new Student(u, "Mina", "Li", "Mina"));
+        studentProfileRepository.save(new StudentProfile(s));
+
+        LoginResponse resp = authService.login("stu_with_profile", "123456");
+
+        assertEquals(s.getId(), resp.getStudentId());
+        assertFalse(resp.isRequiresProfileCompletion());
+    }
+
+    @Test
+    void login_studentMustChangePassword_stillReturnsMustChangePasswordAndProfileCompletion() {
+        User u = userRepository.save(new User("stu_must_change_pwd", encoder.encode("123456"), UserRole.STUDENT));
+        u.setMustChangePassword(true);
+        userRepository.save(u);
+        studentRepository.save(new Student(u, "Alex", "Zhou", "Alex"));
+
+        LoginResponse resp = authService.login("stu_must_change_pwd", "123456");
+
+        assertTrue(resp.isMustChangePassword());
+        assertTrue(resp.isRequiresProfileCompletion());
     }
 
     @Test
@@ -59,6 +88,7 @@ class AuthServiceTest {
         assertEquals(UserRole.TEACHER, resp.getRole());
         assertEquals(t.getId(), resp.getTeacherId());
         assertNull(resp.getStudentId());
+        assertFalse(resp.isRequiresProfileCompletion());
         assertNotNull(resp.getAccessToken());
         assertEquals("Bearer", resp.getTokenType());
         assertNotNull(resp.getTokenExpiresAt());
@@ -91,5 +121,6 @@ class AuthServiceTest {
 
         assertEquals(UserRole.ADMIN, resp.getRole());
         assertEquals(teacher.getId(), resp.getTeacherId());
+        assertFalse(resp.isRequiresProfileCompletion());
     }
 }

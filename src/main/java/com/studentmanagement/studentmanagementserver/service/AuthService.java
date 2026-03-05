@@ -11,6 +11,7 @@ import com.studentmanagement.studentmanagementserver.domain.teacher.Teacher;
 import com.studentmanagement.studentmanagementserver.domain.teacher.TeacherStudent;
 import com.studentmanagement.studentmanagementserver.domain.enums.TeacherStudentStatus;
 import com.studentmanagement.studentmanagementserver.domain.user.User;
+import com.studentmanagement.studentmanagementserver.repo.StudentProfileRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentRepository;
 import com.studentmanagement.studentmanagementserver.repo.TeacherRepository;
 import com.studentmanagement.studentmanagementserver.repo.TeacherStudentRepository;
@@ -29,6 +30,7 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final StudentRepository studentRepository;
+    private final StudentProfileRepository studentProfileRepository;
     private final TeacherRepository teacherRepository;
     private final PasswordEncoder passwordEncoder;
     private final PasswordPolicyValidator passwordPolicyValidator;
@@ -38,6 +40,7 @@ public class AuthService {
 
     public AuthService(UserRepository userRepository,
                        StudentRepository studentRepository,
+                       StudentProfileRepository studentProfileRepository,
                        TeacherRepository teacherRepository,
                        TeacherStudentRepository teacherStudentRepository,
                        PasswordEncoder passwordEncoder,
@@ -46,6 +49,7 @@ public class AuthService {
                        StudentInviteService studentInviteService) {
         this.userRepository = userRepository;
         this.studentRepository = studentRepository;
+        this.studentProfileRepository = studentProfileRepository;
         this.teacherRepository = teacherRepository;
         this.teacherStudentRepository = teacherStudentRepository;
         this.passwordEncoder = passwordEncoder;
@@ -155,11 +159,13 @@ public class AuthService {
 
         Long studentId = null;
         Long teacherId = null;
+        boolean requiresProfileCompletion = false;
 
         if (user.getRole() == UserRole.STUDENT) {
-            studentId = studentRepository.findByUser_Id(user.getId())
-                    .orElseThrow(() -> new IllegalStateException("Student profile missing"))
-                    .getId();
+            Student student = studentRepository.findByUser_Id(user.getId())
+                    .orElseThrow(() -> new IllegalStateException("Student profile missing"));
+            studentId = student.getId();
+            requiresProfileCompletion = !studentProfileRepository.findByStudent_Id(studentId).isPresent();
         } else if (user.getRole() == UserRole.TEACHER || user.getRole() == UserRole.ADMIN) {
             teacherId = teacherRepository.findByUser_Id(user.getId())
                     .orElseThrow(TeacherBindingRequiredException::new)
@@ -176,6 +182,7 @@ public class AuthService {
                 studentId,
                 teacherId,
                 user.isMustChangePassword(),
+                requiresProfileCompletion,
                 issuedSession.getAccessToken(),
                 issuedSession.getTokenType(),
                 issuedSession.getExpiresAt()

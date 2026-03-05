@@ -9,6 +9,7 @@ public class LoginResponse {
     private Long studentId;
     private Long teacherId;
     private boolean mustChangePassword;
+    private boolean requiresProfileCompletion;
     private String accessToken;
     private String tokenType;
     private String tokenExpiresAt;
@@ -18,6 +19,7 @@ public class LoginResponse {
                          Long studentId,
                          Long teacherId,
                          boolean mustChangePassword,
+                         boolean requiresProfileCompletion,
                          String accessToken,
                          String tokenType,
                          String tokenExpiresAt) {
@@ -26,6 +28,7 @@ public class LoginResponse {
         this.studentId = studentId;
         this.teacherId = teacherId;
         this.mustChangePassword = mustChangePassword;
+        this.requiresProfileCompletion = requiresProfileCompletion;
         this.accessToken = accessToken;
         this.tokenType = tokenType;
         this.tokenExpiresAt = tokenExpiresAt;
@@ -49,6 +52,10 @@ public class LoginResponse {
 
     public boolean isMustChangePassword() {
         return mustChangePassword;
+    }
+
+    public boolean isRequiresProfileCompletion() {
+        return requiresProfileCompletion;
     }
 
     public String getAccessToken() {
