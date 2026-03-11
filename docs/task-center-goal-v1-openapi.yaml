@@ -1,0 +1,365 @@
+openapi: 3.0.3
+info:
+  title: Task Center Goal API
+  version: v1
+  description: |
+    Task Center v1 (Goal only). All endpoints require Bearer token.
+servers:
+  - url: http://localhost:8080
+tags:
+  - name: Student Task Center
+  - name: Teacher Task Center
+paths:
+  /api/student/tasks:
+    get:
+      tags: [Student Task Center]
+      summary: List current student's goals
+      parameters:
+        - name: type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [GOAL]
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [ALL, NOT_STARTED, IN_PROGRESS, COMPLETED]
+        - name: keyword
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+      responses:
+        '200':
+          description: Goal list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoalListResponseDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/student/tasks/{taskId}/status:
+    patch:
+      tags: [Student Task Center]
+      summary: Update current student's goal status
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateGoalStatusRequestDto'
+            examples:
+              inProgress:
+                value:
+                  status: IN_PROGRESS
+                  progressNote: 进行中
+      responses:
+        '200':
+          description: Updated goal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoalTaskDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/teacher/tasks:
+    get:
+      tags: [Teacher Task Center]
+      summary: List teacher/admin goals
+      parameters:
+        - name: type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [GOAL]
+        - name: studentId
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [ALL, NOT_STARTED, IN_PROGRESS, COMPLETED]
+        - name: keyword
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+      responses:
+        '200':
+          description: Goal list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoalListResponseDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/teacher/tasks/goals:
+    post:
+      tags: [Teacher Task Center]
+      summary: Create a goal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGoalRequestDto'
+            examples:
+              createGoal:
+                value:
+                  studentId: 20001
+                  title: 完成 OUAC 账户注册
+                  description: 本周内完成并截图上传
+                  dueAt: '2026-03-15'
+      responses:
+        '200':
+          description: Created goal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoalTaskDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/teacher/tasks/{taskId}/status:
+    patch:
+      tags: [Teacher Task Center]
+      summary: Update goal status (teacher/admin)
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateGoalStatusRequestDto'
+            examples:
+              done:
+                value:
+                  status: COMPLETED
+                  progressNote: 已验收
+      responses:
+        '200':
+          description: Updated goal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoalTaskDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/teacher/tasks/assignable-students:
+    get:
+      tags: [Teacher Task Center]
+      summary: List assignable students for goal creation
+      responses:
+        '200':
+          description: Student options
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AssignableStudentDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+components:
+  schemas:
+    GoalTaskStatus:
+      type: string
+      enum: [NOT_STARTED, IN_PROGRESS, COMPLETED]
+    GoalTaskDto:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        type: { type: string, enum: [GOAL] }
+        title: { type: string }
+        description: { type: string }
+        status:
+          $ref: '#/components/schemas/GoalTaskStatus'
+        dueAt:
+          type: string
+          nullable: true
+          example: '2026-03-15'
+        assignedStudentId: { type: integer, format: int64 }
+        assignedStudentName: { type: string }
+        assignedByTeacherId: { type: integer, format: int64 }
+        assignedByTeacherName: { type: string }
+        createdAt: { type: string, example: '2026-03-09T11:00:00' }
+        updatedAt: { type: string, example: '2026-03-09T11:00:00' }
+        completedAt:
+          type: string
+          nullable: true
+          example: '2026-03-10T09:00:00'
+        progressNote: { type: string }
+      required:
+        - id
+        - type
+        - title
+        - description
+        - status
+        - assignedStudentId
+        - assignedStudentName
+        - assignedByTeacherId
+        - assignedByTeacherName
+        - createdAt
+        - updatedAt
+        - progressNote
+    GoalListResponseDto:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/GoalTaskDto'
+        total:
+          type: integer
+          format: int64
+        page:
+          type: integer
+        size:
+          type: integer
+      required: [items, total, page, size]
+    AssignableStudentDto:
+      type: object
+      properties:
+        studentId: { type: integer, format: int64 }
+        studentName: { type: string }
+        username: { type: string, nullable: true }
+      required: [studentId, studentName]
+    CreateGoalRequestDto:
+      type: object
+      properties:
+        studentId: { type: integer, format: int64 }
+        title: { type: string }
+        description: { type: string }
+        dueAt:
+          type: string
+          nullable: true
+          example: '2026-03-15'
+      required: [studentId, title, description]
+    UpdateGoalStatusRequestDto:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/GoalTaskStatus'
+        progressNote: { type: string }
+      required: [status]
+    ErrorDto:
+      type: object
+      properties:
+        code: { type: string }
+        message: { type: string }
+      required: [code, message]
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorDto'
+          example:
+            code: BAD_REQUEST
+            message: status invalid
+    Unauthorized:
+      description: Unauthenticated
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorDto'
+          example:
+            code: UNAUTHENTICATED
+            message: Unauthenticated.
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorDto'
+          example:
+            code: FORBIDDEN
+            message: Forbidden
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorDto'
+          example:
+            code: NOT_FOUND
+            message: Task not found.
