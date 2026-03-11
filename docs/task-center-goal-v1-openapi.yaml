@@ -1,9 +1,12 @@
 openapi: 3.0.3
 info:
-  title: Task Center Goal API
+  title: Task Center API
   version: v1
   description: |
-    Task Center v1 (Goal only). All endpoints require Bearer token.
+    Task Center full handoff version:
+    - P0 Goal
+    - P1 Info + Tag
+    - P2 DLL (minimal template + instantiate)
 servers:
   - url: http://localhost:8080
 tags:
@@ -13,25 +16,45 @@ paths:
   /api/student/tasks:
     get:
       tags: [Student Task Center]
-      summary: List current student's goals
+      summary: List student tasks by type
       parameters:
         - name: type
           in: query
           required: true
           schema:
             type: string
-            enum: [GOAL]
+            enum: [GOAL, INFO]
         - name: status
           in: query
           required: false
+          description: Goal only
           schema:
             type: string
             enum: [ALL, NOT_STARTED, IN_PROGRESS, COMPLETED]
+        - name: category
+          in: query
+          required: false
+          description: Info only
+          schema:
+            type: string
+            enum: [ALL, ACTIVITY, VOLUNTEER]
+        - name: tag
+          in: query
+          required: false
+          description: Info only
+          schema:
+            type: string
         - name: keyword
           in: query
           required: false
           schema:
             type: string
+        - name: unreadOnly
+          in: query
+          required: false
+          description: Info only
+          schema:
+            type: boolean
         - name: page
           in: query
           required: false
@@ -48,11 +71,13 @@ paths:
             minimum: 1
       responses:
         '200':
-          description: Goal list
+          description: List by type
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GoalListResponseDto'
+                oneOf:
+                  - $ref: '#/components/schemas/GoalListResponseDto'
+                  - $ref: '#/components/schemas/InfoListResponseDto'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -62,7 +87,7 @@ paths:
   /api/student/tasks/{taskId}/status:
     patch:
       tags: [Student Task Center]
-      summary: Update current student's goal status
+      summary: Update student goal status
       parameters:
         - name: taskId
           in: path
@@ -76,11 +101,6 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/UpdateGoalStatusRequestDto'
-            examples:
-              inProgress:
-                value:
-                  status: IN_PROGRESS
-                  progressNote: 进行中
       responses:
         '200':
           description: Updated goal
@@ -96,20 +116,54 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+  /api/student/tasks/{infoId}/read:
+    patch:
+      tags: [Student Task Center]
+      summary: Mark info as read
+      parameters:
+        - name: infoId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+            example: {}
+      responses:
+        '200':
+          description: Updated info
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InfoTaskDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/teacher/tasks:
     get:
       tags: [Teacher Task Center]
-      summary: List teacher/admin goals
+      summary: List teacher/admin tasks by type
       parameters:
         - name: type
           in: query
           required: true
           schema:
             type: string
-            enum: [GOAL]
+            enum: [GOAL, INFO, DLL]
         - name: studentId
           in: query
           required: false
+          description: Goal only
           schema:
             type: integer
             format: int64
@@ -117,9 +171,23 @@ paths:
         - name: status
           in: query
           required: false
+          description: Goal only
           schema:
             type: string
             enum: [ALL, NOT_STARTED, IN_PROGRESS, COMPLETED]
+        - name: category
+          in: query
+          required: false
+          description: Info only
+          schema:
+            type: string
+            enum: [ALL, ACTIVITY, VOLUNTEER]
+        - name: tag
+          in: query
+          required: false
+          description: Info only
+          schema:
+            type: string
         - name: keyword
           in: query
           required: false
@@ -141,11 +209,14 @@ paths:
             minimum: 1
       responses:
         '200':
-          description: Goal list
+          description: List by type
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GoalListResponseDto'
+                oneOf:
+                  - $ref: '#/components/schemas/GoalListResponseDto'
+                  - $ref: '#/components/schemas/InfoListResponseDto'
+                  - $ref: '#/components/schemas/DllTaskListResponseDto'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -162,13 +233,11 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/CreateGoalRequestDto'
-            examples:
-              createGoal:
-                value:
-                  studentId: 20001
-                  title: 完成 OUAC 账户注册
-                  description: 本周内完成并截图上传
-                  dueAt: '2026-03-15'
+            example:
+              studentId: 20001
+              title: 完成 OUAC 账户注册
+              description: 本周内完成并截图上传
+              dueAt: '2026-03-15'
       responses:
         '200':
           description: Created goal
@@ -201,11 +270,6 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/UpdateGoalStatusRequestDto'
-            examples:
-              done:
-                value:
-                  status: COMPLETED
-                  progressNote: 已验收
       responses:
         '200':
           description: Updated goal
@@ -224,7 +288,7 @@ paths:
   /api/teacher/tasks/assignable-students:
     get:
       tags: [Teacher Task Center]
-      summary: List assignable students for goal creation
+      summary: List assignable students
       responses:
         '200':
           description: Student options
@@ -238,6 +302,97 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+  /api/teacher/tasks/infos:
+    post:
+      tags: [Teacher Task Center]
+      summary: Publish an info task
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInfoRequestDto'
+            example:
+              title: 义工活动报名通知
+              content: 请在周五前完成报名。
+              category: VOLUNTEER
+              tags: [Volunteer, Grade12]
+      responses:
+        '200':
+          description: Created info
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InfoTaskDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/teacher/tasks/dll-templates:
+    post:
+      tags: [Teacher Task Center]
+      summary: Create DLL template
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDllTemplateRequestDto'
+            example:
+              name: OUAC 材料包模板
+              description: 申请材料打包模板
+              payloadSchema: '{"fields":["deadline","documents"]}'
+      responses:
+        '200':
+          description: Created template
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DllTemplateDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/teacher/tasks/dll-templates/{templateId}/instantiate:
+    post:
+      tags: [Teacher Task Center]
+      summary: Instantiate DLL task manually
+      parameters:
+        - name: templateId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InstantiateDllTemplateRequestDto'
+            example:
+              assignedStudentId: 20001
+              title: OUAC 材料任务
+              status: IN_PROGRESS
+      responses:
+        '200':
+          description: Created DLL task
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DllTaskDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
 components:
   schemas:
     GoalTaskStatus:
@@ -311,7 +466,6 @@ components:
         dueAt:
           type: string
           nullable: true
-          example: '2026-03-15'
       required: [studentId, title, description]
     UpdateGoalStatusRequestDto:
       type: object
@@ -320,12 +474,128 @@ components:
           $ref: '#/components/schemas/GoalTaskStatus'
         progressNote: { type: string }
       required: [status]
+    InfoTaskCategory:
+      type: string
+      enum: [ACTIVITY, VOLUNTEER]
+    InfoTaskDto:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        type: { type: string, enum: [INFO] }
+        title: { type: string }
+        content: { type: string }
+        category:
+          $ref: '#/components/schemas/InfoTaskCategory'
+        tags:
+          type: array
+          items:
+            type: string
+        targetStudentCount: { type: integer }
+        publishedByTeacherId: { type: integer, format: int64 }
+        publishedByTeacherName: { type: string }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+        read: { type: boolean }
+        readAt:
+          type: string
+          nullable: true
+      required:
+        - id
+        - type
+        - title
+        - content
+        - category
+        - tags
+        - targetStudentCount
+        - publishedByTeacherId
+        - publishedByTeacherName
+        - createdAt
+        - updatedAt
+        - read
+    InfoListResponseDto:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/InfoTaskDto'
+        total: { type: integer, format: int64 }
+        page: { type: integer }
+        size: { type: integer }
+      required: [items, total, page, size]
+    CreateInfoRequestDto:
+      type: object
+      properties:
+        title: { type: string }
+        content: { type: string }
+        category:
+          $ref: '#/components/schemas/InfoTaskCategory'
+        tags:
+          type: array
+          items:
+            type: string
+      required: [title, content, category]
+    DllTaskStatus:
+      type: string
+      enum: [NOT_STARTED, IN_PROGRESS, COMPLETED]
+    DllTemplateDto:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        description: { type: string }
+        payloadSchema: { type: string }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+      required: [id, name, description, payloadSchema, createdAt, updatedAt]
+    DllTaskDto:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        templateId: { type: integer, format: int64 }
+        title: { type: string }
+        status:
+          $ref: '#/components/schemas/DllTaskStatus'
+        assignedStudentId: { type: integer, format: int64 }
+        createdAt: { type: string }
+      required: [id, templateId, title, status, assignedStudentId, createdAt]
+    DllTaskListResponseDto:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DllTaskDto'
+        total: { type: integer, format: int64 }
+        page: { type: integer }
+        size: { type: integer }
+      required: [items, total, page, size]
+    CreateDllTemplateRequestDto:
+      type: object
+      properties:
+        name: { type: string }
+        description: { type: string }
+        payloadSchema: { type: string }
+      required: [name]
+    InstantiateDllTemplateRequestDto:
+      type: object
+      properties:
+        assignedStudentId: { type: integer, format: int64 }
+        title: { type: string }
+        status:
+          $ref: '#/components/schemas/DllTaskStatus'
+      required: [assignedStudentId]
     ErrorDto:
       type: object
       properties:
         code: { type: string }
         message: { type: string }
-      required: [code, message]
+        status: { type: integer }
+        details:
+          type: array
+          items:
+            type: string
+      required: [code, message, status, details]
   responses:
     BadRequest:
       description: Bad request
@@ -336,6 +606,8 @@ components:
           example:
             code: BAD_REQUEST
             message: status invalid
+            status: 400
+            details: []
     Unauthorized:
       description: Unauthenticated
       content:
@@ -345,6 +617,8 @@ components:
           example:
             code: UNAUTHENTICATED
             message: Unauthenticated.
+            status: 401
+            details: []
     Forbidden:
       description: Forbidden
       content:
@@ -354,6 +628,8 @@ components:
           example:
             code: FORBIDDEN
             message: Forbidden
+            status: 403
+            details: []
     NotFound:
       description: Not found
       content:
@@ -362,4 +638,6 @@ components:
             $ref: '#/components/schemas/ErrorDto'
           example:
             code: NOT_FOUND
-            message: Task not found.
+            message: Resource not found.
+            status: 404
+            details: []

@@ -254,7 +254,7 @@ class TaskCenterGoalApiTest {
                         .header("Authorization", bearerFor(teacher.getUser())))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("BAD_REQUEST"))
-                .andExpect(jsonPath("$.message").value("type must be GOAL"));
+                .andExpect(jsonPath("$.message").value("type must be GOAL, INFO or DLL"));
     }
 
     @Test
