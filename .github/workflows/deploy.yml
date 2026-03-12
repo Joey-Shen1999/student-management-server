@@ -1,0 +1,95 @@
+name: Deploy to AWS Ubuntu
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: deploy-main
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      AWS_HOST: ${{ vars.AWS_HOST }}
+      AWS_USER: ${{ vars.AWS_USER }}
+      AWS_PORT: ${{ vars.AWS_PORT }}
+      DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+      SERVICE_NAME: ${{ vars.SERVICE_NAME }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate deployment configuration
+        run: |
+          set -euo pipefail
+          : "${AWS_HOST:?Missing vars.AWS_HOST}"
+          : "${AWS_USER:?Missing vars.AWS_USER}"
+          : "${DEPLOY_PATH:?Missing vars.DEPLOY_PATH}"
+          : "${SERVICE_NAME:?Missing vars.SERVICE_NAME}"
+
+      - name: Prepare SSH key and known_hosts
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s' "${{ secrets.AWS_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+          PORT="${AWS_PORT:-22}"
+          ssh-keyscan -p "$PORT" -H "$AWS_HOST" >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Deploy on remote server
+        run: |
+          set -euo pipefail
+          PORT="${AWS_PORT:-22}"
+
+          ssh \
+            -i ~/.ssh/deploy_key \
+            -p "$PORT" \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            "$AWS_USER@$AWS_HOST" \
+            bash -s -- "$DEPLOY_PATH" "$SERVICE_NAME" <<'REMOTE_SCRIPT'
+          set -euo pipefail
+
+          DEPLOY_PATH="$1"
+          SERVICE_NAME="$2"
+
+          cd "$DEPLOY_PATH"
+          git fetch --all --prune
+          git reset --hard origin/main
+          git clean -fd
+
+          if [ -f mvnw ]; then
+            chmod +x mvnw
+            ./mvnw clean package -DskipTests
+          else
+            mvn clean package -DskipTests
+          fi
+
+          JAR_PATH="$(find target -maxdepth 1 -type f -name '*.jar' \
+            ! -name 'original-*.jar' \
+            ! -name '*-sources.jar' \
+            ! -name '*-javadoc.jar' \
+            -printf '%T@ %p\n' | sort -nr | head -n 1 | cut -d' ' -f2-)"
+
+          if [ -z "$JAR_PATH" ]; then
+            echo "No runnable jar found under target/"
+            exit 1
+          fi
+
+          ln -sfn "$(basename "$JAR_PATH")" target/student-management-server-latest.jar
+
+          sudo systemctl restart "$SERVICE_NAME"
+          sudo systemctl status "$SERVICE_NAME" --no-pager
+          REMOTE_SCRIPT
