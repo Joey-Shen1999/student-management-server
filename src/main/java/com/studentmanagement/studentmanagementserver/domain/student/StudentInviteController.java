@@ -29,24 +29,14 @@ public class StudentInviteController {
             @RequestBody(required = false) CreateStudentInviteRequest req,
             HttpServletRequest request) {
         User operator = managementAccessService.requireStudentAccountManagementAccess(request);
-        Long teacherId = req == null ? null : req.getTeacherId();
         Long expiresInHours = req == null ? null : req.getExpiresInHours();
         StudentInviteService.CreateStudentInviteResponse response =
-                studentInviteService.createInvite(operator, teacherId, expiresInHours);
+                studentInviteService.createInvite(operator, expiresInHours);
         return ResponseEntity.ok(response);
     }
 
     public static class CreateStudentInviteRequest {
-        private Long teacherId;
         private Long expiresInHours;
-
-        public Long getTeacherId() {
-            return teacherId;
-        }
-
-        public void setTeacherId(Long teacherId) {
-            this.teacherId = teacherId;
-        }
 
         public Long getExpiresInHours() {
             return expiresInHours;

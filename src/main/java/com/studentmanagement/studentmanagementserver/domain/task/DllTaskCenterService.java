@@ -1,6 +1,5 @@
 package com.studentmanagement.studentmanagementserver.domain.task;
 
-import com.studentmanagement.studentmanagementserver.domain.enums.TeacherStudentStatus;
 import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
 import com.studentmanagement.studentmanagementserver.domain.student.Student;
 import com.studentmanagement.studentmanagementserver.domain.teacher.Teacher;
@@ -9,7 +8,6 @@ import com.studentmanagement.studentmanagementserver.repo.DllTaskRepository;
 import com.studentmanagement.studentmanagementserver.repo.DllTemplateRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentRepository;
 import com.studentmanagement.studentmanagementserver.repo.TeacherRepository;
-import com.studentmanagement.studentmanagementserver.repo.TeacherStudentRepository;
 import com.studentmanagement.studentmanagementserver.service.ApiRequestException;
 import com.studentmanagement.studentmanagementserver.service.AuthSessionService;
 import com.studentmanagement.studentmanagementserver.service.TeacherBindingRequiredException;
@@ -39,20 +37,17 @@ public class DllTaskCenterService {
     private final DllTaskRepository dllTaskRepository;
     private final StudentRepository studentRepository;
     private final TeacherRepository teacherRepository;
-    private final TeacherStudentRepository teacherStudentRepository;
 
     public DllTaskCenterService(AuthSessionService authSessionService,
                                 DllTemplateRepository dllTemplateRepository,
                                 DllTaskRepository dllTaskRepository,
                                 StudentRepository studentRepository,
-                                TeacherRepository teacherRepository,
-                                TeacherStudentRepository teacherStudentRepository) {
+                                TeacherRepository teacherRepository) {
         this.authSessionService = authSessionService;
         this.dllTemplateRepository = dllTemplateRepository;
         this.dllTaskRepository = dllTaskRepository;
         this.studentRepository = studentRepository;
         this.teacherRepository = teacherRepository;
-        this.teacherStudentRepository = teacherStudentRepository;
     }
 
     @Transactional(readOnly = true)
@@ -130,7 +125,6 @@ public class DllTaskCenterService {
             if (!template.getCreatedByTeacher().getId().equals(operatorTeacher.getId())) {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: cannot instantiate other teacher template.");
             }
-            ensureTeacherCanAssignStudent(operatorTeacher, assignedStudentId);
         }
 
         Student assignedStudent = studentRepository.findById(assignedStudentId)
@@ -206,20 +200,6 @@ public class DllTaskCenterService {
     private Teacher requireTeacherByUser(User operator) {
         return teacherRepository.findByUser_Id(operator.getId())
                 .orElseThrow(TeacherBindingRequiredException::new);
-    }
-
-    private void ensureTeacherCanAssignStudent(Teacher teacher, Long studentId) {
-        boolean hasActiveRelation = teacherStudentRepository.existsByTeacher_IdAndStudent_IdAndStatus(
-                teacher.getId(),
-                studentId,
-                TeacherStudentStatus.ACTIVE
-        );
-        if (!hasActiveRelation) {
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "Forbidden: student is not actively assigned to this teacher."
-            );
-        }
     }
 
     private String requireNonBlank(String value, String fieldName, int maxLength) {

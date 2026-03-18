@@ -1,6 +1,5 @@
 package com.studentmanagement.studentmanagementserver.domain.task;
 
-import com.studentmanagement.studentmanagementserver.domain.enums.TeacherStudentStatus;
 import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
 import com.studentmanagement.studentmanagementserver.domain.student.Student;
 import com.studentmanagement.studentmanagementserver.domain.teacher.Teacher;
@@ -8,7 +7,6 @@ import com.studentmanagement.studentmanagementserver.domain.user.User;
 import com.studentmanagement.studentmanagementserver.repo.GoalTaskRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentRepository;
 import com.studentmanagement.studentmanagementserver.repo.TeacherRepository;
-import com.studentmanagement.studentmanagementserver.repo.TeacherStudentRepository;
 import com.studentmanagement.studentmanagementserver.service.ApiRequestException;
 import com.studentmanagement.studentmanagementserver.service.AuthSessionService;
 import com.studentmanagement.studentmanagementserver.service.TeacherBindingRequiredException;
@@ -49,18 +47,15 @@ public class TaskCenterService {
     private final GoalTaskRepository goalTaskRepository;
     private final StudentRepository studentRepository;
     private final TeacherRepository teacherRepository;
-    private final TeacherStudentRepository teacherStudentRepository;
 
     public TaskCenterService(AuthSessionService authSessionService,
                              GoalTaskRepository goalTaskRepository,
                              StudentRepository studentRepository,
-                             TeacherRepository teacherRepository,
-                             TeacherStudentRepository teacherStudentRepository) {
+                             TeacherRepository teacherRepository) {
         this.authSessionService = authSessionService;
         this.goalTaskRepository = goalTaskRepository;
         this.studentRepository = studentRepository;
         this.teacherRepository = teacherRepository;
-        this.teacherStudentRepository = teacherStudentRepository;
     }
 
     @Transactional(readOnly = true)
@@ -172,9 +167,6 @@ public class TaskCenterService {
         Student student = studentRepository.findById(studentId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Student not found: " + studentId));
         Teacher teacher = resolveTeacherForWrite(operator);
-        if (operator.getRole() == UserRole.TEACHER) {
-            ensureTeacherCanAssignStudent(teacher, student.getId());
-        }
 
         GoalTask goalTask = new GoalTask(title, description, dueAt, student, teacher);
         GoalTask saved = goalTaskRepository.save(goalTask);
@@ -218,16 +210,7 @@ public class TaskCenterService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: teacher/admin role required.");
         }
 
-        List<Student> students;
-        if (operator.getRole() == UserRole.ADMIN) {
-            students = studentRepository.findAllWithUser();
-        } else {
-            Teacher teacher = requireTeacherByUser(operator);
-            students = teacherStudentRepository.findDistinctStudentsByTeacherIdAndStatusWithUser(
-                    teacher.getId(),
-                    TeacherStudentStatus.ACTIVE
-            );
-        }
+        List<Student> students = studentRepository.findAllWithUser();
 
         if (students.isEmpty()) {
             return Collections.emptyList();
@@ -338,20 +321,6 @@ public class TaskCenterService {
     private Teacher requireTeacherByUser(User operator) {
         return teacherRepository.findByUser_Id(operator.getId())
                 .orElseThrow(TeacherBindingRequiredException::new);
-    }
-
-    private void ensureTeacherCanAssignStudent(Teacher teacher, Long studentId) {
-        boolean hasActiveRelation = teacherStudentRepository.existsByTeacher_IdAndStudent_IdAndStatus(
-                teacher.getId(),
-                studentId,
-                TeacherStudentStatus.ACTIVE
-        );
-        if (!hasActiveRelation) {
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "Forbidden: student is not actively assigned to this teacher."
-            );
-        }
     }
 
     private void requireGoalType(String typeRaw) {

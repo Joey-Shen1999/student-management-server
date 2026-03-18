@@ -156,7 +156,7 @@ Legacy endpoint kept:
 - `401 UNAUTHENTICATED`
   - missing/invalid/expired session token.
 - `403 FORBIDDEN`
-  - role or ownership check failed.
+  - role check failed.
 - `404 NOT_FOUND`
   - school/transcript does not exist.
 - `422 UNPROCESSABLE_ENTITY`

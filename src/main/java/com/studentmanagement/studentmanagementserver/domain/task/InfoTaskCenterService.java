@@ -1,6 +1,5 @@
 package com.studentmanagement.studentmanagementserver.domain.task;
 
-import com.studentmanagement.studentmanagementserver.domain.enums.TeacherStudentStatus;
 import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
 import com.studentmanagement.studentmanagementserver.domain.student.Student;
 import com.studentmanagement.studentmanagementserver.domain.teacher.Teacher;
@@ -9,7 +8,6 @@ import com.studentmanagement.studentmanagementserver.repo.InfoTaskRecipientRepos
 import com.studentmanagement.studentmanagementserver.repo.InfoTaskRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentRepository;
 import com.studentmanagement.studentmanagementserver.repo.TeacherRepository;
-import com.studentmanagement.studentmanagementserver.repo.TeacherStudentRepository;
 import com.studentmanagement.studentmanagementserver.service.ApiRequestException;
 import com.studentmanagement.studentmanagementserver.service.AuthSessionService;
 import com.studentmanagement.studentmanagementserver.service.TeacherBindingRequiredException;
@@ -45,20 +43,17 @@ public class InfoTaskCenterService {
     private final InfoTaskRecipientRepository infoTaskRecipientRepository;
     private final StudentRepository studentRepository;
     private final TeacherRepository teacherRepository;
-    private final TeacherStudentRepository teacherStudentRepository;
 
     public InfoTaskCenterService(AuthSessionService authSessionService,
                                  InfoTaskRepository infoTaskRepository,
                                  InfoTaskRecipientRepository infoTaskRecipientRepository,
                                  StudentRepository studentRepository,
-                                 TeacherRepository teacherRepository,
-                                 TeacherStudentRepository teacherStudentRepository) {
+                                 TeacherRepository teacherRepository) {
         this.authSessionService = authSessionService;
         this.infoTaskRepository = infoTaskRepository;
         this.infoTaskRecipientRepository = infoTaskRecipientRepository;
         this.studentRepository = studentRepository;
         this.teacherRepository = teacherRepository;
-        this.teacherStudentRepository = teacherStudentRepository;
     }
 
     @Transactional(readOnly = true)
@@ -154,7 +149,7 @@ public class InfoTaskCenterService {
         List<String> tags = normalizeTags(requestBody.getTags());
 
         Teacher publisher = resolveTeacherForWrite(operator);
-        List<Student> targetStudents = resolveTargetStudentsForInfo(operator, publisher);
+        List<Student> targetStudents = resolveTargetStudentsForInfo();
         int targetCount = targetStudents.size();
 
         InfoTask infoTask = new InfoTask(
@@ -196,16 +191,8 @@ public class InfoTaskCenterService {
         return toInfoTaskDto(saved.getInfoTask(), saved.isRead(), saved.getReadAt());
     }
 
-    private List<Student> resolveTargetStudentsForInfo(User operator, Teacher publisher) {
-        List<Student> sourceStudents;
-        if (operator.getRole() == UserRole.ADMIN) {
-            sourceStudents = studentRepository.findAllWithUser();
-        } else {
-            sourceStudents = teacherStudentRepository.findDistinctStudentsByTeacherIdAndStatusWithUser(
-                    publisher.getId(),
-                    TeacherStudentStatus.ACTIVE
-            );
-        }
+    private List<Student> resolveTargetStudentsForInfo() {
+        List<Student> sourceStudents = studentRepository.findAllWithUser();
         if (sourceStudents.isEmpty()) {
             return Collections.emptyList();
         }

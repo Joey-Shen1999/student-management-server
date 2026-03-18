@@ -45,6 +45,53 @@ Use returned bearer token:
 - `POST /api/teacher/students/{studentId}/profile/schools/{schoolRecordId}/transcript` (multipart file upload)
 - `GET /api/teacher/students/{studentId}/profile/schools/{schoolRecordId}/transcript` (download transcript file)
 
+Access rule:
+- `TEACHER` / `ADMIN`: can access all students.
+- `STUDENT`: forbidden (`403`).
+
+## Student Invite APIs
+
+### Create student invite
+- `POST /api/teacher/student-invites`
+
+Request body:
+```json
+{}
+```
+
+Optional field:
+- `expiresInHours`: `1..720` (default from `app.student-invite.ttl-hours`)
+
+Response fields:
+- `inviteToken`
+- `inviteUrl`
+- `expiresAt`
+
+### Invite preview
+- `GET /api/auth/student-invites/{inviteToken}`
+
+Response fields:
+- `valid`
+- `status`
+- `expiresAt`
+
+Note:
+- Preview no longer returns teacher ownership fields.
+
+## Student Account Management APIs
+
+- `GET /api/teacher/student-accounts`
+- `POST /api/teacher/student-accounts/{studentId}/reset-password`
+- `PATCH /api/teacher/student-accounts/{studentId}/status`
+
+Access rule:
+- `TEACHER` / `ADMIN`: can manage all student accounts.
+- `STUDENT`: forbidden (`403`).
+
+Migration note:
+- If your DB still enforces invite ownership (`student_invites.teacher_id NOT NULL`), run:
+  - `scripts/migrations/20260318_teacher_student_ownership_deprecation.sql`
+
 ## Student Profile Contract (Latest)
 
 ### 0) OUAC gender fields
@@ -96,7 +143,7 @@ Compatibility alias:
 
 ### 3) Error rules
 - `401`: unauthenticated
-- `403`: forbidden (including teacher not actively assigned)
+- `403`: forbidden (role mismatch)
 - `404`: student not found
 - `400`: validation failure
 
@@ -114,5 +161,3 @@ Auto-initialized on startup:
 - ADMIN: `demo_admin_active_01 / Admin!234`
 - TEACHER: `demo_teacher_active_01 / Teacher!234`
 - STUDENT: `demo_student_active_01 / Student!234`
-
-`demo_teacher_active_01` is ACTIVE-assigned to `demo_student_active_01`.

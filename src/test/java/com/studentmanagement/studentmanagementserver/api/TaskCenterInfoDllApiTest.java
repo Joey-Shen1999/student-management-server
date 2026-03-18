@@ -23,6 +23,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasItem;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -80,7 +81,7 @@ class TaskCenterInfoDllApiTest {
                 .andExpect(jsonPath("$.title").value("义工活动报名通知"))
                 .andExpect(jsonPath("$.category").value("VOLUNTEER"))
                 .andExpect(jsonPath("$.tags.length()").value(2))
-                .andExpect(jsonPath("$.targetStudentCount").value(2))
+                .andExpect(jsonPath("$.targetStudentCount", greaterThanOrEqualTo(2)))
                 .andReturn();
         long infoId = objectMapper.readTree(createResult.getResponse().getContentAsString()).path("id").asLong();
 
@@ -169,7 +170,7 @@ class TaskCenterInfoDllApiTest {
     }
 
     @Test
-    void studentCannotMarkUnassignedInfoRead_returns404() throws Exception {
+    void studentCanMarkInfoRead_whenNotPreviouslyAssignedByOwnership() throws Exception {
         Teacher teacher = createTeacherAccount("info_teacher_own", "Info Own Teacher");
         Student owner = createStudentAccount("info_student_owner", "Owner", "One", "Owner");
         Student other = createStudentAccount("info_student_other", "Other", "Two", "Other");
@@ -180,8 +181,9 @@ class TaskCenterInfoDllApiTest {
                         .header("Authorization", bearerFor(other.getUser()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(infoId))
+                .andExpect(jsonPath("$.read").value(true));
     }
 
     @Test

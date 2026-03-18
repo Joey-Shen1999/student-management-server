@@ -21,6 +21,12 @@ jobs:
       AWS_PORT: ${{ vars.AWS_PORT }}
       DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
       SERVICE_NAME: ${{ vars.SERVICE_NAME }}
+      DB_CONTAINER_NAME: ${{ vars.DB_CONTAINER_NAME }}
+      DB_HOST: ${{ vars.DB_HOST }}
+      DB_PORT: ${{ vars.DB_PORT }}
+      DB_NAME: ${{ vars.DB_NAME }}
+      DB_USER: ${{ vars.DB_USER }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
     defaults:
       run:
         shell: bash
@@ -59,16 +65,66 @@ jobs:
             -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=yes \
             "$AWS_USER@$AWS_HOST" \
-            bash -s -- "$DEPLOY_PATH" "$SERVICE_NAME" <<'REMOTE_SCRIPT'
+            bash -s -- \
+            "$DEPLOY_PATH" \
+            "$SERVICE_NAME" \
+            "${DB_CONTAINER_NAME:-}" \
+            "${DB_HOST:-}" \
+            "${DB_PORT:-}" \
+            "${DB_NAME:-}" \
+            "${DB_USER:-}" \
+            "${DB_PASSWORD:-}" <<'REMOTE_SCRIPT'
           set -euo pipefail
 
           DEPLOY_PATH="$1"
           SERVICE_NAME="$2"
+          DB_CONTAINER_NAME="${3:-}"
+          DB_HOST="${4:-}"
+          DB_PORT="${5:-}"
+          DB_NAME="${6:-}"
+          DB_USER="${7:-}"
+          DB_PASSWORD="${8:-}"
 
           cd "$DEPLOY_PATH"
           git fetch --all --prune
           git reset --hard origin/main
           git clean -fd
+
+          MIGRATION_FILE="scripts/migrations/20260318_teacher_student_ownership_deprecation.sql"
+          MIGRATION_TMP="/tmp/20260318_teacher_student_ownership_deprecation.sql"
+
+          if [ -f "$MIGRATION_FILE" ]; then
+            DB_CONTAINER_NAME="${DB_CONTAINER_NAME:-uni_apply_db}"
+            DB_HOST="${DB_HOST:-localhost}"
+            DB_PORT="${DB_PORT:-5432}"
+            DB_NAME="${DB_NAME:-uni_apply}"
+            DB_USER="${DB_USER:-postgres}"
+            DB_PASSWORD="${DB_PASSWORD:-postgres}"
+
+            if command -v docker >/dev/null 2>&1 && docker ps --format '{{.Names}}' | grep -qx "$DB_CONTAINER_NAME"; then
+              echo "Running DB migration via Docker container: $DB_CONTAINER_NAME"
+              docker cp "$MIGRATION_FILE" "$DB_CONTAINER_NAME:$MIGRATION_TMP"
+              docker exec \
+                -e PGPASSWORD="$DB_PASSWORD" \
+                "$DB_CONTAINER_NAME" \
+                psql -U "$DB_USER" -d "$DB_NAME" -f "$MIGRATION_TMP"
+            elif command -v psql >/dev/null 2>&1; then
+              echo "Running DB migration via local psql client"
+              PGPASSWORD="$DB_PASSWORD" \
+                psql \
+                  -h "$DB_HOST" \
+                  -p "$DB_PORT" \
+                  -U "$DB_USER" \
+                  -d "$DB_NAME" \
+                  -f "$MIGRATION_FILE"
+            else
+              echo "No migration runner available (neither Docker DB container nor psql client found)."
+              exit 1
+            fi
+          else
+            echo "Migration file not found: $MIGRATION_FILE"
+            exit 1
+          fi
 
           if [ -f mvnw ]; then
             chmod +x mvnw

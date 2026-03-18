@@ -229,7 +229,7 @@ class TaskCenterGoalApiTest {
     }
 
     @Test
-    void listAssignableStudents_teacherOnlyActiveRelations() throws Exception {
+    void listAssignableStudents_teacherCanSeeAllStudents() throws Exception {
         Teacher teacher = createTeacherAccount("task_teacher_assignable", "Teacher Assignable");
         Student activeStudent = createStudentAccount("task_student_active_assignable", "Active", "One", "Active");
         Student archivedStudent = createStudentAccount("task_student_archived_assignable", "Archived", "Two", "Archived");
@@ -239,9 +239,8 @@ class TaskCenterGoalApiTest {
         mockMvc.perform(get("/api/teacher/tasks/assignable-students")
                         .header("Authorization", bearerFor(teacher.getUser())))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].studentId").value(activeStudent.getId()))
-                .andExpect(jsonPath("$[0].username").value("task_student_active_assignable"));
+                .andExpect(jsonPath("$[*].studentId", hasItem(activeStudent.getId().intValue())))
+                .andExpect(jsonPath("$[*].studentId", hasItem(archivedStudent.getId().intValue())));
     }
 
     @Test
@@ -258,7 +257,7 @@ class TaskCenterGoalApiTest {
     }
 
     @Test
-    void createGoal_requiresTeacherStudentActiveRelation() throws Exception {
+    void createGoal_teacherCanAssignAnyStudent() throws Exception {
         Teacher teacher = createTeacherAccount("task_teacher_need_relation", "Teacher Need Relation");
         Student student = createStudentAccount("task_student_need_relation", "Need", "Relation", "Need");
 
@@ -268,9 +267,8 @@ class TaskCenterGoalApiTest {
                         .content("{\"studentId\":" + student.getId() + "," +
                                 "\"title\":\"目标任务\"," +
                                 "\"description\":\"老师无关系不能创建\"}"))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("FORBIDDEN"))
-                .andExpect(jsonPath("$.message").value("Forbidden: student is not actively assigned to this teacher."));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.assignedStudentId").value(student.getId()));
     }
 
     @Test

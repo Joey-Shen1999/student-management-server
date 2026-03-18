@@ -27,8 +27,8 @@ import java.time.LocalDateTime;
 )
 public class StudentInvite extends BaseEntity {
 
-    @ManyToOne(optional = false, fetch = FetchType.LAZY)
-    @JoinColumn(name = "teacher_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "teacher_id")
     private Teacher teacher;
 
     @Column(name = "invite_token", nullable = false, unique = true, length = 120)

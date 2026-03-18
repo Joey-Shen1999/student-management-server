@@ -241,67 +241,40 @@ class TeacherStudentProfileApiTest {
     }
 
     @Test
-    void teacherProfile_teacherUnassigned_forbidden403() throws Exception {
+    void teacherProfile_teacherUnassigned_getAndPut200() throws Exception {
         Teacher teacher = createTeacherAccount("phase2_teacher_unassigned", "Teacher Unassigned");
         Student student = createStudentAccount("phase2_student_unassigned", "Amy", "Chen", "Amy");
 
         mockMvc.perform(get("/api/teacher/students/{studentId}/profile", student.getId())
                         .header("Authorization", bearerFor(teacher.getUser())))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.message").value("Forbidden: student is not actively assigned to this teacher."))
-                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.legalFirstName").value("Amy"));
 
         mockMvc.perform(put("/api/teacher/students/{studentId}/profile", student.getId())
                         .header("Authorization", bearerFor(teacher.getUser()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(toJson(buildProfilePayload())))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
-
-        MockMultipartFile transcript = new MockMultipartFile(
-                "file",
-                "teacher-unassigned.pdf",
-                "application/pdf",
-                "teacher-unassigned".getBytes(StandardCharsets.UTF_8)
-        );
-        mockMvc.perform(multipart("/api/teacher/students/{studentId}/profile/schools/{schoolRecordId}/transcript",
-                                student.getId(),
-                                1L)
-                        .file(transcript)
-                        .header("Authorization", bearerFor(teacher.getUser())))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
-
-        MockMultipartFile identity = new MockMultipartFile(
-                "file",
-                "teacher-unassigned-identity.pdf",
-                "application/pdf",
-                "teacher-unassigned-identity".getBytes(StandardCharsets.UTF_8)
-        );
-        mockMvc.perform(multipart("/api/teacher/students/{studentId}/profile/identity-files", student.getId())
-                        .file(identity)
-                        .header("Authorization", bearerFor(teacher.getUser())))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.legalFirstName").value("Amy"));
     }
 
     @Test
-    void teacherProfile_teacherArchivedRelation_forbidden403() throws Exception {
+    void teacherProfile_teacherArchivedRelation_getAndPut200() throws Exception {
         Teacher teacher = createTeacherAccount("phase2_teacher_archived", "Teacher Archived");
         Student student = createStudentAccount("phase2_student_archived", "Amy", "Chen", "Amy");
         assignTeacherStudent(teacher, student, TeacherStudentStatus.ARCHIVED);
 
         mockMvc.perform(get("/api/teacher/students/{studentId}/profile", student.getId())
                         .header("Authorization", bearerFor(teacher.getUser())))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.legalFirstName").value("Amy"));
 
         mockMvc.perform(put("/api/teacher/students/{studentId}/profile", student.getId())
                         .header("Authorization", bearerFor(teacher.getUser()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(toJson(buildProfilePayload())))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.legalFirstName").value("Amy"));
     }
 
     @Test

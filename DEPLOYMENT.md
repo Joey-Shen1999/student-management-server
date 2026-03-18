@@ -12,6 +12,15 @@ Configure in `Repository -> Settings -> Secrets and variables -> Actions`.
 - `AWS_PORT`: `22`
 - `DEPLOY_PATH`: `/home/ubuntu/student-management-server`
 - `SERVICE_NAME`: `student-management-server`
+- `DB_CONTAINER_NAME` (optional): `uni_apply_db`
+- `DB_HOST` (optional): `localhost`
+- `DB_PORT` (optional): `5432`
+- `DB_NAME` (optional): `uni_apply`
+- `DB_USER` (optional): `postgres`
+
+### Optional DB Secret
+- `DB_PASSWORD` (optional): PostgreSQL password used by migration command.
+  - If omitted, workflow falls back to `postgres`.
 
 ## 2. Critical Prerequisite (Server must be able to fetch GitHub code)
 The workflow SSHes into the server and runs:
@@ -175,6 +184,9 @@ On each push to `main`, `.github/workflows/deploy.yml` does:
    - `git fetch --all --prune`
    - `git reset --hard origin/main`
    - `git clean -fd`
+   - run migration `scripts/migrations/20260318_teacher_student_ownership_deprecation.sql`
+     - prefer `docker exec $DB_CONTAINER_NAME ... psql`
+     - fallback to local `psql` client
    - build (`./mvnw` or `mvn`)
    - pick latest runnable jar
    - update symlink `target/student-management-server-latest.jar`

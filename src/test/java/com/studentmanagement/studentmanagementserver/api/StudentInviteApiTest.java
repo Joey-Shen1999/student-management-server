@@ -10,9 +10,9 @@ import com.studentmanagement.studentmanagementserver.domain.user.User;
 import com.studentmanagement.studentmanagementserver.repo.StudentInviteRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentRepository;
 import com.studentmanagement.studentmanagementserver.repo.TeacherRepository;
+import com.studentmanagement.studentmanagementserver.repo.TeacherStudentRepository;
 import com.studentmanagement.studentmanagementserver.repo.UserRepository;
 import com.studentmanagement.studentmanagementserver.service.AuthSessionService;
-import com.studentmanagement.studentmanagementserver.service.TeacherBindingBackfillService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -33,7 +33,8 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -61,6 +62,9 @@ class StudentInviteApiTest {
     private StudentInviteRepository studentInviteRepository;
 
     @Autowired
+    private TeacherStudentRepository teacherStudentRepository;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     @Autowired
@@ -68,9 +72,6 @@ class StudentInviteApiTest {
 
     @Autowired
     private ObjectMapper objectMapper;
-
-    @Autowired
-    private TeacherBindingBackfillService teacherBindingBackfillService;
 
     @Test
     void generateInvite_teacher_success_andPreviewValid() throws Exception {
@@ -94,41 +95,21 @@ class StudentInviteApiTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.valid").value(true))
                 .andExpect(jsonPath("$.status").value("PENDING"))
-                .andExpect(jsonPath("$.teacherName").value("Invite Teacher 01"))
-                .andExpect(jsonPath("$.expiresAt").isString());
+                .andExpect(jsonPath("$.expiresAt").isString())
+                .andExpect(jsonPath("$.teacherName").doesNotExist());
     }
 
     @Test
-    void generateInvite_adminWithTeacherId_success() throws Exception {
-        User admin = createAdmin("invite_admin_01");
-        Teacher teacher = createTeacherAccount("invite_teacher_02", "Invite Teacher 02");
+    void generateInvite_adminWithoutTeacherBinding_success() throws Exception {
+        User admin = createAdmin("invite_admin_no_binding");
 
         mockMvc.perform(post("/api/teacher/student-invites")
                         .header("Authorization", bearerFor(admin))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"teacherId\":" + teacher.getId() + "}"))
+                        .content("{}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.inviteToken").isString())
                 .andExpect(jsonPath("$.expiresAt").isString());
-    }
-
-    @Test
-    void generateInvite_adminWithoutTeacherId_defaultsToOwnTeacherId() throws Exception {
-        User admin = createAdmin("invite_admin_02");
-        Teacher adminTeacher = teacherRepository.save(new Teacher(admin, "Admin Bound Teacher"));
-
-        MvcResult result = mockMvc.perform(post("/api/teacher/student-invites")
-                        .header("Authorization", bearerFor(admin))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{}"))
-                .andExpect(status().isOk())
-                .andReturn();
-
-        String token = objectMapper.readTree(result.getResponse().getContentAsString())
-                .get("inviteToken").asText();
-        StudentInvite invite = studentInviteRepository.findByInviteTokenWithTeacher(token)
-                .orElseThrow(() -> new RuntimeException("Invite not found"));
-        assertEquals(adminTeacher.getId(), invite.getTeacher().getId());
     }
 
     @Test
@@ -150,74 +131,18 @@ class StudentInviteApiTest {
     }
 
     @Test
-    void generateInvite_teacherIgnoresTeacherIdInBody_adminUsesBodyTeacherId() throws Exception {
-        Teacher teacherCaller = createTeacherAccount("invite_teacher_caller", "Invite Teacher Caller");
-        Teacher teacherFromBody = createTeacherAccount("invite_teacher_body", "Invite Teacher Body");
-
-        MvcResult teacherCall = mockMvc.perform(post("/api/teacher/student-invites")
-                        .header("Authorization", bearerFor(teacherCaller.getUser()))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"teacherId\":" + teacherFromBody.getId() + "}"))
-                .andExpect(status().isOk())
-                .andReturn();
-        String teacherToken = objectMapper.readTree(teacherCall.getResponse().getContentAsString())
-                .get("inviteToken").asText();
-        StudentInvite teacherInvite = studentInviteRepository.findByInviteTokenWithTeacher(teacherToken)
-                .orElseThrow(() -> new RuntimeException("Teacher invite not found"));
-        assertEquals(teacherCaller.getId(), teacherInvite.getTeacher().getId());
-
-        User admin = createAdmin("invite_admin_body_teacher");
-        teacherRepository.save(new Teacher(admin, "Admin Teacher Self"));
-
-        MvcResult adminCall = mockMvc.perform(post("/api/teacher/student-invites")
-                        .header("Authorization", bearerFor(admin))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"teacherId\":" + teacherFromBody.getId() + "}"))
-                .andExpect(status().isOk())
-                .andReturn();
-        String adminToken = objectMapper.readTree(adminCall.getResponse().getContentAsString())
-                .get("inviteToken").asText();
-        StudentInvite adminInvite = studentInviteRepository.findByInviteTokenWithTeacher(adminToken)
-                .orElseThrow(() -> new RuntimeException("Admin invite not found"));
-        assertEquals(teacherFromBody.getId(), adminInvite.getTeacher().getId());
-    }
-
-    @Test
-    void generateInvite_adminWithoutTeacherBinding_returnsTeacherBindingRequired() throws Exception {
-        User admin = createAdmin("invite_admin_no_binding");
+    void generateInvite_noRequestBody_success() throws Exception {
+        Teacher teacher = createTeacherAccount("invite_teacher_no_body", "Invite Teacher No Body");
 
         mockMvc.perform(post("/api/teacher/student-invites")
-                        .header("Authorization", bearerFor(admin))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{}"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("TEACHER_BINDING_REQUIRED"));
-    }
-
-    @Test
-    void generateInvite_adminWithoutTeacherBinding_canCreateAfterBackfill() throws Exception {
-        User admin = createAdmin("invite_admin_backfill_invite");
-        TeacherBindingBackfillService.BackfillResult result = teacherBindingBackfillService.backfillMissingTeacherBindings();
-        assertTrue(result.getInserted() >= 1);
-
-        MvcResult createResult = mockMvc.perform(post("/api/teacher/student-invites")
-                        .header("Authorization", bearerFor(admin))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{}"))
+                        .header("Authorization", bearerFor(teacher.getUser())))
                 .andExpect(status().isOk())
-                .andReturn();
-
-        String token = objectMapper.readTree(createResult.getResponse().getContentAsString())
-                .get("inviteToken").asText();
-        StudentInvite invite = studentInviteRepository.findByInviteTokenWithTeacher(token)
-                .orElseThrow(() -> new RuntimeException("Invite not found"));
-        Teacher adminTeacher = teacherRepository.findByUser_Id(admin.getId())
-                .orElseThrow(() -> new RuntimeException("Teacher binding not found"));
-        assertEquals(adminTeacher.getId(), invite.getTeacher().getId());
+                .andExpect(jsonPath("$.inviteToken").isString())
+                .andExpect(jsonPath("$.expiresAt").isString());
     }
 
     @Test
-    void registerWithInvite_consumesOnce_andBindsTeacher() throws Exception {
+    void registerWithInvite_consumesOnce_andDoesNotBindTeacher() throws Exception {
         Teacher teacher = createTeacherAccount("invite_teacher_bind", "Invite Teacher Bind");
         String token = createInviteTokenAs(teacher.getUser(), "{}");
 
@@ -243,8 +168,8 @@ class StudentInviteApiTest {
 
         Student student = studentRepository.findByIdWithTeacher(studentId)
                 .orElseThrow(() -> new RuntimeException("Student not found"));
-        assertNotNull(student.getTeacher());
-        assertEquals(teacher.getId(), student.getTeacher().getId());
+        assertNull(student.getTeacher());
+        assertFalse(teacherStudentRepository.existsByStudent_Id(studentId));
 
         mockMvc.perform(get("/api/auth/student-invites/{inviteToken}", token))
                 .andExpect(status().isOk())
@@ -361,21 +286,8 @@ class StudentInviteApiTest {
         mockMvc.perform(get("/api/auth/student-invites/{inviteToken}", "missing_token_123"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.valid").value(false))
-                .andExpect(jsonPath("$.status").value("INVALID"));
-    }
-
-    @Test
-    void adminLogin_returnsTeacherId_afterBackfill() throws Exception {
-        User admin = createAdmin("invite_admin_login_backfill");
-        TeacherBindingBackfillService.BackfillResult result = teacherBindingBackfillService.backfillMissingTeacherBindings();
-        assertTrue(result.getInserted() >= 1);
-
-        mockMvc.perform(post("/api/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"username\":\"invite_admin_login_backfill\",\"password\":\"Admin!234\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.role").value("ADMIN"))
-                .andExpect(jsonPath("$.teacherId").isNumber());
+                .andExpect(jsonPath("$.status").value("INVALID"))
+                .andExpect(jsonPath("$.expiresAt").isEmpty());
     }
 
     private User createAdmin(String username) {

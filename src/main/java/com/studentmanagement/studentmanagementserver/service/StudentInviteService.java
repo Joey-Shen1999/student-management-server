@@ -35,8 +35,8 @@ public class StudentInviteService {
     }
 
     @Transactional
-    public CreateStudentInviteResponse createInvite(User operator, Long requestedTeacherId, Long requestedExpiresHours) {
-        Teacher teacher = resolveTeacherForInvite(operator, requestedTeacherId);
+    public CreateStudentInviteResponse createInvite(User operator, Long requestedExpiresHours) {
+        Teacher teacher = resolveTeacherForInvite(operator);
         long ttlHours = resolveTtlHours(requestedExpiresHours);
         LocalDateTime expiresAt = LocalDateTime.now().plusHours(ttlHours);
         String token = generateUniqueInviteToken();
@@ -67,7 +67,6 @@ public class StudentInviteService {
         return new PreviewStudentInviteResponse(
                 valid,
                 invite.getStatus().name(),
-                invite.getTeacher().getName(),
                 invite.getExpiresAt() == null ? null : invite.getExpiresAt().toString()
         );
     }
@@ -101,18 +100,13 @@ public class StudentInviteService {
         studentInviteRepository.save(invite);
     }
 
-    private Teacher resolveTeacherForInvite(User operator, Long requestedTeacherId) {
+    private Teacher resolveTeacherForInvite(User operator) {
         if (operator.getRole() == UserRole.TEACHER) {
             return teacherRepository.findByUser_Id(operator.getId())
                     .orElseThrow(TeacherBindingRequiredException::new);
         }
         if (operator.getRole() == UserRole.ADMIN) {
-            if (requestedTeacherId == null) {
-                return teacherRepository.findByUser_Id(operator.getId())
-                        .orElseThrow(TeacherBindingRequiredException::new);
-            }
-            return teacherRepository.findById(requestedTeacherId)
-                    .orElseThrow(() -> new IllegalArgumentException("Teacher not found: " + requestedTeacherId));
+            return teacherRepository.findByUser_Id(operator.getId()).orElse(null);
         }
         throw new IllegalArgumentException("Forbidden: teacher/admin role required.");
     }
@@ -179,18 +173,16 @@ public class StudentInviteService {
     public static class PreviewStudentInviteResponse {
         private final boolean valid;
         private final String status;
-        private final String teacherName;
         private final String expiresAt;
 
-        public PreviewStudentInviteResponse(boolean valid, String status, String teacherName, String expiresAt) {
+        public PreviewStudentInviteResponse(boolean valid, String status, String expiresAt) {
             this.valid = valid;
             this.status = status;
-            this.teacherName = teacherName;
             this.expiresAt = expiresAt;
         }
 
         public static PreviewStudentInviteResponse invalid() {
-            return new PreviewStudentInviteResponse(false, "INVALID", null, null);
+            return new PreviewStudentInviteResponse(false, "INVALID", null);
         }
 
         public boolean isValid() {
@@ -199,10 +191,6 @@ public class StudentInviteService {
 
         public String getStatus() {
             return status;
-        }
-
-        public String getTeacherName() {
-            return teacherName;
         }
 
         public String getExpiresAt() {

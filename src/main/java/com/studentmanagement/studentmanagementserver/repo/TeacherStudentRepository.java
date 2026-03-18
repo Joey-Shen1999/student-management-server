@@ -11,6 +11,8 @@ import java.util.List;
 
 public interface TeacherStudentRepository extends JpaRepository<TeacherStudent, Long> {
 
+    boolean existsByStudent_Id(Long studentId);
+
     boolean existsByTeacher_IdAndStudent_IdAndStatus(Long teacherId,
                                                      Long studentId,
                                                      TeacherStudentStatus status);

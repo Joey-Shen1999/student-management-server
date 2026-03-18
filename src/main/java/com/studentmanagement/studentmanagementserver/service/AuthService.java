@@ -8,13 +8,10 @@ import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
 import com.studentmanagement.studentmanagementserver.domain.student.Student;
 import com.studentmanagement.studentmanagementserver.domain.student.StudentInvite;
 import com.studentmanagement.studentmanagementserver.domain.teacher.Teacher;
-import com.studentmanagement.studentmanagementserver.domain.teacher.TeacherStudent;
-import com.studentmanagement.studentmanagementserver.domain.enums.TeacherStudentStatus;
 import com.studentmanagement.studentmanagementserver.domain.user.User;
 import com.studentmanagement.studentmanagementserver.repo.StudentProfileRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentRepository;
 import com.studentmanagement.studentmanagementserver.repo.TeacherRepository;
-import com.studentmanagement.studentmanagementserver.repo.TeacherStudentRepository;
 import com.studentmanagement.studentmanagementserver.repo.UserRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -36,13 +33,11 @@ public class AuthService {
     private final PasswordPolicyValidator passwordPolicyValidator;
     private final AuthSessionService authSessionService;
     private final StudentInviteService studentInviteService;
-    private final TeacherStudentRepository teacherStudentRepository;
 
     public AuthService(UserRepository userRepository,
                        StudentRepository studentRepository,
                        StudentProfileRepository studentProfileRepository,
                        TeacherRepository teacherRepository,
-                       TeacherStudentRepository teacherStudentRepository,
                        PasswordEncoder passwordEncoder,
                        PasswordPolicyValidator passwordPolicyValidator,
                        AuthSessionService authSessionService,
@@ -51,7 +46,6 @@ public class AuthService {
         this.studentRepository = studentRepository;
         this.studentProfileRepository = studentProfileRepository;
         this.teacherRepository = teacherRepository;
-        this.teacherStudentRepository = teacherStudentRepository;
         this.passwordEncoder = passwordEncoder;
         this.passwordPolicyValidator = passwordPolicyValidator;
         this.authSessionService = authSessionService;
@@ -84,8 +78,6 @@ public class AuthService {
             throw new IllegalArgumentException("Username already exists");
         }
         StudentInvite studentInvite = inviteToken == null ? null : studentInviteService.lockPendingInviteForRegistration(inviteToken);
-        Teacher invitedTeacher = studentInvite == null ? null : studentInvite.getTeacher();
-
         User user = new User(username, passwordEncoder.encode(password), role);
         user = userRepository.save(user);
 
@@ -101,23 +93,8 @@ public class AuthService {
                 throw new IllegalArgumentException("First name and last name are required for students");
             }
 
-            Student student = new Student(user, firstName, lastName, preferredName, invitedTeacher);
+            Student student = new Student(user, firstName, lastName, preferredName);
             student = studentRepository.save(student);
-            if (invitedTeacher != null) {
-                boolean hasActiveRelation = teacherStudentRepository.existsByTeacher_IdAndStudent_IdAndStatus(
-                        invitedTeacher.getId(),
-                        student.getId(),
-                        TeacherStudentStatus.ACTIVE
-                );
-                if (!hasActiveRelation) {
-                    teacherStudentRepository.save(new TeacherStudent(
-                            invitedTeacher,
-                            student,
-                            TeacherStudentStatus.ACTIVE,
-                            "Created by student invite registration"
-                    ));
-                }
-            }
             studentId = student.getId();
             if (studentInvite != null) {
                 studentInviteService.markInviteUsed(studentInvite, user.getId());

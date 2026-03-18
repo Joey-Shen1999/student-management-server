@@ -13,10 +13,10 @@ public interface StudentInviteRepository extends JpaRepository<StudentInvite, Lo
 
     boolean existsByInviteToken(String inviteToken);
 
-    @Query("select i from StudentInvite i join fetch i.teacher where i.inviteToken = :inviteToken")
+    @Query("select i from StudentInvite i left join fetch i.teacher where i.inviteToken = :inviteToken")
     Optional<StudentInvite> findByInviteTokenWithTeacher(@Param("inviteToken") String inviteToken);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("select i from StudentInvite i join fetch i.teacher where i.inviteToken = :inviteToken")
+    @Query("select i from StudentInvite i left join fetch i.teacher where i.inviteToken = :inviteToken")
     Optional<StudentInvite> findByInviteTokenForUpdate(@Param("inviteToken") String inviteToken);
 }
