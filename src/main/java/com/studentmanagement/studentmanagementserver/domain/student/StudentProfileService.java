@@ -42,6 +42,8 @@ public class StudentProfileService {
 
     private static final Logger log = LoggerFactory.getLogger(StudentProfileService.class);
     private static final Pattern DATE_PATTERN = Pattern.compile("\\d{4}-\\d{2}-\\d{2}");
+    private static final Pattern SCHOOL_BOARD_PATTERN = Pattern.compile("^[\\p{L}\\p{N} &()/.\\-]+$");
+    private static final int MAX_SCHOOL_BOARD_LENGTH = 64;
     private static final long MAX_UPLOAD_SIZE_BYTES = 50L * 1024L * 1024L;
 
     private final AuthSessionService authSessionService;
@@ -274,6 +276,7 @@ public class StudentProfileService {
         studentRepository.save(student);
 
         List<StudentSchoolRecord> existingSchoolRecords = studentSchoolRecordRepository.findByStudent_IdOrderByIdAsc(student.getId());
+        Map<String, List<StudentSchoolRecord>> existingSchoolRecordsByKey = mapSchoolRecordsByKey(existingSchoolRecords);
         List<StudentSchoolTranscript> existingTranscripts = findTranscriptsBySchoolRecords(existingSchoolRecords);
         Map<String, List<StudentSchoolTranscript>> transcriptsBySchoolKey =
                 mapTranscriptsBySchoolKey(existingSchoolRecords, existingTranscripts);
@@ -299,10 +302,19 @@ public class StudentProfileService {
         studentSchoolRecordRepository.deleteByStudent_Id(student.getId());
         List<StudentSchoolRecord> savedSchools = new ArrayList<StudentSchoolRecord>();
         for (NormalizedSchool school : normalized.schools) {
+            String schoolKey = buildSchoolKey(
+                    school.schoolType,
+                    school.schoolName,
+                    school.startTime,
+                    school.endTime
+            );
+            StudentSchoolRecord existingSchoolRecord = popSchoolRecordByKey(existingSchoolRecordsByKey, schoolKey);
+            String resolvedSchoolBoard = resolveSchoolBoardForSave(school, existingSchoolRecord);
             StudentSchoolRecord schoolRecord = new StudentSchoolRecord(
                     student,
                     school.schoolType,
                     school.schoolName,
+                    resolvedSchoolBoard,
                     school.streetAddress,
                     school.city,
                     school.state,
@@ -676,6 +688,9 @@ public class StudentProfileService {
                 schoolDto.setSchoolRecordId(school.getId());
                 schoolDto.setSchoolType(school.getSchoolType() == null ? null : school.getSchoolType().name());
                 schoolDto.setSchoolName(school.getSchoolName());
+                String schoolBoard = trimToNull(school.getSchoolBoard());
+                schoolDto.setSchoolBoard(schoolBoard);
+                schoolDto.setBoardName(schoolBoard);
                 StudentProfileDto.AddressDto schoolAddress = new StudentProfileDto.AddressDto();
                 schoolAddress.setStreetAddress(school.getStreetAddress());
                 schoolAddress.setCity(school.getCity());
@@ -758,6 +773,48 @@ public class StudentProfileService {
         }
         return studentSchoolTranscriptRepository
                 .findBySchoolRecord_IdInOrderBySchoolRecord_IdAscUploadedAtDescIdDesc(schoolRecordIds);
+    }
+
+    private Map<String, List<StudentSchoolRecord>> mapSchoolRecordsByKey(List<StudentSchoolRecord> schools) {
+        Map<String, List<StudentSchoolRecord>> byKey = new LinkedHashMap<String, List<StudentSchoolRecord>>();
+        if (schools == null) {
+            return byKey;
+        }
+        for (StudentSchoolRecord school : schools) {
+            String key = buildSchoolKey(school.getSchoolType(), school.getSchoolName(), school.getStartTime(), school.getEndTime());
+            List<StudentSchoolRecord> records = byKey.get(key);
+            if (records == null) {
+                records = new ArrayList<StudentSchoolRecord>();
+                byKey.put(key, records);
+            }
+            records.add(school);
+        }
+        return byKey;
+    }
+
+    private StudentSchoolRecord popSchoolRecordByKey(Map<String, List<StudentSchoolRecord>> schoolsByKey, String key) {
+        if (schoolsByKey == null || key == null) {
+            return null;
+        }
+        List<StudentSchoolRecord> records = schoolsByKey.get(key);
+        if (records == null || records.isEmpty()) {
+            return null;
+        }
+        StudentSchoolRecord matched = records.remove(0);
+        if (records.isEmpty()) {
+            schoolsByKey.remove(key);
+        }
+        return matched;
+    }
+
+    private String resolveSchoolBoardForSave(NormalizedSchool incomingSchool, StudentSchoolRecord existingSchoolRecord) {
+        if (incomingSchool.schoolBoardProvided) {
+            return incomingSchool.schoolBoard;
+        }
+        if (existingSchoolRecord == null) {
+            return null;
+        }
+        return trimToNull(existingSchoolRecord.getSchoolBoard());
     }
 
     private Map<String, List<StudentSchoolTranscript>> mapTranscriptsBySchoolKey(List<StudentSchoolRecord> schools,
@@ -1424,6 +1481,7 @@ public class StudentProfileService {
             if (schoolName == null) {
                 throw new IllegalArgumentException(pathPrefix + ".schoolName is required");
             }
+            NormalizedSchoolBoard schoolBoard = normalizeSchoolBoard(incomingSchool, pathPrefix + ".schoolBoard");
 
             StudentProfileDto.AddressDto schoolAddressDto = incomingSchool.getAddress();
             String schoolStreetAddress = firstNonBlank(incomingSchool.getStreetAddress(), schoolAddressDto.getStreetAddress());
@@ -1478,6 +1536,8 @@ public class StudentProfileService {
             schools.add(new NormalizedSchool(
                     schoolType,
                     schoolName,
+                    schoolBoard.value,
+                    schoolBoard.provided,
                     schoolStreetAddress,
                     schoolCity,
                     schoolState,
@@ -1614,6 +1674,27 @@ public class StudentProfileService {
             return requestBody.getExternalCourses();
         }
         return new ArrayList<StudentProfileDto.CourseDto>();
+    }
+
+    private NormalizedSchoolBoard normalizeSchoolBoard(StudentProfileDto.SchoolDto incomingSchool, String fieldPath) {
+        String preferredValue = firstNonBlank(
+                incomingSchool.getSchoolBoard(),
+                firstNonBlank(incomingSchool.getBoardName(), incomingSchool.getEducationBureau())
+        );
+        boolean provided = incomingSchool.getSchoolBoard() != null
+                || incomingSchool.getBoardName() != null
+                || incomingSchool.getEducationBureau() != null;
+        if (!provided) {
+            return new NormalizedSchoolBoard(null, false);
+        }
+
+        String normalized = trimToNull(preferredValue);
+        if (normalized == null
+                || normalized.length() > MAX_SCHOOL_BOARD_LENGTH
+                || !SCHOOL_BOARD_PATTERN.matcher(normalized).matches()) {
+            throw new IllegalArgumentException(fieldPath + " is invalid");
+        }
+        return new NormalizedSchoolBoard(normalized, true);
     }
 
     private NormalizedGender normalizeGenderFields(String genderRaw, String genderOtherRaw, boolean requireOtherDetail) {
@@ -1908,6 +1989,8 @@ public class StudentProfileService {
     private static class NormalizedSchool {
         private final SchoolType schoolType;
         private final String schoolName;
+        private final String schoolBoard;
+        private final boolean schoolBoardProvided;
         private final String streetAddress;
         private final String city;
         private final String state;
@@ -1919,6 +2002,8 @@ public class StudentProfileService {
 
         private NormalizedSchool(SchoolType schoolType,
                                  String schoolName,
+                                 String schoolBoard,
+                                 boolean schoolBoardProvided,
                                  String streetAddress,
                                  String city,
                                  String state,
@@ -1929,6 +2014,8 @@ public class StudentProfileService {
                                  List<NormalizedTranscript> transcripts) {
             this.schoolType = schoolType;
             this.schoolName = schoolName;
+            this.schoolBoard = schoolBoard;
+            this.schoolBoardProvided = schoolBoardProvided;
             this.streetAddress = streetAddress;
             this.city = city;
             this.state = state;
@@ -1937,6 +2024,16 @@ public class StudentProfileService {
             this.startTime = startTime;
             this.endTime = endTime;
             this.transcripts = transcripts;
+        }
+    }
+
+    private static class NormalizedSchoolBoard {
+        private final String value;
+        private final boolean provided;
+
+        private NormalizedSchoolBoard(String value, boolean provided) {
+            this.value = value;
+            this.provided = provided;
         }
     }
 

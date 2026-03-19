@@ -134,6 +134,7 @@ class CanadianHighSchoolReferenceApiTest {
         for (JsonNode item : listNode) {
             assertEquals("Ontario", item.path("state").asText(), "state should always be Ontario");
             assertEquals("Canada", item.path("country").asText(), "country should always be Canada");
+            assertTrue(item.has("boardName"), "boardName field should exist for compatibility");
         }
     }
 

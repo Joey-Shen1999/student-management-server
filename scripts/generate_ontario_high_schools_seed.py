@@ -140,6 +140,7 @@ def generate_high_school_rows(source_rows: List[Dict[str, str]]) -> List[Dict[st
 
         school_number = (source_row.get("School Number") or "").strip()
         board_number = (source_row.get("Board Number") or "").strip()
+        board_name = (source_row.get("Board Name") or "").strip()
         school_id = f"on-public:{board_number}:{school_number}" if school_number else f"on-public:{board_number}:{school_name}"
 
         street_address = build_street_address(source_row)
@@ -149,6 +150,7 @@ def generate_high_school_rows(source_rows: List[Dict[str, str]]) -> List[Dict[st
         row = {
             "id": school_id,
             "name": school_name,
+            "boardName": board_name,
             "streetAddress": street_address,
             "city": city,
             "state": "Ontario",
@@ -292,7 +294,7 @@ def main() -> None:
     write_rows(
         TARGET_HIGH_SCHOOL_OUTPUT,
         high_school_rows,
-        ["id", "name", "streetAddress", "city", "state", "country", "postal"],
+        ["id", "name", "boardName", "streetAddress", "city", "state", "country", "postal"],
     )
 
     provider_rows = generate_external_course_provider_rows(source_rows)

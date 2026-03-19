@@ -110,19 +110,56 @@ public class CanadianHighSchoolReferenceService {
                 if (fields.size() < 7) {
                     continue;
                 }
+                String id = trimToEmpty(fields.get(0));
+                String name = trimToEmpty(fields.get(1));
+                String boardName = "";
+                String streetAddress;
+                String city;
+                String state;
+                String country;
+                String postal;
+
+                if (fields.size() >= 8) {
+                    String countryAtIndex6 = normalizeForSearch(fields.get(6));
+                    if ("canada".equals(countryAtIndex6)) {
+                        // Current format: id,name,boardName,streetAddress,city,state,country,postal
+                        boardName = trimToEmpty(fields.get(2));
+                        streetAddress = trimToEmpty(fields.get(3));
+                        city = trimToEmpty(fields.get(4));
+                        state = trimToEmpty(fields.get(5));
+                        country = trimToEmpty(fields.get(6));
+                        postal = trimToEmpty(fields.get(7));
+                    } else {
+                        // Legacy compatibility format: id,name,streetAddress,city,state,country,postal,boardName
+                        streetAddress = trimToEmpty(fields.get(2));
+                        city = trimToEmpty(fields.get(3));
+                        state = trimToEmpty(fields.get(4));
+                        country = trimToEmpty(fields.get(5));
+                        postal = trimToEmpty(fields.get(6));
+                        boardName = trimToEmpty(fields.get(7));
+                    }
+                } else {
+                    streetAddress = trimToEmpty(fields.get(2));
+                    city = trimToEmpty(fields.get(3));
+                    state = trimToEmpty(fields.get(4));
+                    country = trimToEmpty(fields.get(5));
+                    postal = trimToEmpty(fields.get(6));
+                }
                 SchoolEntry entry = new SchoolEntry(
-                        trimToEmpty(fields.get(0)),
-                        trimToEmpty(fields.get(1)),
-                        trimToEmpty(fields.get(2)),
-                        trimToEmpty(fields.get(3)),
-                        trimToEmpty(fields.get(4)),
-                        trimToEmpty(fields.get(5)),
-                        trimToEmpty(fields.get(6))
+                        id,
+                        name,
+                        boardName,
+                        streetAddress,
+                        city,
+                        state,
+                        country,
+                        postal
                 );
                 if (!isTargetProvince(entry.state) || !isCanada(entry.country)) {
                     continue;
                 }
                 String dedupeKey = entry.normalizedName
+                        + "|" + entry.normalizedBoardName
                         + "|" + entry.normalizedCity
                         + "|" + entry.normalizedState
                         + "|" + entry.normalizedStreet
@@ -353,6 +390,7 @@ public class CanadianHighSchoolReferenceService {
     private class SchoolEntry {
         private final String id;
         private final String name;
+        private final String boardName;
         private final String streetAddress;
         private final String city;
         private final String state;
@@ -363,6 +401,7 @@ public class CanadianHighSchoolReferenceService {
         private final String normalizedState;
         private final String normalizedStreet;
         private final String normalizedPostal;
+        private final String normalizedBoardName;
         private final String normalizedCompactName;
         private final String normalizedAcronym;
         private final String normalizedSearchText;
@@ -370,6 +409,7 @@ public class CanadianHighSchoolReferenceService {
 
         private SchoolEntry(String id,
                             String name,
+                            String boardName,
                             String streetAddress,
                             String city,
                             String state,
@@ -377,6 +417,7 @@ public class CanadianHighSchoolReferenceService {
                             String postal) {
             this.id = id;
             this.name = name;
+            this.boardName = boardName;
             this.streetAddress = streetAddress;
             this.city = city;
             this.state = state;
@@ -387,11 +428,13 @@ public class CanadianHighSchoolReferenceService {
             this.normalizedState = normalizeOrEmpty(state);
             this.normalizedStreet = normalizeOrEmpty(streetAddress);
             this.normalizedPostal = normalizeOrEmpty(postal);
+            this.normalizedBoardName = normalizeOrEmpty(boardName);
             this.normalizedCompactName = this.normalizedName.replace(" ", "");
             this.normalizedAcronym = buildAcronym(this.normalizedName);
 
             StringBuilder searchBuilder = new StringBuilder();
             appendSearchPart(searchBuilder, this.normalizedName);
+            appendSearchPart(searchBuilder, this.normalizedBoardName);
             appendSearchPart(searchBuilder, this.normalizedCity);
             appendSearchPart(searchBuilder, this.normalizedState);
             appendSearchPart(searchBuilder, this.normalizedStreet);
@@ -402,7 +445,7 @@ public class CanadianHighSchoolReferenceService {
         }
 
         private CanadianHighSchoolReferenceDto toDto() {
-            return new CanadianHighSchoolReferenceDto(id, name, streetAddress, city, state, country, postal);
+            return new CanadianHighSchoolReferenceDto(id, name, boardName, streetAddress, city, state, country, postal);
         }
 
         private void appendSearchPart(StringBuilder builder, String part) {

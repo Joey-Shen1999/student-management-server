@@ -290,6 +290,158 @@ class StudentProfileApiTest {
     }
 
     @Test
+    void putProfile_withSchoolBoard_roundTripAndReturnsBoardAlias() throws Exception {
+        Student student = createStudentAccount("profile_school_board_student", "Amy", "Chen", "Amy");
+
+        Map<String, Object> school = buildSchool("MAIN", "Unionville High School", "2023-09-01", null);
+        school.put("schoolBoard", "  YRDSB ");
+
+        Map<String, Object> payload = buildProfilePayload(
+                "Amy",
+                "Chen",
+                "Amy",
+                false,
+                Arrays.asList(school),
+                new ArrayList<Map<String, Object>>()
+        );
+
+        mockMvc.perform(put("/api/student/profile")
+                        .header("Authorization", bearerFor(student.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(payload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.schools[0].schoolBoard").value("YRDSB"))
+                .andExpect(jsonPath("$.schools[0].boardName").value("YRDSB"))
+                .andExpect(jsonPath("$.schoolRecords[0].schoolBoard").value("YRDSB"))
+                .andExpect(jsonPath("$.schoolRecords[0].boardName").value("YRDSB"));
+
+        mockMvc.perform(get("/api/student/profile")
+                        .header("Authorization", bearerFor(student.getUser())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.schools[0].schoolBoard").value("YRDSB"))
+                .andExpect(jsonPath("$.schools[0].boardName").value("YRDSB"));
+    }
+
+    @Test
+    void putProfile_withSchoolBoardAliases_mapsToSchoolBoard() throws Exception {
+        Student student = createStudentAccount("profile_school_board_alias_student", "Amy", "Chen", "Amy");
+
+        Map<String, Object> school1 = buildSchool("MAIN", "A High School", "2023-09-01", null);
+        school1.put("boardName", "TDSB");
+        Map<String, Object> school2 = buildSchool("OTHER", "B Private School", "2021-09-01", "2023-06-30");
+        school2.put("educationBureau", "私校");
+
+        Map<String, Object> payload = buildProfilePayload(
+                "Amy",
+                "Chen",
+                "Amy",
+                false,
+                Arrays.asList(school1, school2),
+                new ArrayList<Map<String, Object>>()
+        );
+
+        mockMvc.perform(put("/api/student/profile")
+                        .header("Authorization", bearerFor(student.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(payload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.schools[0].schoolBoard").value("TDSB"))
+                .andExpect(jsonPath("$.schools[0].boardName").value("TDSB"))
+                .andExpect(jsonPath("$.schools[1].schoolBoard").value("私校"))
+                .andExpect(jsonPath("$.schools[1].boardName").value("私校"));
+    }
+
+    @Test
+    void putProfile_whenSchoolBoardOmitted_keepsExistingValue() throws Exception {
+        Student student = createStudentAccount("profile_school_board_keep_student", "Amy", "Chen", "Amy");
+        String bearer = bearerFor(student.getUser());
+
+        Map<String, Object> firstSchool = buildSchool("MAIN", "A High School", "2023-09-01", null);
+        firstSchool.put("schoolBoard", "YRDSB");
+        Map<String, Object> firstPayload = buildProfilePayload(
+                "Amy",
+                "Chen",
+                "Amy",
+                false,
+                Arrays.asList(firstSchool),
+                new ArrayList<Map<String, Object>>()
+        );
+
+        mockMvc.perform(put("/api/student/profile")
+                        .header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(firstPayload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.schools[0].schoolBoard").value("YRDSB"));
+
+        Map<String, Object> secondSchool = buildSchool("MAIN", "A High School", "2023-09-01", null);
+        Map<String, Object> secondPayload = buildProfilePayload(
+                "Amy",
+                "Chen",
+                "Amy",
+                false,
+                Arrays.asList(secondSchool),
+                new ArrayList<Map<String, Object>>()
+        );
+
+        mockMvc.perform(put("/api/student/profile")
+                        .header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(secondPayload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.schools[0].schoolBoard").value("YRDSB"))
+                .andExpect(jsonPath("$.schools[0].boardName").value("YRDSB"));
+    }
+
+    @Test
+    void putProfile_withInvalidSchoolBoard_returns400() throws Exception {
+        Student student = createStudentAccount("profile_school_board_invalid_student", "Amy", "Chen", "Amy");
+        String bearer = bearerFor(student.getUser());
+
+        Map<String, Object> blankBoardSchool = buildSchool("MAIN", "A High School", "2023-09-01", null);
+        blankBoardSchool.put("schoolBoard", "   ");
+        Map<String, Object> blankBoardPayload = buildProfilePayload(
+                "Amy",
+                "Chen",
+                "Amy",
+                false,
+                Arrays.asList(blankBoardSchool),
+                new ArrayList<Map<String, Object>>()
+        );
+
+        mockMvc.perform(put("/api/student/profile")
+                        .header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(blankBoardPayload)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("schools[0].schoolBoard is invalid"))
+                .andExpect(jsonPath("$.code").value("BAD_REQUEST"));
+
+        StringBuilder longBoardBuilder = new StringBuilder();
+        for (int i = 0; i < 65; i++) {
+            longBoardBuilder.append('A');
+        }
+        Map<String, Object> longBoardSchool = buildSchool("MAIN", "A High School", "2023-09-01", null);
+        longBoardSchool.put("schoolBoard", longBoardBuilder.toString());
+        Map<String, Object> longBoardPayload = buildProfilePayload(
+                "Amy",
+                "Chen",
+                "Amy",
+                false,
+                Arrays.asList(longBoardSchool),
+                new ArrayList<Map<String, Object>>()
+        );
+
+        mockMvc.perform(put("/api/student/profile")
+                        .header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(longBoardPayload)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("schools[0].schoolBoard is invalid"))
+                .andExpect(jsonPath("$.code").value("BAD_REQUEST"));
+    }
+
+    @Test
     void putProfile_withSchoolAddress_returnsAndPersistsSchoolAddress() throws Exception {
         Student student = createStudentAccount("profile_school_address_student", "Amy", "Chen", "Amy");
 

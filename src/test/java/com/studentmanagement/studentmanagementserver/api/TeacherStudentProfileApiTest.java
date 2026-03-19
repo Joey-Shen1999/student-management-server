@@ -137,6 +137,41 @@ class TeacherStudentProfileApiTest {
     }
 
     @Test
+    void teacherProfile_schoolBoardAliasesAndPreserveWithoutField() throws Exception {
+        Teacher teacher = createTeacherAccount("phase2_teacher_school_board", "Teacher SchoolBoard");
+        Student student = createStudentAccount("phase2_student_school_board", "Amy", "Chen", "Amy");
+        assignTeacherStudent(teacher, student, TeacherStudentStatus.ACTIVE);
+        String bearer = bearerFor(teacher.getUser());
+
+        Map<String, Object> firstPayload = buildProfilePayload();
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> firstSchools = (List<Map<String, Object>>) firstPayload.get("schools");
+        firstSchools.get(0).put("boardName", "TDSB");
+        firstSchools.get(1).put("educationBureau", "私校");
+
+        mockMvc.perform(put("/api/teacher/students/{studentId}/profile", student.getId())
+                        .header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(firstPayload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.schools[0].schoolBoard").value("TDSB"))
+                .andExpect(jsonPath("$.schools[0].boardName").value("TDSB"))
+                .andExpect(jsonPath("$.schools[1].schoolBoard").value("私校"))
+                .andExpect(jsonPath("$.schools[1].boardName").value("私校"));
+
+        Map<String, Object> secondPayload = buildProfilePayload();
+        mockMvc.perform(put("/api/teacher/students/{studentId}/profile", student.getId())
+                        .header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(secondPayload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.schools[0].schoolBoard").value("TDSB"))
+                .andExpect(jsonPath("$.schools[0].boardName").value("TDSB"))
+                .andExpect(jsonPath("$.schools[1].schoolBoard").value("私校"))
+                .andExpect(jsonPath("$.schools[1].boardName").value("私校"));
+    }
+
+    @Test
     void teacherProfile_teacherAssignedActive_canUploadAndDownloadSchoolTranscript() throws Exception {
         Teacher teacher = createTeacherAccount("phase2_teacher_transcript", "Teacher Transcript");
         Student student = createStudentAccount("phase2_student_transcript", "Amy", "Chen", "Amy");

@@ -33,6 +33,9 @@ public class StudentSchoolRecord extends BaseEntity {
     @Column(name = "school_name", nullable = false, length = 200)
     private String schoolName;
 
+    @Column(name = "school_board", length = 64)
+    private String schoolBoard;
+
     @Column(name = "street_address", length = 255)
     private String streetAddress;
 
@@ -77,12 +80,13 @@ public class StudentSchoolRecord extends BaseEntity {
                                String schoolName,
                                LocalDate startTime,
                                LocalDate endTime) {
-        this(student, schoolType, schoolName, null, null, null, null, null, startTime, endTime);
+        this(student, schoolType, schoolName, null, null, null, null, null, null, startTime, endTime);
     }
 
     public StudentSchoolRecord(Student student,
                                SchoolType schoolType,
                                String schoolName,
+                               String schoolBoard,
                                String streetAddress,
                                String city,
                                String state,
@@ -93,6 +97,7 @@ public class StudentSchoolRecord extends BaseEntity {
         this.student = student;
         this.schoolType = schoolType;
         this.schoolName = schoolName;
+        this.schoolBoard = schoolBoard;
         this.streetAddress = streetAddress;
         this.city = city;
         this.state = state;
@@ -112,6 +117,14 @@ public class StudentSchoolRecord extends BaseEntity {
 
     public String getSchoolName() {
         return schoolName;
+    }
+
+    public String getSchoolBoard() {
+        return schoolBoard;
+    }
+
+    public void setSchoolBoard(String schoolBoard) {
+        this.schoolBoard = schoolBoard;
     }
 
     public String getStreetAddress() {

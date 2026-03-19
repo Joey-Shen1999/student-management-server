@@ -317,6 +317,9 @@ public class StudentProfileDto {
         private Long schoolRecordId;
         private String schoolType;
         private String schoolName;
+        private String schoolBoard;
+        private String boardName;
+        private String educationBureau;
         private AddressDto address = new AddressDto();
         private String streetAddress;
         private String city;
@@ -353,6 +356,30 @@ public class StudentProfileDto {
 
         public void setSchoolName(String schoolName) {
             this.schoolName = schoolName;
+        }
+
+        public String getSchoolBoard() {
+            return schoolBoard;
+        }
+
+        public void setSchoolBoard(String schoolBoard) {
+            this.schoolBoard = schoolBoard;
+        }
+
+        public String getBoardName() {
+            return boardName;
+        }
+
+        public void setBoardName(String boardName) {
+            this.boardName = boardName;
+        }
+
+        public String getEducationBureau() {
+            return educationBureau;
+        }
+
+        public void setEducationBureau(String educationBureau) {
+            this.educationBureau = educationBureau;
         }
 
         public AddressDto getAddress() {

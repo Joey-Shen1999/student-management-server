@@ -4,6 +4,7 @@ public class CanadianHighSchoolReferenceDto {
 
     private final String id;
     private final String name;
+    private final String boardName;
     private final String streetAddress;
     private final String city;
     private final String state;
@@ -12,6 +13,7 @@ public class CanadianHighSchoolReferenceDto {
 
     public CanadianHighSchoolReferenceDto(String id,
                                           String name,
+                                          String boardName,
                                           String streetAddress,
                                           String city,
                                           String state,
@@ -19,6 +21,7 @@ public class CanadianHighSchoolReferenceDto {
                                           String postal) {
         this.id = id;
         this.name = name;
+        this.boardName = boardName;
         this.streetAddress = streetAddress;
         this.city = city;
         this.state = state;
@@ -32,6 +35,10 @@ public class CanadianHighSchoolReferenceDto {
 
     public String getName() {
         return name;
+    }
+
+    public String getBoardName() {
+        return boardName;
     }
 
     public String getStreetAddress() {
