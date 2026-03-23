@@ -28,15 +28,15 @@ public class TeacherStudentProfileController {
     }
 
     @GetMapping
-    public ResponseEntity<StudentProfileDto> getProfile(@PathVariable Long studentId,
-                                                        HttpServletRequest request) {
+    public ResponseEntity<TeacherStudentProfileDto> getProfile(@PathVariable Long studentId,
+                                                               HttpServletRequest request) {
         return ResponseEntity.ok(teacherStudentProfileService.getProfile(studentId, request));
     }
 
     @PutMapping
-    public ResponseEntity<StudentProfileDto> saveProfile(@PathVariable Long studentId,
-                                                         @RequestBody(required = false) StudentProfileDto requestBody,
-                                                         HttpServletRequest request) {
+    public ResponseEntity<TeacherStudentProfileDto> saveProfile(@PathVariable Long studentId,
+                                                                @RequestBody(required = false) TeacherStudentProfileDto requestBody,
+                                                                HttpServletRequest request) {
         return ResponseEntity.ok(teacherStudentProfileService.saveProfile(studentId, requestBody, request));
     }
 

@@ -62,6 +62,9 @@ public class StudentProfile extends BaseEntity {
     @Column(name = "identity_file_note", length = 500)
     private String identityFileNote;
 
+    @Column(name = "teacher_note", length = 5000)
+    private String teacherNote;
+
     @Column(name = "street_address", length = 200)
     private String streetAddress;
 
@@ -197,6 +200,14 @@ public class StudentProfile extends BaseEntity {
 
     public void setIdentityFileNote(String identityFileNote) {
         this.identityFileNote = identityFileNote;
+    }
+
+    public String getTeacherNote() {
+        return teacherNote;
+    }
+
+    public void setTeacherNote(String teacherNote) {
+        this.teacherNote = teacherNote;
     }
 
     public String getStreetAddress() {

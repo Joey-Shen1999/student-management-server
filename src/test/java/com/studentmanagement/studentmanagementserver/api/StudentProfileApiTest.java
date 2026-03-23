@@ -1001,6 +1001,38 @@ class StudentProfileApiTest {
         assertEquals(Integer.valueOf(95), records.get(0).getMark());
     }
 
+    @Test
+    void studentProfile_teacherNoteInPayload_isIgnoredAndNeverReturned() throws Exception {
+        Student student = createStudentAccount("profile_teacher_note_student", "Amy", "Chen", "Amy");
+        String bearer = bearerFor(student.getUser());
+
+        Map<String, Object> payload = buildProfilePayload(
+                "Amy",
+                "Chen",
+                "Amy",
+                false,
+                Arrays.asList(
+                        buildSchool("MAIN", "A High School", "2023-09-01", null)
+                ),
+                Arrays.asList(
+                        buildCourse("ABC Private School", "MHF4U", 93, 12, "2025-02-01", "2025-06-30")
+                )
+        );
+        payload.put("teacherNote", "student cannot write this");
+
+        mockMvc.perform(put("/api/student/profile")
+                        .header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(payload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.teacherNote").doesNotExist());
+
+        mockMvc.perform(get("/api/student/profile")
+                        .header("Authorization", bearer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.teacherNote").doesNotExist());
+    }
+
     private Student createStudentAccount(String username, String firstName, String lastName, String nickName) {
         User user = userRepository.save(new User(username, passwordEncoder.encode("Student!234"), UserRole.STUDENT));
         return studentRepository.save(new Student(user, firstName, lastName, nickName));

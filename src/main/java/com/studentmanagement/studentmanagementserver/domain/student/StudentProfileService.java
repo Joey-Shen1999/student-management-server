@@ -44,6 +44,7 @@ public class StudentProfileService {
     private static final Pattern DATE_PATTERN = Pattern.compile("\\d{4}-\\d{2}-\\d{2}");
     private static final Pattern SCHOOL_BOARD_PATTERN = Pattern.compile("^[\\p{L}\\p{N} &()/.\\-]+$");
     private static final int MAX_SCHOOL_BOARD_LENGTH = 64;
+    private static final int MAX_TEACHER_NOTE_LENGTH = 5000;
     private static final long MAX_UPLOAD_SIZE_BYTES = 50L * 1024L * 1024L;
 
     private final AuthSessionService authSessionService;
@@ -79,19 +80,33 @@ public class StudentProfileService {
     @Transactional(readOnly = true)
     public StudentProfileDto getCurrentStudentProfile(HttpServletRequest request) {
         Student student = requireCurrentStudent(request);
-        return getProfileForStudent(student);
+        return getProfileForStudent(student, false);
     }
 
     @Transactional(readOnly = true)
     public StudentProfileDto getProfileByStudentId(Long studentId) {
         Student student = requireStudentById(studentId);
-        return getProfileForStudent(student);
+        return getProfileForStudent(student, false);
+    }
+
+    @Transactional(readOnly = true)
+    public TeacherStudentProfileDto getProfileByStudentIdForTeacher(Long studentId) {
+        Student student = requireStudentById(studentId);
+        return toTeacherDto(getProfileForStudent(student, true));
     }
 
     @Transactional
     public StudentProfileDto saveCurrentStudentProfile(StudentProfileDto requestBody, HttpServletRequest request) {
         Student student = requireCurrentStudent(request);
-        return saveProfileForStudent(student, requestBody, student.getUser().getId(), resolveTraceId(request));
+        return saveProfileForStudent(
+                student,
+                requestBody,
+                student.getUser().getId(),
+                resolveTraceId(request),
+                false,
+                null,
+                false
+        );
     }
 
     @Transactional
@@ -105,7 +120,31 @@ public class StudentProfileService {
                                                     Long operatorUserId,
                                                     String traceId) {
         Student student = requireStudentById(studentId);
-        return saveProfileForStudent(student, requestBody, operatorUserId, traceId);
+        return saveProfileForStudent(student, requestBody, operatorUserId, traceId, false, null, false);
+    }
+
+    @Transactional
+    public TeacherStudentProfileDto saveProfileByStudentIdForTeacher(Long studentId,
+                                                                     TeacherStudentProfileDto requestBody,
+                                                                     Long operatorUserId,
+                                                                     String traceId) {
+        Student student = requireStudentById(studentId);
+        String teacherNoteToSave = null;
+        boolean teacherNoteProvided = false;
+        if (requestBody != null && requestBody.isTeacherNoteProvided()) {
+            teacherNoteToSave = normalizeTeacherNote(requestBody.getTeacherNote());
+            teacherNoteProvided = true;
+        }
+        StudentProfileDto saved = saveProfileForStudent(
+                student,
+                requestBody,
+                operatorUserId,
+                traceId,
+                teacherNoteProvided,
+                teacherNoteToSave,
+                true
+        );
+        return toTeacherDto(saved);
     }
 
     @Transactional
@@ -236,7 +275,7 @@ public class StudentProfileService {
         return schoolRecord;
     }
 
-    private StudentProfileDto getProfileForStudent(Student student) {
+    private StudentProfileDto getProfileForStudent(Student student, boolean includeTeacherNote) {
         StudentProfile profile = studentProfileRepository.findByStudent_Id(student.getId()).orElse(null);
         List<StudentSchoolRecord> schools = studentSchoolRecordRepository.findByStudent_IdOrderByIdAsc(student.getId());
         List<StudentSchoolTranscript> transcripts = findTranscriptsBySchoolRecords(schools);
@@ -244,18 +283,24 @@ public class StudentProfileService {
                 ? Collections.<StudentIdentityFile>emptyList()
                 : studentIdentityFileRepository.findByStudentProfile_IdOrderByUploadedAtDescIdDesc(profile.getId());
         List<StudentCourseRecord> courses = studentCourseRecordRepository.findByStudent_IdOrderByIdAsc(student.getId());
-        return toDto(student, profile, schools, transcripts, identityFiles, courses);
+        return toDto(student, profile, schools, transcripts, identityFiles, courses, includeTeacherNote);
     }
 
     private StudentProfileDto saveProfileForStudent(Student student,
                                                     StudentProfileDto requestBody,
                                                     Long operatorUserId,
-                                                    String traceId) {
+                                                    String traceId,
+                                                    boolean teacherNoteProvided,
+                                                    String teacherNoteToSave,
+                                                    boolean includeTeacherNoteInResponse) {
         NormalizedProfile normalized = normalizeAndValidate(requestBody);
 
         StudentProfile profile = studentProfileRepository.findByStudent_Id(student.getId())
                 .orElseGet(() -> new StudentProfile(student));
         applyProfile(profile, normalized, operatorUserId);
+        if (teacherNoteProvided) {
+            profile.setTeacherNote(teacherNoteToSave);
+        }
         profile = studentProfileRepository.save(profile);
 
         List<StudentIdentityFile> existingIdentityFiles =
@@ -395,7 +440,15 @@ public class StudentProfileService {
             savedCourses = studentCourseRecordRepository.saveAll(savedCourses);
         }
 
-        return toDto(student, profile, savedSchools, savedTranscripts, savedIdentityFiles, savedCourses);
+        return toDto(
+                student,
+                profile,
+                savedSchools,
+                savedTranscripts,
+                savedIdentityFiles,
+                savedCourses,
+                includeTeacherNoteInResponse
+        );
     }
 
     private void applyProfile(StudentProfile profile, NormalizedProfile normalized, Long operatorUserId) {
@@ -622,8 +675,9 @@ public class StudentProfileService {
                                     List<StudentSchoolRecord> schools,
                                     List<StudentSchoolTranscript> transcripts,
                                     List<StudentIdentityFile> identityFiles,
-                                    List<StudentCourseRecord> courses) {
-        StudentProfileDto dto = new StudentProfileDto();
+                                    List<StudentCourseRecord> courses,
+                                    boolean includeTeacherNote) {
+        StudentProfileDto dto = includeTeacherNote ? new TeacherStudentProfileDto() : new StudentProfileDto();
 
         dto.setLegalFirstName(student.getFirstName());
         dto.setLegalLastName(student.getLastName());
@@ -651,7 +705,6 @@ public class StudentProfileService {
             dto.setOenNumber(profile.getOenNumber());
             dto.setIb(profile.getIb());
             dto.setAp(profile.isAp());
-
             StudentProfileDto.AddressDto address = new StudentProfileDto.AddressDto();
             address.setStreetAddress(profile.getStreetAddress());
             address.setStreetAddressLine2(profile.getStreetAddressLine2());
@@ -660,6 +713,10 @@ public class StudentProfileService {
             address.setCountry(profile.getCountry());
             address.setPostal(profile.getPostal());
             dto.setAddress(address);
+        }
+        if (includeTeacherNote && dto instanceof TeacherStudentProfileDto) {
+            String note = profile == null ? null : profile.getTeacherNote();
+            ((TeacherStudentProfileDto) dto).setTeacherNote(note);
         }
 
         List<StudentProfileDto.IdentityFileDto> identityFileDtos = new ArrayList<StudentProfileDto.IdentityFileDto>();
@@ -761,6 +818,13 @@ public class StudentProfileService {
         dto.setExternalCourses(new ArrayList<StudentProfileDto.CourseDto>(courseDtos));
 
         return dto;
+    }
+
+    private TeacherStudentProfileDto toTeacherDto(StudentProfileDto dto) {
+        if (dto instanceof TeacherStudentProfileDto) {
+            return (TeacherStudentProfileDto) dto;
+        }
+        throw new IllegalStateException("Teacher profile DTO expected.");
     }
 
     private List<StudentSchoolTranscript> findTranscriptsBySchoolRecords(List<StudentSchoolRecord> schools) {
@@ -1419,6 +1483,17 @@ public class StudentProfileService {
         if (file.getSize() > MAX_UPLOAD_SIZE_BYTES) {
             throw new MaxUploadSizeExceededException(MAX_UPLOAD_SIZE_BYTES);
         }
+    }
+
+    private String normalizeTeacherNote(String teacherNoteRaw) {
+        if (teacherNoteRaw == null) {
+            return null;
+        }
+        String normalized = teacherNoteRaw.trim();
+        if (normalized.length() > MAX_TEACHER_NOTE_LENGTH) {
+            throw new IllegalArgumentException("teacherNote must be at most " + MAX_TEACHER_NOTE_LENGTH + " characters");
+        }
+        return normalized;
     }
 
     private NormalizedProfile normalizeAndValidate(StudentProfileDto requestBody) {

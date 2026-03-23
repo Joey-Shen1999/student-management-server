@@ -184,7 +184,9 @@ On each push to `main`, `.github/workflows/deploy.yml` does:
    - `git fetch --all --prune`
    - `git reset --hard origin/main`
    - `git clean -fd`
-   - run migration `scripts/migrations/20260318_teacher_student_ownership_deprecation.sql`
+   - run migrations:
+     - `scripts/migrations/20260318_teacher_student_ownership_deprecation.sql`
+     - `scripts/migrations/20260323_add_student_profile_teacher_note.sql`
      - prefer `docker exec $DB_CONTAINER_NAME ... psql`
      - fallback to local `psql` client
    - build (`./mvnw` or `mvn`)

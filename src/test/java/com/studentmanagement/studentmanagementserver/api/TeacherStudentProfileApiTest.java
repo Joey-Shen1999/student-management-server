@@ -121,6 +121,7 @@ class TeacherStudentProfileApiTest {
         payload.put("preferredName", " TE ");
         payload.put("gender", "Other");
         payload.put("genderOther", "Non-binary");
+        payload.put("teacherNote", "  Follow up transcript in April  ");
 
         mockMvc.perform(put("/api/teacher/students/{studentId}/profile", student.getId())
                         .header("Authorization", bearerFor(teacher.getUser()))
@@ -131,9 +132,15 @@ class TeacherStudentProfileApiTest {
                 .andExpect(jsonPath("$.preferredName").value("TE"))
                 .andExpect(jsonPath("$.gender").value("Other"))
                 .andExpect(jsonPath("$.genderOther").value("Non-binary"))
+                .andExpect(jsonPath("$.teacherNote").value("Follow up transcript in April"))
                 .andExpect(jsonPath("$.otherCourses[0].courseCode").value("MHF4U"))
                 .andExpect(jsonPath("$.externalCourses[0].courseCode").value("MHF4U"))
                 .andExpect(jsonPath("$.schoolRecords[0].schoolType").value("MAIN"));
+
+        mockMvc.perform(get("/api/teacher/students/{studentId}/profile", student.getId())
+                        .header("Authorization", bearerFor(teacher.getUser())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.teacherNote").value("Follow up transcript in April"));
     }
 
     @Test
@@ -276,40 +283,40 @@ class TeacherStudentProfileApiTest {
     }
 
     @Test
-    void teacherProfile_teacherUnassigned_getAndPut200() throws Exception {
+    void teacherProfile_teacherUnassigned_getAndPut403() throws Exception {
         Teacher teacher = createTeacherAccount("phase2_teacher_unassigned", "Teacher Unassigned");
         Student student = createStudentAccount("phase2_student_unassigned", "Amy", "Chen", "Amy");
 
         mockMvc.perform(get("/api/teacher/students/{studentId}/profile", student.getId())
                         .header("Authorization", bearerFor(teacher.getUser())))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.legalFirstName").value("Amy"));
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
 
         mockMvc.perform(put("/api/teacher/students/{studentId}/profile", student.getId())
                         .header("Authorization", bearerFor(teacher.getUser()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(toJson(buildProfilePayload())))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.legalFirstName").value("Amy"));
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
     }
 
     @Test
-    void teacherProfile_teacherArchivedRelation_getAndPut200() throws Exception {
+    void teacherProfile_teacherArchivedRelation_getAndPut403() throws Exception {
         Teacher teacher = createTeacherAccount("phase2_teacher_archived", "Teacher Archived");
         Student student = createStudentAccount("phase2_student_archived", "Amy", "Chen", "Amy");
         assignTeacherStudent(teacher, student, TeacherStudentStatus.ARCHIVED);
 
         mockMvc.perform(get("/api/teacher/students/{studentId}/profile", student.getId())
                         .header("Authorization", bearerFor(teacher.getUser())))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.legalFirstName").value("Amy"));
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
 
         mockMvc.perform(put("/api/teacher/students/{studentId}/profile", student.getId())
                         .header("Authorization", bearerFor(teacher.getUser()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(toJson(buildProfilePayload())))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.legalFirstName").value("Amy"));
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
     }
 
     @Test
@@ -404,6 +411,79 @@ class TeacherStudentProfileApiTest {
         assertEquals(1, records.size());
     }
 
+    @Test
+    void teacherProfile_teacherNote_visibleToOtherAssignedTeacher() throws Exception {
+        Teacher teacherA = createTeacherAccount("phase2_teacher_note_a", "Teacher Note A");
+        Teacher teacherB = createTeacherAccount("phase2_teacher_note_b", "Teacher Note B");
+        Student student = createStudentAccount("phase2_student_note_shared", "Amy", "Chen", "Amy");
+        assignTeacherStudent(teacherA, student, TeacherStudentStatus.ACTIVE);
+        assignTeacherStudent(teacherB, student, TeacherStudentStatus.ACTIVE);
+
+        Map<String, Object> payload = buildProfilePayload();
+        payload.put("teacherNote", "same note for all assigned teachers");
+
+        mockMvc.perform(put("/api/teacher/students/{studentId}/profile", student.getId())
+                        .header("Authorization", bearerFor(teacherA.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(payload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.teacherNote").value("same note for all assigned teachers"));
+
+        mockMvc.perform(get("/api/teacher/students/{studentId}/profile", student.getId())
+                        .header("Authorization", bearerFor(teacherB.getUser())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.teacherNote").value("same note for all assigned teachers"));
+    }
+
+    @Test
+    void teacherProfile_teacherNote_emptyString_clearsValue() throws Exception {
+        Teacher teacher = createTeacherAccount("phase2_teacher_note_clear", "Teacher Note Clear");
+        Student student = createStudentAccount("phase2_student_note_clear", "Amy", "Chen", "Amy");
+        assignTeacherStudent(teacher, student, TeacherStudentStatus.ACTIVE);
+        String bearer = bearerFor(teacher.getUser());
+
+        Map<String, Object> firstPayload = buildProfilePayload();
+        firstPayload.put("teacherNote", "will be cleared");
+        mockMvc.perform(put("/api/teacher/students/{studentId}/profile", student.getId())
+                        .header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(firstPayload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.teacherNote").value("will be cleared"));
+
+        Map<String, Object> secondPayload = buildProfilePayload();
+        secondPayload.put("teacherNote", "   ");
+        mockMvc.perform(put("/api/teacher/students/{studentId}/profile", student.getId())
+                        .header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(secondPayload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.teacherNote").value(""));
+
+        mockMvc.perform(get("/api/teacher/students/{studentId}/profile", student.getId())
+                        .header("Authorization", bearer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.teacherNote").value(""));
+    }
+
+    @Test
+    void teacherProfile_teacherNote_tooLong_returns400() throws Exception {
+        Teacher teacher = createTeacherAccount("phase2_teacher_note_long", "Teacher Note Long");
+        Student student = createStudentAccount("phase2_student_note_long", "Amy", "Chen", "Amy");
+        assignTeacherStudent(teacher, student, TeacherStudentStatus.ACTIVE);
+
+        Map<String, Object> payload = buildProfilePayload();
+        payload.put("teacherNote", repeatChar('x', 5001));
+
+        mockMvc.perform(put("/api/teacher/students/{studentId}/profile", student.getId())
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(payload)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("BAD_REQUEST"))
+                .andExpect(jsonPath("$.message").value("teacherNote must be at most 5000 characters"));
+    }
+
     private User createAdmin(String username) {
         return userRepository.save(new User(username, passwordEncoder.encode("Admin!234"), UserRole.ADMIN));
     }
@@ -456,6 +536,14 @@ class TeacherStudentProfileApiTest {
                 buildCourse("ABC Private School", "MHF4U", 93, 12, "2025-02-01", "2025-06-30")
         ));
         return payload;
+    }
+
+    private String repeatChar(char ch, int count) {
+        StringBuilder builder = new StringBuilder(count);
+        for (int i = 0; i < count; i++) {
+            builder.append(ch);
+        }
+        return builder.toString();
     }
 
     private Map<String, Object> buildAddress() {

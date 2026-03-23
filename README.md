@@ -46,7 +46,8 @@ Use returned bearer token:
 - `GET /api/teacher/students/{studentId}/profile/schools/{schoolRecordId}/transcript` (download transcript file)
 
 Access rule:
-- `TEACHER` / `ADMIN`: can access all students.
+- `ADMIN`: can access all students.
+- `TEACHER`: can access only students with `teacher_student.status=ACTIVE` assignment.
 - `STUDENT`: forbidden (`403`).
 
 ## Student Invite APIs
@@ -91,6 +92,8 @@ Access rule:
 Migration note:
 - If your DB still enforces invite ownership (`student_invites.teacher_id NOT NULL`), run:
   - `scripts/migrations/20260318_teacher_student_ownership_deprecation.sql`
+- For teacher internal note field, run:
+  - `scripts/migrations/20260323_add_student_profile_teacher_note.sql`
 
 ## Student Profile Contract (Latest)
 
@@ -146,6 +149,12 @@ Compatibility alias:
 - `403`: forbidden (role mismatch)
 - `404`: student not found
 - `400`: validation failure
+
+### 4) Teacher internal note (`teacherNote`)
+- Teacher endpoints (`/api/teacher/students/{studentId}/profile`) support read/write `teacherNote`.
+- Max length: `5000`.
+- Empty string is allowed and means clear.
+- Student self profile endpoints (`/api/student/profile`) never return `teacherNote` and ignore it in request body.
 
 Error body:
 ```json
