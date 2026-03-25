@@ -44,6 +44,7 @@ public class StudentProfileService {
     private static final Pattern DATE_PATTERN = Pattern.compile("\\d{4}-\\d{2}-\\d{2}");
     private static final Pattern SCHOOL_BOARD_PATTERN = Pattern.compile("^[\\p{L}\\p{N} &()/.\\-]+$");
     private static final int MAX_SCHOOL_BOARD_LENGTH = 64;
+    private static final int MAX_UNIQUE_SCHOOLS_PER_PROFILE = 100;
     private static final int MAX_TEACHER_NOTE_LENGTH = 5000;
     private static final long MAX_UPLOAD_SIZE_BYTES = 50L * 1024L * 1024L;
 
@@ -321,99 +322,20 @@ public class StudentProfileService {
         studentRepository.save(student);
 
         List<StudentSchoolRecord> existingSchoolRecords = studentSchoolRecordRepository.findByStudent_IdOrderByIdAsc(student.getId());
-        Map<String, List<StudentSchoolRecord>> existingSchoolRecordsByKey = mapSchoolRecordsByKey(existingSchoolRecords);
         List<StudentSchoolTranscript> existingTranscripts = findTranscriptsBySchoolRecords(existingSchoolRecords);
-        Map<String, List<StudentSchoolTranscript>> transcriptsBySchoolKey =
-                mapTranscriptsBySchoolKey(existingSchoolRecords, existingTranscripts);
-
-        Set<String> incomingSchoolKeys = new HashSet<String>();
-        for (NormalizedSchool school : normalized.schools) {
-            incomingSchoolKeys.add(buildSchoolKey(
-                    school.schoolType,
-                    school.schoolName,
-                    school.startTime,
-                    school.endTime
-            ));
-        }
-        for (Map.Entry<String, List<StudentSchoolTranscript>> entry : transcriptsBySchoolKey.entrySet()) {
-            if (incomingSchoolKeys.contains(entry.getKey())) {
-                continue;
-            }
-            for (StudentSchoolTranscript transcript : entry.getValue()) {
-                deleteTranscriptStorageOrThrow(transcript, operatorUserId, traceId, "school_removed");
-            }
-        }
-
-        studentSchoolRecordRepository.deleteByStudent_Id(student.getId());
-        List<StudentSchoolRecord> savedSchools = new ArrayList<StudentSchoolRecord>();
-        for (NormalizedSchool school : normalized.schools) {
-            String schoolKey = buildSchoolKey(
-                    school.schoolType,
-                    school.schoolName,
-                    school.startTime,
-                    school.endTime
-            );
-            StudentSchoolRecord existingSchoolRecord = popSchoolRecordByKey(existingSchoolRecordsByKey, schoolKey);
-            String resolvedSchoolBoard = resolveSchoolBoardForSave(school, existingSchoolRecord);
-            StudentSchoolRecord schoolRecord = new StudentSchoolRecord(
+        List<StudentSchoolRecord> savedSchools = existingSchoolRecords;
+        List<StudentSchoolTranscript> savedTranscripts = existingTranscripts;
+        if (normalized.schools != null) {
+            SchoolSyncResult schoolSyncResult = syncSchoolsForStudent(
                     student,
-                    school.schoolType,
-                    school.schoolName,
-                    resolvedSchoolBoard,
-                    school.streetAddress,
-                    school.city,
-                    school.state,
-                    school.country,
-                    school.postal,
-                    school.startTime,
-                    school.endTime
-            );
-            savedSchools.add(schoolRecord);
-        }
-        if (!savedSchools.isEmpty()) {
-            savedSchools = studentSchoolRecordRepository.saveAll(savedSchools);
-        }
-
-        List<StudentSchoolTranscript> savedTranscripts = new ArrayList<StudentSchoolTranscript>();
-        for (int i = 0; i < savedSchools.size(); i++) {
-            StudentSchoolRecord savedSchool = savedSchools.get(i);
-            NormalizedSchool normalizedSchool = normalized.schools.get(i);
-            String schoolKey = buildSchoolKey(
-                    normalizedSchool.schoolType,
-                    normalizedSchool.schoolName,
-                    normalizedSchool.startTime,
-                    normalizedSchool.endTime
-            );
-            List<StudentSchoolTranscript> legacyTranscripts = transcriptsBySchoolKey.remove(schoolKey);
-            if (legacyTranscripts == null) {
-                legacyTranscripts = Collections.emptyList();
-            }
-            List<StudentSchoolTranscript> syncedTranscripts = syncSchoolTranscripts(
-                    savedSchool,
-                    normalizedSchool,
-                    legacyTranscripts,
+                    normalized.schools,
+                    existingSchoolRecords,
+                    existingTranscripts,
                     operatorUserId,
                     traceId
             );
-            applyLegacyTranscriptFields(savedSchool, syncedTranscripts);
-            savedTranscripts.addAll(syncedTranscripts);
-        }
-        if (!savedSchools.isEmpty()) {
-            savedSchools = studentSchoolRecordRepository.saveAll(savedSchools);
-        }
-        for (Map.Entry<String, List<StudentSchoolTranscript>> left : transcriptsBySchoolKey.entrySet()) {
-            for (StudentSchoolTranscript transcript : left.getValue()) {
-                deleteTranscriptStorageOrThrow(transcript, operatorUserId, traceId, "key_not_reused");
-            }
-        }
-
-        for (StudentSchoolRecord savedSchool : savedSchools) {
-            if (savedSchool.getTranscriptStorageKey() == null) {
-                savedSchool.setTranscriptOriginalFilename(null);
-                savedSchool.setTranscriptContentType(null);
-                savedSchool.setTranscriptSizeBytes(null);
-                savedSchool.setTranscriptUploadedAt(null);
-            }
+            savedSchools = schoolSyncResult.schools;
+            savedTranscripts = schoolSyncResult.transcripts;
         }
 
         studentCourseRecordRepository.deleteByStudent_Id(student.getId());
@@ -856,6 +778,20 @@ public class StudentProfileService {
         return byKey;
     }
 
+    private Map<Long, StudentSchoolRecord> mapSchoolRecordsById(List<StudentSchoolRecord> schools) {
+        Map<Long, StudentSchoolRecord> byId = new LinkedHashMap<Long, StudentSchoolRecord>();
+        if (schools == null) {
+            return byId;
+        }
+        for (StudentSchoolRecord school : schools) {
+            if (school.getId() == null) {
+                continue;
+            }
+            byId.put(school.getId(), school);
+        }
+        return byId;
+    }
+
     private StudentSchoolRecord popSchoolRecordByKey(Map<String, List<StudentSchoolRecord>> schoolsByKey, String key) {
         if (schoolsByKey == null || key == null) {
             return null;
@@ -871,6 +807,27 @@ public class StudentProfileService {
         return matched;
     }
 
+    private void removeSchoolRecordFromKeyMap(Map<String, List<StudentSchoolRecord>> schoolsByKey,
+                                              StudentSchoolRecord school) {
+        if (schoolsByKey == null || school == null) {
+            return;
+        }
+        String key = buildSchoolKey(
+                school.getSchoolType(),
+                school.getSchoolName(),
+                school.getStartTime(),
+                school.getEndTime()
+        );
+        List<StudentSchoolRecord> records = schoolsByKey.get(key);
+        if (records == null || records.isEmpty()) {
+            return;
+        }
+        records.remove(school);
+        if (records.isEmpty()) {
+            schoolsByKey.remove(key);
+        }
+    }
+
     private String resolveSchoolBoardForSave(NormalizedSchool incomingSchool, StudentSchoolRecord existingSchoolRecord) {
         if (incomingSchool.schoolBoardProvided) {
             return incomingSchool.schoolBoard;
@@ -881,40 +838,174 @@ public class StudentProfileService {
         return trimToNull(existingSchoolRecord.getSchoolBoard());
     }
 
-    private Map<String, List<StudentSchoolTranscript>> mapTranscriptsBySchoolKey(List<StudentSchoolRecord> schools,
-                                                                                  List<StudentSchoolTranscript> transcripts) {
-        Map<Long, String> schoolKeyById = new HashMap<Long, String>();
-        for (StudentSchoolRecord school : schools) {
-            schoolKeyById.put(
-                    school.getId(),
-                    buildSchoolKey(school.getSchoolType(), school.getSchoolName(), school.getStartTime(), school.getEndTime())
+    private SchoolSyncResult syncSchoolsForStudent(Student student,
+                                                   List<NormalizedSchool> incomingSchools,
+                                                   List<StudentSchoolRecord> existingSchoolRecords,
+                                                   List<StudentSchoolTranscript> existingTranscripts,
+                                                   Long operatorUserId,
+                                                   String traceId) {
+        Map<Long, StudentSchoolRecord> existingById = mapSchoolRecordsById(existingSchoolRecords);
+        Map<String, List<StudentSchoolRecord>> existingByKey = mapSchoolRecordsByKey(existingSchoolRecords);
+        Map<Long, List<StudentSchoolTranscript>> transcriptsBySchoolId =
+                mapTranscriptsBySchoolId(existingSchoolRecords, existingTranscripts);
+
+        List<StudentSchoolRecord> schoolsToSave = new ArrayList<StudentSchoolRecord>();
+        List<SchoolSyncPlan> syncPlans = new ArrayList<SchoolSyncPlan>();
+        for (int i = 0; i < incomingSchools.size(); i++) {
+            NormalizedSchool incomingSchool = incomingSchools.get(i);
+            String pathPrefix = "schools[" + i + "]";
+            StudentSchoolRecord existingSchool = resolveExistingSchoolRecord(
+                    pathPrefix,
+                    incomingSchool,
+                    existingById,
+                    existingByKey
             );
+            String resolvedSchoolBoard = resolveSchoolBoardForSave(incomingSchool, existingSchool);
+            StudentSchoolRecord schoolToSave;
+            if (existingSchool == null) {
+                schoolToSave = new StudentSchoolRecord(
+                        student,
+                        incomingSchool.schoolType,
+                        incomingSchool.schoolName,
+                        resolvedSchoolBoard,
+                        incomingSchool.streetAddress,
+                        incomingSchool.city,
+                        incomingSchool.state,
+                        incomingSchool.country,
+                        incomingSchool.postal,
+                        incomingSchool.startTime,
+                        incomingSchool.endTime
+                );
+            } else {
+                schoolToSave = existingSchool;
+                applySchoolRecordUpdate(schoolToSave, incomingSchool, resolvedSchoolBoard);
+            }
+
+            schoolsToSave.add(schoolToSave);
+            List<StudentSchoolTranscript> legacyTranscripts = existingSchool == null
+                    ? Collections.<StudentSchoolTranscript>emptyList()
+                    : popTranscriptsBySchoolId(transcriptsBySchoolId, existingSchool.getId());
+            syncPlans.add(new SchoolSyncPlan(schoolToSave, incomingSchool, legacyTranscripts));
         }
 
-        Map<String, List<StudentSchoolTranscript>> byKey = new LinkedHashMap<String, List<StudentSchoolTranscript>>();
-        for (StudentSchoolTranscript transcript : transcripts) {
-            String key = schoolKeyById.get(transcript.getSchoolRecord().getId());
-            if (key == null) {
-                continue;
+        List<StudentSchoolRecord> schoolsToDelete = new ArrayList<StudentSchoolRecord>(existingById.values());
+        for (StudentSchoolRecord schoolToDelete : schoolsToDelete) {
+            List<StudentSchoolTranscript> legacyTranscripts = popTranscriptsBySchoolId(transcriptsBySchoolId, schoolToDelete.getId());
+            for (StudentSchoolTranscript transcript : legacyTranscripts) {
+                deleteTranscriptStorageOrThrow(transcript, operatorUserId, traceId, "school_removed");
             }
-            List<StudentSchoolTranscript> list = byKey.get(key);
-            if (list == null) {
-                list = new ArrayList<StudentSchoolTranscript>();
-                byKey.put(key, list);
+        }
+        for (Map.Entry<Long, List<StudentSchoolTranscript>> orphanEntry : transcriptsBySchoolId.entrySet()) {
+            for (StudentSchoolTranscript transcript : orphanEntry.getValue()) {
+                deleteTranscriptStorageOrThrow(transcript, operatorUserId, traceId, "school_orphaned");
             }
-            list.add(transcript);
         }
 
+        if (!schoolsToDelete.isEmpty()) {
+            studentSchoolRecordRepository.deleteAll(schoolsToDelete);
+            studentSchoolRecordRepository.flush();
+        }
+
+        if (!schoolsToSave.isEmpty()) {
+            studentSchoolRecordRepository.saveAll(schoolsToSave);
+            studentSchoolRecordRepository.flush();
+        }
+
+        List<StudentSchoolTranscript> savedTranscripts = new ArrayList<StudentSchoolTranscript>();
+        for (SchoolSyncPlan syncPlan : syncPlans) {
+            List<StudentSchoolTranscript> syncedTranscripts = syncSchoolTranscripts(
+                    syncPlan.school,
+                    syncPlan.normalizedSchool,
+                    syncPlan.legacyTranscripts,
+                    operatorUserId,
+                    traceId
+            );
+            applyLegacyTranscriptFields(syncPlan.school, syncedTranscripts);
+            savedTranscripts.addAll(syncedTranscripts);
+        }
+
+        if (!schoolsToSave.isEmpty()) {
+            studentSchoolRecordRepository.saveAll(schoolsToSave);
+            studentSchoolRecordRepository.flush();
+        }
+        return new SchoolSyncResult(schoolsToSave, savedTranscripts);
+    }
+
+    private StudentSchoolRecord resolveExistingSchoolRecord(String pathPrefix,
+                                                            NormalizedSchool incomingSchool,
+                                                            Map<Long, StudentSchoolRecord> existingById,
+                                                            Map<String, List<StudentSchoolRecord>> existingByKey) {
+        if (incomingSchool.schoolRecordId != null) {
+            StudentSchoolRecord byId = existingById.remove(incomingSchool.schoolRecordId);
+            if (byId == null) {
+                throw new ResponseStatusException(
+                        HttpStatus.UNPROCESSABLE_ENTITY,
+                        pathPrefix + ".schoolRecordId does not belong to current student."
+                );
+            }
+            removeSchoolRecordFromKeyMap(existingByKey, byId);
+            return byId;
+        }
+
+        String schoolKey = buildSchoolKey(
+                incomingSchool.schoolType,
+                incomingSchool.schoolName,
+                incomingSchool.startTime,
+                incomingSchool.endTime
+        );
+        StudentSchoolRecord byKey = popSchoolRecordByKey(existingByKey, schoolKey);
+        if (byKey != null) {
+            existingById.remove(byKey.getId());
+        }
+        return byKey;
+    }
+
+    private void applySchoolRecordUpdate(StudentSchoolRecord school,
+                                         NormalizedSchool incomingSchool,
+                                         String resolvedSchoolBoard) {
+        school.setSchoolType(incomingSchool.schoolType);
+        school.setSchoolName(incomingSchool.schoolName);
+        school.setSchoolBoard(resolvedSchoolBoard);
+        school.setStreetAddress(incomingSchool.streetAddress);
+        school.setCity(incomingSchool.city);
+        school.setState(incomingSchool.state);
+        school.setCountry(incomingSchool.country);
+        school.setPostal(incomingSchool.postal);
+        school.setStartTime(incomingSchool.startTime);
+        school.setEndTime(incomingSchool.endTime);
+    }
+
+    private Map<Long, List<StudentSchoolTranscript>> mapTranscriptsBySchoolId(List<StudentSchoolRecord> schools,
+                                                                               List<StudentSchoolTranscript> transcripts) {
+        Map<Long, List<StudentSchoolTranscript>> bySchoolId = new LinkedHashMap<Long, List<StudentSchoolTranscript>>();
+        if (transcripts != null) {
+            for (StudentSchoolTranscript transcript : transcripts) {
+                if (transcript == null
+                        || transcript.getSchoolRecord() == null
+                        || transcript.getSchoolRecord().getId() == null) {
+                    continue;
+                }
+                Long schoolId = transcript.getSchoolRecord().getId();
+                List<StudentSchoolTranscript> list = bySchoolId.get(schoolId);
+                if (list == null) {
+                    list = new ArrayList<StudentSchoolTranscript>();
+                    bySchoolId.put(schoolId, list);
+                }
+                list.add(transcript);
+            }
+        }
+
+        if (schools == null) {
+            return bySchoolId;
+        }
         for (StudentSchoolRecord school : schools) {
-            String key = schoolKeyById.get(school.getId());
-            if (key == null || byKey.containsKey(key)) {
+            if (school == null || school.getId() == null || bySchoolId.containsKey(school.getId())) {
                 continue;
             }
             String storageKey = trimToNull(school.getTranscriptStorageKey());
             if (storageKey == null) {
                 continue;
             }
-
             String fileName = trimToNull(school.getTranscriptOriginalFilename());
             if (fileName == null) {
                 fileName = "transcript.bin";
@@ -934,7 +1025,6 @@ public class StudentProfileService {
             Long uploadedBy = school.getStudent() == null || school.getStudent().getUser() == null
                     ? Long.valueOf(0L)
                     : school.getStudent().getUser().getId();
-
             List<StudentSchoolTranscript> list = new ArrayList<StudentSchoolTranscript>();
             list.add(new StudentSchoolTranscript(
                     school,
@@ -945,9 +1035,21 @@ public class StudentProfileService {
                     uploadedAt,
                     uploadedBy
             ));
-            byKey.put(key, list);
+            bySchoolId.put(school.getId(), list);
         }
-        return byKey;
+        return bySchoolId;
+    }
+
+    private List<StudentSchoolTranscript> popTranscriptsBySchoolId(Map<Long, List<StudentSchoolTranscript>> transcriptsBySchoolId,
+                                                                   Long schoolId) {
+        if (transcriptsBySchoolId == null || schoolId == null) {
+            return Collections.emptyList();
+        }
+        List<StudentSchoolTranscript> transcripts = transcriptsBySchoolId.remove(schoolId);
+        if (transcripts == null || transcripts.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return transcripts;
     }
 
     private List<StudentSchoolTranscript> syncSchoolTranscripts(StudentSchoolRecord school,
@@ -955,17 +1057,12 @@ public class StudentProfileService {
                                                                 List<StudentSchoolTranscript> legacyTranscripts,
                                                                 Long operatorUserId,
                                                                 String traceId) {
-        List<StudentSchoolTranscript> finalState = new ArrayList<StudentSchoolTranscript>();
         if (normalizedSchool.transcripts == null) {
-            for (StudentSchoolTranscript legacy : legacyTranscripts) {
-                finalState.add(copyTranscriptForSchool(school, legacy));
-            }
-            if (finalState.isEmpty()) {
+            List<StudentSchoolTranscript> retained = sortTranscriptsLatestFirst(legacyTranscripts);
+            if (retained.isEmpty()) {
                 return Collections.emptyList();
             }
-            List<StudentSchoolTranscript> persisted =
-                    sortTranscriptsLatestFirst(studentSchoolTranscriptRepository.saveAll(finalState));
-            for (StudentSchoolTranscript transcript : persisted) {
+            for (StudentSchoolTranscript transcript : retained) {
                 log.info(
                         "Transcript retained by PUT sync. traceId={}, userId={}, schoolRecordId={}, transcriptId={}",
                         safeTraceId(traceId),
@@ -974,12 +1071,15 @@ public class StudentProfileService {
                         transcript.getId()
                 );
             }
-            return persisted;
+            return retained;
         }
 
+        List<StudentSchoolTranscript> finalState = new ArrayList<StudentSchoolTranscript>();
         Map<Long, StudentSchoolTranscript> legacyById = new HashMap<Long, StudentSchoolTranscript>();
         for (StudentSchoolTranscript legacy : legacyTranscripts) {
-            legacyById.put(legacy.getId(), legacy);
+            if (legacy.getId() != null) {
+                legacyById.put(legacy.getId(), legacy);
+            }
         }
 
         Set<Long> keptIds = new HashSet<Long>();
@@ -988,7 +1088,8 @@ public class StudentProfileService {
                 StudentSchoolTranscript existing = legacyById.get(normalizedTranscript.id);
                 if (existing != null) {
                     keptIds.add(existing.getId());
-                    finalState.add(copyTranscriptForSchool(school, existing, normalizedTranscript, operatorUserId));
+                    applyTranscriptOverride(existing, normalizedTranscript, operatorUserId);
+                    finalState.add(existing);
                     continue;
                 }
             }
@@ -1003,10 +1104,13 @@ public class StudentProfileService {
         }
 
         for (StudentSchoolTranscript legacy : legacyTranscripts) {
-            if (keptIds.contains(legacy.getId())) {
+            if (legacy.getId() != null && keptIds.contains(legacy.getId())) {
                 continue;
             }
             deleteTranscriptStorageOrThrow(legacy, operatorUserId, traceId, "put_sync_removed");
+            if (legacy.getId() != null) {
+                studentSchoolTranscriptRepository.delete(legacy);
+            }
         }
 
         if (finalState.isEmpty()) {
@@ -1055,51 +1159,34 @@ public class StudentProfileService {
         );
     }
 
-    private StudentSchoolTranscript copyTranscriptForSchool(StudentSchoolRecord school, StudentSchoolTranscript source) {
-        return new StudentSchoolTranscript(
-                school,
-                source.getStorageKey(),
-                source.getOriginalFilename(),
-                source.getMimeType(),
-                source.getSizeBytes(),
-                source.getUploadedAt(),
-                source.getUploadedBy()
-        );
-    }
-
-    private StudentSchoolTranscript copyTranscriptForSchool(StudentSchoolRecord school,
-                                                            StudentSchoolTranscript source,
-                                                            NormalizedTranscript override,
-                                                            Long operatorUserId) {
-        String fileName = firstNonBlank(override.fileName, source.getOriginalFilename());
+    private void applyTranscriptOverride(StudentSchoolTranscript existing,
+                                        NormalizedTranscript override,
+                                        Long operatorUserId) {
+        String fileName = firstNonBlank(override.fileName, existing.getOriginalFilename());
         if (fileName == null) {
             fileName = "transcript.bin";
         }
-        String contentType = firstNonBlank(override.contentType, source.getMimeType());
+        String contentType = firstNonBlank(override.contentType, existing.getMimeType());
         if (contentType == null) {
             contentType = "application/octet-stream";
         }
-        Long size = override.sizeBytes == null ? source.getSizeBytes() : override.sizeBytes;
+        Long size = override.sizeBytes == null ? existing.getSizeBytes() : override.sizeBytes;
         if (size == null) {
             size = Long.valueOf(0L);
         }
-        LocalDateTime uploadedAt = override.uploadedAt == null ? source.getUploadedAt() : override.uploadedAt;
+        LocalDateTime uploadedAt = override.uploadedAt == null ? existing.getUploadedAt() : override.uploadedAt;
         if (uploadedAt == null) {
             uploadedAt = LocalDateTime.now();
         }
-        Long uploadedBy = override.uploadedBy == null ? source.getUploadedBy() : override.uploadedBy;
+        Long uploadedBy = override.uploadedBy == null ? existing.getUploadedBy() : override.uploadedBy;
         if (uploadedBy == null) {
             uploadedBy = operatorUserId;
         }
-        return new StudentSchoolTranscript(
-                school,
-                source.getStorageKey(),
-                fileName,
-                contentType,
-                size,
-                uploadedAt,
-                uploadedBy
-        );
+        existing.setOriginalFilename(fileName);
+        existing.setMimeType(contentType);
+        existing.setSizeBytes(size);
+        existing.setUploadedAt(uploadedAt);
+        existing.setUploadedBy(uploadedBy);
     }
 
     private void applyLegacyTranscriptFields(StudentSchoolRecord school, List<StudentSchoolTranscript> transcripts) {
@@ -1542,86 +1629,101 @@ public class StudentProfileService {
                 trimToNull(addressDto.getPostal())
         );
 
-        List<NormalizedSchool> schools = new ArrayList<NormalizedSchool>();
+        List<NormalizedSchool> schools = null;
         List<StudentProfileDto.SchoolDto> incomingSchools = chooseIncomingSchools(requestBody);
-        for (int i = 0; i < incomingSchools.size(); i++) {
-            StudentProfileDto.SchoolDto incomingSchool = incomingSchools.get(i);
-            String pathPrefix = "schools[" + i + "]";
-            if (incomingSchool == null) {
-                throw new IllegalArgumentException(pathPrefix + " is required");
-            }
-
-            SchoolType schoolType = parseSchoolType(incomingSchool.getSchoolType(), pathPrefix + ".schoolType");
-            String schoolName = trimToNull(incomingSchool.getSchoolName());
-            if (schoolName == null) {
-                throw new IllegalArgumentException(pathPrefix + ".schoolName is required");
-            }
-            NormalizedSchoolBoard schoolBoard = normalizeSchoolBoard(incomingSchool, pathPrefix + ".schoolBoard");
-
-            StudentProfileDto.AddressDto schoolAddressDto = incomingSchool.getAddress();
-            String schoolStreetAddress = firstNonBlank(incomingSchool.getStreetAddress(), schoolAddressDto.getStreetAddress());
-            String schoolCity = firstNonBlank(incomingSchool.getCity(), schoolAddressDto.getCity());
-            String schoolState = firstNonBlank(incomingSchool.getState(), schoolAddressDto.getState());
-            String schoolCountry = firstNonBlank(incomingSchool.getCountry(), schoolAddressDto.getCountry());
-            String schoolPostal = firstNonBlank(incomingSchool.getPostal(), schoolAddressDto.getPostal());
-
-            LocalDate startTime = parseDateOrNull(incomingSchool.getStartTime(), pathPrefix + ".startTime");
-            LocalDate endTime = parseDateOrNull(incomingSchool.getEndTime(), pathPrefix + ".endTime");
-            if (startTime != null && endTime != null && startTime.isAfter(endTime)) {
-                throw new IllegalArgumentException(pathPrefix + ".startTime must be on or before endTime");
-            }
-
-            List<NormalizedTranscript> transcripts = null;
-            if (incomingSchool.getTranscripts() != null) {
-                transcripts = new ArrayList<NormalizedTranscript>();
-                for (int t = 0; t < incomingSchool.getTranscripts().size(); t++) {
-                    StudentProfileDto.TranscriptDto transcriptDto = incomingSchool.getTranscripts().get(t);
-                    String transcriptPath = pathPrefix + ".transcripts[" + t + "]";
-                    if (transcriptDto == null) {
-                        throw new IllegalArgumentException(transcriptPath + " is required");
-                    }
-
-                    Long transcriptId = transcriptDto.getId();
-                    if (transcriptId != null && transcriptId.longValue() <= 0L) {
-                        throw new IllegalArgumentException(transcriptPath + ".id must be positive");
-                    }
-
-                    Long sizeBytes = transcriptDto.getTranscriptSizeBytes();
-                    if (sizeBytes != null && sizeBytes.longValue() < 0L) {
-                        throw new IllegalArgumentException(transcriptPath + ".transcriptSizeBytes must be >= 0");
-                    }
-
-                    Long uploadedBy = transcriptDto.getUploadedBy();
-                    if (uploadedBy != null && uploadedBy.longValue() <= 0L) {
-                        throw new IllegalArgumentException(transcriptPath + ".uploadedBy must be positive");
-                    }
-
-                    transcripts.add(new NormalizedTranscript(
-                            transcriptId,
-                            trimToNull(transcriptDto.getStorageKey()),
-                            trimToNull(transcriptDto.getTranscriptFileName()),
-                            trimToNull(transcriptDto.getTranscriptContentType()),
-                            sizeBytes,
-                            parseDateTimeOrNull(transcriptDto.getTranscriptUploadedAt(), transcriptPath + ".transcriptUploadedAt"),
-                            uploadedBy
-                    ));
+        if (incomingSchools != null) {
+            schools = new ArrayList<NormalizedSchool>();
+            for (int i = 0; i < incomingSchools.size(); i++) {
+                StudentProfileDto.SchoolDto incomingSchool = incomingSchools.get(i);
+                String pathPrefix = "schools[" + i + "]";
+                if (incomingSchool == null) {
+                    throw new IllegalArgumentException(pathPrefix + " is required");
                 }
-            }
 
-            schools.add(new NormalizedSchool(
-                    schoolType,
-                    schoolName,
-                    schoolBoard.value,
-                    schoolBoard.provided,
-                    schoolStreetAddress,
-                    schoolCity,
-                    schoolState,
-                    schoolCountry,
-                    schoolPostal,
-                    startTime,
-                    endTime,
-                    transcripts
-            ));
+                Long schoolRecordId = incomingSchool.getSchoolRecordId();
+                if (schoolRecordId != null && schoolRecordId.longValue() <= 0L) {
+                    throw new IllegalArgumentException(pathPrefix + ".schoolRecordId must be positive");
+                }
+
+                SchoolType schoolType = parseSchoolType(incomingSchool.getSchoolType(), pathPrefix + ".schoolType");
+                String schoolName = trimToNull(incomingSchool.getSchoolName());
+                if (schoolName == null) {
+                    throw new IllegalArgumentException(pathPrefix + ".schoolName is required");
+                }
+                NormalizedSchoolBoard schoolBoard = normalizeSchoolBoard(incomingSchool, pathPrefix + ".schoolBoard");
+
+                StudentProfileDto.AddressDto schoolAddressDto = incomingSchool.getAddress();
+                String schoolStreetAddress = firstNonBlank(incomingSchool.getStreetAddress(), schoolAddressDto.getStreetAddress());
+                String schoolCity = firstNonBlank(incomingSchool.getCity(), schoolAddressDto.getCity());
+                String schoolState = firstNonBlank(incomingSchool.getState(), schoolAddressDto.getState());
+                String schoolCountry = firstNonBlank(incomingSchool.getCountry(), schoolAddressDto.getCountry());
+                String schoolPostal = firstNonBlank(incomingSchool.getPostal(), schoolAddressDto.getPostal());
+
+                LocalDate startTime = parseDateOrNull(incomingSchool.getStartTime(), pathPrefix + ".startTime");
+                LocalDate endTime = parseDateOrNull(incomingSchool.getEndTime(), pathPrefix + ".endTime");
+                if (startTime != null && endTime != null && startTime.isAfter(endTime)) {
+                    throw new IllegalArgumentException(pathPrefix + ".startTime must be on or before endTime");
+                }
+
+                List<NormalizedTranscript> transcripts = null;
+                if (incomingSchool.getTranscripts() != null) {
+                    transcripts = new ArrayList<NormalizedTranscript>();
+                    for (int t = 0; t < incomingSchool.getTranscripts().size(); t++) {
+                        StudentProfileDto.TranscriptDto transcriptDto = incomingSchool.getTranscripts().get(t);
+                        String transcriptPath = pathPrefix + ".transcripts[" + t + "]";
+                        if (transcriptDto == null) {
+                            throw new IllegalArgumentException(transcriptPath + " is required");
+                        }
+
+                        Long transcriptId = transcriptDto.getId();
+                        if (transcriptId != null && transcriptId.longValue() <= 0L) {
+                            throw new IllegalArgumentException(transcriptPath + ".id must be positive");
+                        }
+
+                        Long sizeBytes = transcriptDto.getTranscriptSizeBytes();
+                        if (sizeBytes != null && sizeBytes.longValue() < 0L) {
+                            throw new IllegalArgumentException(transcriptPath + ".transcriptSizeBytes must be >= 0");
+                        }
+
+                        Long uploadedBy = transcriptDto.getUploadedBy();
+                        if (uploadedBy != null && uploadedBy.longValue() <= 0L) {
+                            throw new IllegalArgumentException(transcriptPath + ".uploadedBy must be positive");
+                        }
+
+                        transcripts.add(new NormalizedTranscript(
+                                transcriptId,
+                                trimToNull(transcriptDto.getStorageKey()),
+                                trimToNull(transcriptDto.getTranscriptFileName()),
+                                trimToNull(transcriptDto.getTranscriptContentType()),
+                                sizeBytes,
+                                parseDateTimeOrNull(transcriptDto.getTranscriptUploadedAt(), transcriptPath + ".transcriptUploadedAt"),
+                                uploadedBy
+                        ));
+                    }
+                }
+
+                schools.add(new NormalizedSchool(
+                        schoolRecordId,
+                        schoolType,
+                        schoolName,
+                        schoolBoard.value,
+                        schoolBoard.provided,
+                        schoolStreetAddress,
+                        schoolCity,
+                        schoolState,
+                        schoolCountry,
+                        schoolPostal,
+                        startTime,
+                        endTime,
+                        transcripts
+                ));
+            }
+            schools = deduplicateSchoolsByKey(schools);
+            if (schools.size() > MAX_UNIQUE_SCHOOLS_PER_PROFILE) {
+                throw new IllegalArgumentException(
+                        "schools must contain at most " + MAX_UNIQUE_SCHOOLS_PER_PROFILE + " unique items"
+                );
+            }
         }
 
         List<NormalizedIdentityFile> identityFiles = null;
@@ -1738,7 +1840,77 @@ public class StudentProfileService {
         if (requestBody.getSchoolRecords() != null) {
             return requestBody.getSchoolRecords();
         }
-        return new ArrayList<StudentProfileDto.SchoolDto>();
+        return null;
+    }
+
+    private List<NormalizedSchool> deduplicateSchoolsByKey(List<NormalizedSchool> schools) {
+        if (schools == null || schools.isEmpty()) {
+            return new ArrayList<NormalizedSchool>();
+        }
+        Map<String, NormalizedSchool> deduped = new LinkedHashMap<String, NormalizedSchool>();
+        int duplicatesRemoved = 0;
+        for (NormalizedSchool school : schools) {
+            String key = buildSchoolKey(school.schoolType, school.schoolName, school.startTime, school.endTime);
+            NormalizedSchool existing = deduped.get(key);
+            if (existing == null) {
+                deduped.put(key, school);
+                continue;
+            }
+            deduped.put(key, mergeDuplicateSchool(existing, school));
+            duplicatesRemoved++;
+        }
+        if (duplicatesRemoved > 0) {
+            log.warn("Duplicate schools detected in profile payload. removedDuplicates={}", duplicatesRemoved);
+        }
+        return new ArrayList<NormalizedSchool>(deduped.values());
+    }
+
+    private NormalizedSchool mergeDuplicateSchool(NormalizedSchool preserved, NormalizedSchool duplicate) {
+        Long schoolRecordId = mergeDuplicateSchoolRecordId(preserved, duplicate);
+        String schoolBoard = preserved.schoolBoardProvided ? preserved.schoolBoard : duplicate.schoolBoard;
+        boolean schoolBoardProvided = preserved.schoolBoardProvided || duplicate.schoolBoardProvided;
+        return new NormalizedSchool(
+                schoolRecordId,
+                preserved.schoolType,
+                preserved.schoolName,
+                schoolBoard,
+                schoolBoardProvided,
+                firstNonBlank(preserved.streetAddress, duplicate.streetAddress),
+                firstNonBlank(preserved.city, duplicate.city),
+                firstNonBlank(preserved.state, duplicate.state),
+                firstNonBlank(preserved.country, duplicate.country),
+                firstNonBlank(preserved.postal, duplicate.postal),
+                preserved.startTime,
+                preserved.endTime,
+                mergeTranscriptLists(preserved.transcripts, duplicate.transcripts)
+        );
+    }
+
+    private Long mergeDuplicateSchoolRecordId(NormalizedSchool preserved, NormalizedSchool duplicate) {
+        if (preserved.schoolRecordId != null
+                && duplicate.schoolRecordId != null
+                && !preserved.schoolRecordId.equals(duplicate.schoolRecordId)) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Duplicate schools conflict: multiple schoolRecordId values map to the same school key."
+            );
+        }
+        return preserved.schoolRecordId != null ? preserved.schoolRecordId : duplicate.schoolRecordId;
+    }
+
+    private List<NormalizedTranscript> mergeTranscriptLists(List<NormalizedTranscript> first,
+                                                            List<NormalizedTranscript> second) {
+        if ((first == null || first.isEmpty()) && (second == null || second.isEmpty())) {
+            return null;
+        }
+        List<NormalizedTranscript> merged = new ArrayList<NormalizedTranscript>();
+        if (first != null && !first.isEmpty()) {
+            merged.addAll(first);
+        }
+        if (second != null && !second.isEmpty()) {
+            merged.addAll(second);
+        }
+        return merged;
     }
 
     private List<StudentProfileDto.CourseDto> chooseIncomingCourses(StudentProfileDto requestBody) {
@@ -1976,6 +2148,30 @@ public class StudentProfileService {
         }
     }
 
+    private static class SchoolSyncResult {
+        private final List<StudentSchoolRecord> schools;
+        private final List<StudentSchoolTranscript> transcripts;
+
+        private SchoolSyncResult(List<StudentSchoolRecord> schools, List<StudentSchoolTranscript> transcripts) {
+            this.schools = schools;
+            this.transcripts = transcripts;
+        }
+    }
+
+    private static class SchoolSyncPlan {
+        private final StudentSchoolRecord school;
+        private final NormalizedSchool normalizedSchool;
+        private final List<StudentSchoolTranscript> legacyTranscripts;
+
+        private SchoolSyncPlan(StudentSchoolRecord school,
+                               NormalizedSchool normalizedSchool,
+                               List<StudentSchoolTranscript> legacyTranscripts) {
+            this.school = school;
+            this.normalizedSchool = normalizedSchool;
+            this.legacyTranscripts = legacyTranscripts;
+        }
+    }
+
     private static class NormalizedProfile {
         private final String legalFirstName;
         private final String legalLastName;
@@ -2062,6 +2258,7 @@ public class StudentProfileService {
     }
 
     private static class NormalizedSchool {
+        private final Long schoolRecordId;
         private final SchoolType schoolType;
         private final String schoolName;
         private final String schoolBoard;
@@ -2075,7 +2272,8 @@ public class StudentProfileService {
         private final LocalDate endTime;
         private final List<NormalizedTranscript> transcripts;
 
-        private NormalizedSchool(SchoolType schoolType,
+        private NormalizedSchool(Long schoolRecordId,
+                                 SchoolType schoolType,
                                  String schoolName,
                                  String schoolBoard,
                                  boolean schoolBoardProvided,
@@ -2087,6 +2285,7 @@ public class StudentProfileService {
                                  LocalDate startTime,
                                  LocalDate endTime,
                                  List<NormalizedTranscript> transcripts) {
+            this.schoolRecordId = schoolRecordId;
             this.schoolType = schoolType;
             this.schoolName = schoolName;
             this.schoolBoard = schoolBoard;

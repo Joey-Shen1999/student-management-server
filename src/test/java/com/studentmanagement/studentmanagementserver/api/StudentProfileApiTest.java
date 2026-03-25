@@ -6,11 +6,13 @@ import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
 import com.studentmanagement.studentmanagementserver.domain.student.Student;
 import com.studentmanagement.studentmanagementserver.domain.student.StudentCourseRecord;
 import com.studentmanagement.studentmanagementserver.domain.student.StudentIdentityFileStorageService;
+import com.studentmanagement.studentmanagementserver.domain.student.StudentSchoolRecord;
 import com.studentmanagement.studentmanagementserver.domain.student.StudentSchoolTranscriptStorageService;
 import com.studentmanagement.studentmanagementserver.domain.user.User;
 import com.studentmanagement.studentmanagementserver.repo.StudentCourseRecordRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentProfileRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentRepository;
+import com.studentmanagement.studentmanagementserver.repo.StudentSchoolRecordRepository;
 import com.studentmanagement.studentmanagementserver.repo.UserRepository;
 import com.studentmanagement.studentmanagementserver.service.AuthSessionService;
 import org.junit.jupiter.api.Test;
@@ -65,6 +67,9 @@ class StudentProfileApiTest {
 
     @Autowired
     private StudentCourseRecordRepository studentCourseRecordRepository;
+
+    @Autowired
+    private StudentSchoolRecordRepository studentSchoolRecordRepository;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -156,6 +161,168 @@ class StudentProfileApiTest {
                 .andExpect(jsonPath("$.otherCourses[0].gradeLevel").value(12))
                 .andExpect(jsonPath("$.externalCourses[0].courseCode").value("MHF4U"))
                 .andExpect(jsonPath("$.schoolRecords[0].schoolType").value("MAIN"));
+    }
+
+    @Test
+    void putProfile_nameOnlyPayload_keepsSchoolRowsAndReturns200() throws Exception {
+        Student student = createStudentAccount("profile_name_only_student", "Amy", "Chen", "Amy");
+        String bearer = bearerFor(student.getUser());
+
+        Map<String, Object> initPayload = buildProfilePayload(
+                "Amy",
+                "Chen",
+                "Amy",
+                false,
+                Arrays.asList(
+                        buildSchool("MAIN", "A High School", "2023-09-01", null)
+                ),
+                new ArrayList<Map<String, Object>>()
+        );
+
+        MvcResult initResult = mockMvc.perform(put("/api/student/profile")
+                        .header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(initPayload)))
+                .andExpect(status().isOk())
+                .andReturn();
+        long existingSchoolRecordId = objectMapper.readTree(initResult.getResponse().getContentAsString())
+                .path("schools")
+                .path(0)
+                .path("schoolRecordId")
+                .asLong();
+        int schoolCountBefore = studentSchoolRecordRepository.findByStudent_IdOrderByIdAsc(student.getId()).size();
+
+        Map<String, Object> nameOnlyPayload = new LinkedHashMap<String, Object>();
+        nameOnlyPayload.put("legalFirstName", "Xxx");
+        nameOnlyPayload.put("legalLastName", "Yyy");
+
+        mockMvc.perform(put("/api/student/profile")
+                        .header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(nameOnlyPayload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.legalFirstName").value("Xxx"))
+                .andExpect(jsonPath("$.legalLastName").value("Yyy"))
+                .andExpect(jsonPath("$.schools.length()").value(1))
+                .andExpect(jsonPath("$.schools[0].schoolRecordId").value(existingSchoolRecordId))
+                .andExpect(jsonPath("$.schools[0].schoolName").value("A High School"));
+
+        List<StudentSchoolRecord> schoolsAfter =
+                studentSchoolRecordRepository.findByStudent_IdOrderByIdAsc(student.getId());
+        assertEquals(schoolCountBefore, schoolsAfter.size());
+        assertEquals(existingSchoolRecordId, schoolsAfter.get(0).getId().longValue());
+    }
+
+    @Test
+    void putProfile_withDuplicateSchools_deduplicatesBeforePersisting() throws Exception {
+        Student student = createStudentAccount("profile_duplicate_schools_student", "Amy", "Chen", "Amy");
+
+        Map<String, Object> main1 = buildSchool("MAIN", "A High School", "2023-09-01", null);
+        Map<String, Object> main2 = buildSchool("MAIN", "A High School", "2023-09-01", null);
+        Map<String, Object> main3 = buildSchool("MAIN", "A High School", "2023-09-01", null);
+        Map<String, Object> other1 = buildSchool("OTHER", "B High School", "2021-09-01", "2023-06-30");
+        Map<String, Object> other2 = buildSchool("OTHER", "B High School", "2021-09-01", "2023-06-30");
+
+        Map<String, Object> payload = buildProfilePayload(
+                "Amy",
+                "Chen",
+                "Amy",
+                false,
+                Arrays.asList(main1, main2, main3, other1, other2),
+                new ArrayList<Map<String, Object>>()
+        );
+
+        mockMvc.perform(put("/api/student/profile")
+                        .header("Authorization", bearerFor(student.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(payload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.schools.length()").value(2))
+                .andExpect(jsonPath("$.schoolRecords.length()").value(2));
+
+        mockMvc.perform(get("/api/student/profile")
+                        .header("Authorization", bearerFor(student.getUser())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.schools.length()").value(2))
+                .andExpect(jsonPath("$.schoolRecords.length()").value(2));
+
+        assertEquals(2, studentSchoolRecordRepository.findByStudent_IdOrderByIdAsc(student.getId()).size());
+    }
+
+    @Test
+    void putProfile_withConflictingDuplicateSchoolRecordIds_returns409() throws Exception {
+        Student student = createStudentAccount("profile_duplicate_school_conflict_student", "Amy", "Chen", "Amy");
+        String bearer = bearerFor(student.getUser());
+
+        Map<String, Object> initPayload = buildProfilePayload(
+                "Amy",
+                "Chen",
+                "Amy",
+                false,
+                Arrays.asList(
+                        buildSchool("MAIN", "A High School", "2023-09-01", null),
+                        buildSchool("OTHER", "B High School", "2021-09-01", "2023-06-30")
+                ),
+                new ArrayList<Map<String, Object>>()
+        );
+
+        MvcResult initResult = mockMvc.perform(put("/api/student/profile")
+                        .header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(initPayload)))
+                .andExpect(status().isOk())
+                .andReturn();
+        JsonNode initJson = objectMapper.readTree(initResult.getResponse().getContentAsString());
+        long schoolRecordId1 = initJson.path("schools").path(0).path("schoolRecordId").asLong();
+        long schoolRecordId2 = initJson.path("schools").path(1).path("schoolRecordId").asLong();
+
+        Map<String, Object> duplicateSchool1 = buildSchool("MAIN", "A High School", "2023-09-01", null);
+        duplicateSchool1.put("schoolRecordId", schoolRecordId1);
+        Map<String, Object> duplicateSchool2 = buildSchool("MAIN", "A High School", "2023-09-01", null);
+        duplicateSchool2.put("schoolRecordId", schoolRecordId2);
+        Map<String, Object> duplicatePayload = buildProfilePayload(
+                "Amy",
+                "Chen",
+                "Amy",
+                false,
+                Arrays.asList(duplicateSchool1, duplicateSchool2),
+                new ArrayList<Map<String, Object>>()
+        );
+
+        mockMvc.perform(put("/api/student/profile")
+                        .header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(duplicatePayload)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("Duplicate schools conflict: multiple schoolRecordId values map to the same school key."))
+                .andExpect(jsonPath("$.code").value("CONFLICT"));
+    }
+
+    @Test
+    void putProfile_withTooManyUniqueSchools_returns400() throws Exception {
+        Student student = createStudentAccount("profile_too_many_unique_schools_student", "Amy", "Chen", "Amy");
+
+        List<Map<String, Object>> schools = new ArrayList<Map<String, Object>>();
+        for (int i = 1; i <= 101; i++) {
+            schools.add(buildSchool("OTHER", "Unique School " + i, "2023-09-01", null));
+        }
+
+        Map<String, Object> payload = buildProfilePayload(
+                "Amy",
+                "Chen",
+                "Amy",
+                false,
+                schools,
+                new ArrayList<Map<String, Object>>()
+        );
+
+        mockMvc.perform(put("/api/student/profile")
+                        .header("Authorization", bearerFor(student.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(payload)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("schools must contain at most 100 unique items"))
+                .andExpect(jsonPath("$.code").value("BAD_REQUEST"));
     }
 
     @Test

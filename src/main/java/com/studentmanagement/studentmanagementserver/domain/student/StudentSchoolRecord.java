@@ -115,8 +115,16 @@ public class StudentSchoolRecord extends BaseEntity {
         return schoolType;
     }
 
+    public void setSchoolType(SchoolType schoolType) {
+        this.schoolType = schoolType;
+    }
+
     public String getSchoolName() {
         return schoolName;
+    }
+
+    public void setSchoolName(String schoolName) {
+        this.schoolName = schoolName;
     }
 
     public String getSchoolBoard() {
@@ -131,28 +139,56 @@ public class StudentSchoolRecord extends BaseEntity {
         return streetAddress;
     }
 
+    public void setStreetAddress(String streetAddress) {
+        this.streetAddress = streetAddress;
+    }
+
     public String getCity() {
         return city;
+    }
+
+    public void setCity(String city) {
+        this.city = city;
     }
 
     public String getState() {
         return state;
     }
 
+    public void setState(String state) {
+        this.state = state;
+    }
+
     public String getCountry() {
         return country;
+    }
+
+    public void setCountry(String country) {
+        this.country = country;
     }
 
     public String getPostal() {
         return postal;
     }
 
+    public void setPostal(String postal) {
+        this.postal = postal;
+    }
+
     public LocalDate getStartTime() {
         return startTime;
     }
 
+    public void setStartTime(LocalDate startTime) {
+        this.startTime = startTime;
+    }
+
     public LocalDate getEndTime() {
         return endTime;
+    }
+
+    public void setEndTime(LocalDate endTime) {
+        this.endTime = endTime;
     }
 
     public String getTranscriptOriginalFilename() {

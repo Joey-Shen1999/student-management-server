@@ -8,6 +8,7 @@ import com.studentmanagement.studentmanagementserver.service.StudentInviteExcept
 import com.studentmanagement.studentmanagementserver.service.TeacherBindingRequiredException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -20,6 +21,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -109,6 +111,32 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity.status(status)
                 .body(new ApiError(status.value(), msg, code, Collections.<String>emptyList()));
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiError> handleDataIntegrityViolation(DataIntegrityViolationException e) {
+        Throwable root = e.getMostSpecificCause();
+        String rawMessage = root != null && root.getMessage() != null ? root.getMessage() : e.getMessage();
+        String normalizedRawMessage = rawMessage == null ? "" : rawMessage;
+        String normalizedLower = normalizedRawMessage.toLowerCase(Locale.ROOT);
+
+        boolean duplicate = normalizedLower.contains("duplicate key")
+                || normalizedLower.contains("unique constraint");
+        HttpStatus status = duplicate ? HttpStatus.CONFLICT : HttpStatus.UNPROCESSABLE_ENTITY;
+        String code = duplicate ? "RESOURCE_CONFLICT" : "DATA_INTEGRITY_VIOLATION";
+        String message = duplicate
+                ? "Resource conflict."
+                : "Request data violates database constraints.";
+        if (normalizedRawMessage.contains("uk_student_school_record_unique_school_per_student")) {
+            message = "Duplicate school record for this student.";
+        }
+
+        return ResponseEntity.status(status).body(new ApiError(
+                status.value(),
+                message,
+                code,
+                buildDataIntegrityDetails(normalizedRawMessage)
+        ));
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
@@ -210,6 +238,17 @@ public class GlobalExceptionHandler {
                 "FILE_TOO_LARGE",
                 Collections.<String>emptyList()
         );
+    }
+
+    private List<String> buildDataIntegrityDetails(String rawMessage) {
+        String compact = rawMessage == null ? null : rawMessage.replace('\n', ' ').replace('\r', ' ').trim();
+        if (compact == null || compact.isEmpty()) {
+            return Collections.<String>emptyList();
+        }
+        if (compact.length() > 500) {
+            compact = compact.substring(0, 500);
+        }
+        return Collections.singletonList(compact);
     }
 
     private boolean isFileTooLargeError(Throwable throwable) {
