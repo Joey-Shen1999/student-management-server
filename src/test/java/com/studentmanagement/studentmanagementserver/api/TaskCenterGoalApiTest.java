@@ -257,7 +257,7 @@ class TaskCenterGoalApiTest {
     }
 
     @Test
-    void createGoal_teacherCanAssignAnyStudent() throws Exception {
+    void createGoal_teacherCannotAssignUnrelatedStudent_returns400() throws Exception {
         Teacher teacher = createTeacherAccount("task_teacher_need_relation", "Teacher Need Relation");
         Student student = createStudentAccount("task_student_need_relation", "Need", "Relation", "Need");
 
@@ -267,8 +267,8 @@ class TaskCenterGoalApiTest {
                         .content("{\"studentId\":" + student.getId() + "," +
                                 "\"title\":\"目标任务\"," +
                                 "\"description\":\"老师无关系不能创建\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.assignedStudentId").value(student.getId()));
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("STUDENT_NOT_ASSIGNABLE"));
     }
 
     @Test

@@ -456,7 +456,27 @@ components:
         studentId: { type: integer, format: int64 }
         studentName: { type: string }
         username: { type: string, nullable: true }
-      required: [studentId, studentName]
+        email: { type: string, nullable: true }
+        phone: { type: string, nullable: true }
+        graduation:
+          type: string
+          nullable: true
+          description: Graduation month from primary school endTime in YYYY-MM.
+        schoolName: { type: string, nullable: true }
+        canadaIdentity: { type: string, nullable: true }
+        gender: { type: string, nullable: true }
+        nationality: { type: string, nullable: true }
+        firstLanguage: { type: string, nullable: true }
+        schoolBoard: { type: string, nullable: true }
+        country: { type: string, nullable: true }
+        province: { type: string, nullable: true }
+        city: { type: string, nullable: true }
+        teacherNote: { type: string, nullable: true }
+        status:
+          type: string
+          enum: [ACTIVE, ARCHIVED]
+        selectable: { type: boolean }
+      required: [studentId, studentName, status, selectable]
     CreateGoalRequestDto:
       type: object
       properties:

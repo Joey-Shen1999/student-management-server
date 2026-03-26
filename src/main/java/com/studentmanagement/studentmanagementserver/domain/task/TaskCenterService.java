@@ -1,12 +1,21 @@
 package com.studentmanagement.studentmanagementserver.domain.task;
 
+import com.studentmanagement.studentmanagementserver.domain.enums.SchoolType;
+import com.studentmanagement.studentmanagementserver.domain.enums.TeacherStudentStatus;
+import com.studentmanagement.studentmanagementserver.domain.enums.UserAccountStatus;
 import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
 import com.studentmanagement.studentmanagementserver.domain.student.Student;
+import com.studentmanagement.studentmanagementserver.domain.student.StudentProfile;
+import com.studentmanagement.studentmanagementserver.domain.student.StudentSchoolRecord;
 import com.studentmanagement.studentmanagementserver.domain.teacher.Teacher;
+import com.studentmanagement.studentmanagementserver.domain.teacher.TeacherStudent;
 import com.studentmanagement.studentmanagementserver.domain.user.User;
 import com.studentmanagement.studentmanagementserver.repo.GoalTaskRepository;
+import com.studentmanagement.studentmanagementserver.repo.StudentProfileRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentRepository;
+import com.studentmanagement.studentmanagementserver.repo.StudentSchoolRecordRepository;
 import com.studentmanagement.studentmanagementserver.repo.TeacherRepository;
+import com.studentmanagement.studentmanagementserver.repo.TeacherStudentRepository;
 import com.studentmanagement.studentmanagementserver.service.ApiRequestException;
 import com.studentmanagement.studentmanagementserver.service.AuthSessionService;
 import com.studentmanagement.studentmanagementserver.service.TeacherBindingRequiredException;
@@ -25,6 +34,7 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -42,20 +52,31 @@ public class TaskCenterService {
     private static final int TITLE_MAX_LENGTH = 200;
     private static final int DESCRIPTION_MAX_LENGTH = 2000;
     private static final int PROGRESS_NOTE_MAX_LENGTH = 2000;
+    private static final String STUDENT_NOT_ASSIGNABLE_CODE = "STUDENT_NOT_ASSIGNABLE";
+    private static final String STUDENT_ARCHIVED_CODE = "STUDENT_ARCHIVED";
 
     private final AuthSessionService authSessionService;
     private final GoalTaskRepository goalTaskRepository;
     private final StudentRepository studentRepository;
     private final TeacherRepository teacherRepository;
+    private final TeacherStudentRepository teacherStudentRepository;
+    private final StudentProfileRepository studentProfileRepository;
+    private final StudentSchoolRecordRepository studentSchoolRecordRepository;
 
     public TaskCenterService(AuthSessionService authSessionService,
                              GoalTaskRepository goalTaskRepository,
                              StudentRepository studentRepository,
-                             TeacherRepository teacherRepository) {
+                             TeacherRepository teacherRepository,
+                             TeacherStudentRepository teacherStudentRepository,
+                             StudentProfileRepository studentProfileRepository,
+                             StudentSchoolRecordRepository studentSchoolRecordRepository) {
         this.authSessionService = authSessionService;
         this.goalTaskRepository = goalTaskRepository;
         this.studentRepository = studentRepository;
         this.teacherRepository = teacherRepository;
+        this.teacherStudentRepository = teacherStudentRepository;
+        this.studentProfileRepository = studentProfileRepository;
+        this.studentSchoolRecordRepository = studentSchoolRecordRepository;
     }
 
     @Transactional(readOnly = true)
@@ -166,7 +187,14 @@ public class TaskCenterService {
 
         Student student = studentRepository.findById(studentId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Student not found: " + studentId));
-        Teacher teacher = resolveTeacherForWrite(operator);
+        Teacher teacher;
+        if (operator.getRole() == UserRole.TEACHER) {
+            teacher = requireTeacherByUser(operator);
+            ensureStudentAssignableForTeacher(teacher, student);
+        } else {
+            teacher = resolveTeacherForWrite(operator);
+            ensureStudentNotArchived(student);
+        }
 
         GoalTask goalTask = new GoalTask(title, description, dueAt, student, teacher);
         GoalTask saved = goalTaskRepository.save(goalTask);
@@ -210,7 +238,21 @@ public class TaskCenterService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: teacher/admin role required.");
         }
 
-        List<Student> students = studentRepository.findAllWithUser();
+        Map<Long, AssignableStudentStatus> statusByStudentId = new LinkedHashMap<Long, AssignableStudentStatus>();
+        List<Student> students;
+        if (operator.getRole() == UserRole.TEACHER) {
+            Teacher teacher = requireTeacherByUser(operator);
+            students = resolveTeacherAssignableStudentsWithStatus(teacher, statusByStudentId);
+        } else {
+            students = studentRepository.findAllWithUser();
+            for (Student student : students) {
+                Long studentId = student == null ? null : student.getId();
+                if (studentId == null || statusByStudentId.containsKey(studentId)) {
+                    continue;
+                }
+                statusByStudentId.put(studentId, resolveAssignableStatusForAdmin(student));
+            }
+        }
 
         if (students.isEmpty()) {
             return Collections.emptyList();
@@ -219,19 +261,66 @@ public class TaskCenterService {
         List<Student> sortedStudents = new ArrayList<Student>(students);
         sortedStudents.sort(Comparator.comparing(Student::getId));
 
-        Map<Long, AssignableStudentDto> deduplicated = new LinkedHashMap<Long, AssignableStudentDto>();
+        List<Long> studentIds = new ArrayList<Long>(sortedStudents.size());
+        for (Student student : sortedStudents) {
+            if (student != null && student.getId() != null) {
+                studentIds.add(student.getId());
+            }
+        }
+
+        Map<Long, StudentProfile> profileByStudentId = findProfilesByStudentIds(studentIds);
+        Map<Long, StudentSchoolRecord> schoolByStudentId = findPrimarySchoolByStudentIds(studentIds);
+
+        List<AssignableStudentDto> result = new ArrayList<AssignableStudentDto>(sortedStudents.size());
         for (Student student : sortedStudents) {
             Long studentId = student.getId();
-            if (studentId == null || deduplicated.containsKey(studentId)) {
+            if (studentId == null) {
                 continue;
             }
-            deduplicated.put(studentId, new AssignableStudentDto(
+
+            AssignableStudentStatus status = statusByStudentId.get(studentId);
+            if (status == null) {
+                status = resolveAssignableStatusForAdmin(student);
+            }
+            boolean selectable = status == AssignableStudentStatus.ACTIVE;
+
+            StudentProfile profile = profileByStudentId.get(studentId);
+            StudentSchoolRecord primarySchool = schoolByStudentId.get(studentId);
+            String summaryCountry = firstNonBlank(
+                    primarySchool == null ? null : primarySchool.getCountry(),
+                    profile == null ? null : profile.getCountry()
+            );
+            String summaryProvince = firstNonBlank(
+                    primarySchool == null ? null : primarySchool.getState(),
+                    profile == null ? null : profile.getState()
+            );
+            String summaryCity = firstNonBlank(
+                    primarySchool == null ? null : primarySchool.getCity(),
+                    profile == null ? null : profile.getCity()
+            );
+
+            result.add(new AssignableStudentDto(
                     studentId,
                     buildStudentDisplayName(student),
-                    student.getUser() == null ? null : trimToNull(student.getUser().getUsername())
+                    student.getUser() == null ? null : trimToNull(student.getUser().getUsername()),
+                    profile == null ? null : trimToNull(profile.getEmail()),
+                    profile == null ? null : trimToNull(profile.getPhone()),
+                    formatGraduation(primarySchool == null ? null : primarySchool.getEndTime()),
+                    primarySchool == null ? null : trimToNull(primarySchool.getSchoolName()),
+                    profile == null ? null : trimToNull(profile.getStatusInCanada()),
+                    summarizeGender(profile),
+                    profile == null ? null : trimToNull(profile.getCitizenship()),
+                    profile == null ? null : trimToNull(profile.getFirstLanguage()),
+                    primarySchool == null ? null : trimToNull(primarySchool.getSchoolBoard()),
+                    summaryCountry,
+                    summaryProvince,
+                    summaryCity,
+                    profile == null ? null : trimToNull(profile.getTeacherNote()),
+                    status,
+                    selectable
             ));
         }
-        return new ArrayList<AssignableStudentDto>(deduplicated.values());
+        return result;
     }
 
     private GoalListResponseDto toGoalListResponse(Page<GoalTask> result, int page, int size) {
@@ -301,6 +390,241 @@ public class TaskCenterService {
             }
         }
         return "Teacher #" + teacher.getId();
+    }
+
+    private void ensureStudentAssignableForTeacher(Teacher teacher, Student student) {
+        Long teacherId = teacher == null ? null : teacher.getId();
+        Long studentId = student == null ? null : student.getId();
+        boolean assigned = teacherId != null
+                && studentId != null
+                && teacherStudentRepository.existsByTeacher_IdAndStudent_Id(teacherId, studentId);
+        if (!assigned) {
+            throw new ApiRequestException(
+                    HttpStatus.BAD_REQUEST,
+                    STUDENT_NOT_ASSIGNABLE_CODE,
+                    "studentId is not assignable to current teacher"
+            );
+        }
+        if (isStudentArchived(student)) {
+            throw studentArchivedException();
+        }
+        boolean active = teacherStudentRepository.existsByTeacher_IdAndStudent_IdAndStatus(
+                teacherId,
+                studentId,
+                TeacherStudentStatus.ACTIVE
+        );
+        if (!active) {
+            throw studentArchivedException();
+        }
+    }
+
+    private void ensureStudentNotArchived(Student student) {
+        if (isStudentArchived(student)) {
+            throw studentArchivedException();
+        }
+    }
+
+    private ApiRequestException studentArchivedException() {
+        return new ApiRequestException(
+                HttpStatus.BAD_REQUEST,
+                STUDENT_ARCHIVED_CODE,
+                "student is archived and cannot be assigned"
+        );
+    }
+
+    private boolean isStudentArchived(Student student) {
+        if (student == null || student.getUser() == null) {
+            return true;
+        }
+        UserAccountStatus status = student.getUser().getStatus();
+        return status == UserAccountStatus.ARCHIVED;
+    }
+
+    private List<Student> resolveTeacherAssignableStudentsWithStatus(Teacher teacher,
+                                                                     Map<Long, AssignableStudentStatus> statusByStudentId) {
+        List<TeacherStudent> relations = teacherStudentRepository.findByTeacherIdWithStudentAndUser(teacher.getId());
+        if (relations.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        Map<Long, Student> studentsById = new LinkedHashMap<Long, Student>();
+        Map<Long, Boolean> hasActiveAssignmentByStudentId = new HashMap<Long, Boolean>();
+        for (TeacherStudent relation : relations) {
+            Student student = relation.getStudent();
+            Long studentId = student == null ? null : student.getId();
+            if (studentId == null) {
+                continue;
+            }
+            if (!studentsById.containsKey(studentId)) {
+                studentsById.put(studentId, student);
+            }
+            if (relation.getStatus() == TeacherStudentStatus.ACTIVE) {
+                hasActiveAssignmentByStudentId.put(studentId, Boolean.TRUE);
+            }
+        }
+
+        for (Map.Entry<Long, Student> entry : studentsById.entrySet()) {
+            Long studentId = entry.getKey();
+            Student student = entry.getValue();
+            boolean hasActiveAssignment = Boolean.TRUE.equals(hasActiveAssignmentByStudentId.get(studentId));
+            statusByStudentId.put(studentId, resolveAssignableStatus(student, hasActiveAssignment));
+        }
+
+        return new ArrayList<Student>(studentsById.values());
+    }
+
+    private AssignableStudentStatus resolveAssignableStatus(Student student, boolean hasActiveAssignment) {
+        if (isStudentArchived(student)) {
+            return AssignableStudentStatus.ARCHIVED;
+        }
+        return hasActiveAssignment ? AssignableStudentStatus.ACTIVE : AssignableStudentStatus.ARCHIVED;
+    }
+
+    private AssignableStudentStatus resolveAssignableStatusForAdmin(Student student) {
+        if (isStudentArchived(student)) {
+            return AssignableStudentStatus.ARCHIVED;
+        }
+        return AssignableStudentStatus.ACTIVE;
+    }
+
+    private Map<Long, StudentProfile> findProfilesByStudentIds(List<Long> studentIds) {
+        if (studentIds == null || studentIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        List<StudentProfile> profiles = studentProfileRepository.findByStudentIdsWithStudent(studentIds);
+        if (profiles.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        Map<Long, StudentProfile> profileByStudentId = new HashMap<Long, StudentProfile>();
+        for (StudentProfile profile : profiles) {
+            if (profile == null || profile.getStudent() == null || profile.getStudent().getId() == null) {
+                continue;
+            }
+            profileByStudentId.put(profile.getStudent().getId(), profile);
+        }
+        return profileByStudentId;
+    }
+
+    private Map<Long, StudentSchoolRecord> findPrimarySchoolByStudentIds(List<Long> studentIds) {
+        if (studentIds == null || studentIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        List<StudentSchoolRecord> schools =
+                studentSchoolRecordRepository.findByStudent_IdInOrderByStudent_IdAscIdAsc(studentIds);
+        if (schools.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        Map<Long, StudentSchoolRecord> schoolByStudentId = new HashMap<Long, StudentSchoolRecord>();
+        for (StudentSchoolRecord school : schools) {
+            if (school == null || school.getStudent() == null || school.getStudent().getId() == null) {
+                continue;
+            }
+            Long studentId = school.getStudent().getId();
+            StudentSchoolRecord current = schoolByStudentId.get(studentId);
+            if (shouldReplacePrimarySchool(current, school)) {
+                schoolByStudentId.put(studentId, school);
+            }
+        }
+        return schoolByStudentId;
+    }
+
+    private boolean shouldReplacePrimarySchool(StudentSchoolRecord current, StudentSchoolRecord candidate) {
+        if (candidate == null) {
+            return false;
+        }
+        if (current == null) {
+            return true;
+        }
+
+        int currentTypeRank = schoolTypeRank(current.getSchoolType());
+        int candidateTypeRank = schoolTypeRank(candidate.getSchoolType());
+        if (candidateTypeRank != currentTypeRank) {
+            return candidateTypeRank < currentTypeRank;
+        }
+
+        int endTimeCompare = compareDateDescNullLast(candidate.getEndTime(), current.getEndTime());
+        if (endTimeCompare != 0) {
+            return endTimeCompare < 0;
+        }
+
+        int startTimeCompare = compareDateDescNullLast(candidate.getStartTime(), current.getStartTime());
+        if (startTimeCompare != 0) {
+            return startTimeCompare < 0;
+        }
+
+        Long currentId = current.getId() == null ? 0L : current.getId();
+        Long candidateId = candidate.getId() == null ? 0L : candidate.getId();
+        return candidateId > currentId;
+    }
+
+    private int schoolTypeRank(SchoolType schoolType) {
+        if (schoolType == SchoolType.MAIN) {
+            return 0;
+        }
+        if (schoolType == SchoolType.OTHER) {
+            return 1;
+        }
+        return 2;
+    }
+
+    private int compareDateDescNullLast(LocalDate left, LocalDate right) {
+        if (left == null && right == null) {
+            return 0;
+        }
+        if (left == null) {
+            return 1;
+        }
+        if (right == null) {
+            return -1;
+        }
+        return right.compareTo(left);
+    }
+
+    private String formatGraduation(LocalDate graduationDate) {
+        if (graduationDate == null) {
+            return null;
+        }
+        int month = graduationDate.getMonthValue();
+        String monthText = month < 10 ? "0" + month : String.valueOf(month);
+        return graduationDate.getYear() + "-" + monthText;
+    }
+
+    private String summarizeGender(StudentProfile profile) {
+        if (profile == null) {
+            return null;
+        }
+        String gender = trimToNull(profile.getGender());
+        String genderOther = trimToNull(profile.getGenderOther());
+        if (gender == null && genderOther == null) {
+            return null;
+        }
+        if (gender == null) {
+            return "Other";
+        }
+
+        String normalized = gender.toLowerCase(Locale.ROOT);
+        if ("male".equals(normalized)) {
+            return "Male";
+        }
+        if ("female".equals(normalized)) {
+            return "Female";
+        }
+        if ("other".equals(normalized) || normalized.startsWith("other")) {
+            return "Other";
+        }
+        return gender;
+    }
+
+    private String firstNonBlank(String first, String second) {
+        String firstValue = trimToNull(first);
+        if (firstValue != null) {
+            return firstValue;
+        }
+        return trimToNull(second);
     }
 
     private Teacher resolveTeacherForWrite(User operator) {
