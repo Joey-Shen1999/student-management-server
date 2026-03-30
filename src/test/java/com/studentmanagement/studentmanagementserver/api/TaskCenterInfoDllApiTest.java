@@ -3,6 +3,7 @@ package com.studentmanagement.studentmanagementserver.api;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.studentmanagement.studentmanagementserver.domain.enums.TeacherStudentStatus;
+import com.studentmanagement.studentmanagementserver.domain.enums.UserAccountStatus;
 import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
 import com.studentmanagement.studentmanagementserver.domain.student.Student;
 import com.studentmanagement.studentmanagementserver.domain.teacher.Teacher;
@@ -23,8 +24,13 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
-import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -72,16 +78,19 @@ class TaskCenterInfoDllApiTest {
         MvcResult createResult = mockMvc.perform(post("/api/teacher/tasks/infos")
                         .header("Authorization", bearerFor(teacher.getUser()))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"title\":\"义工活动报名通知\"," +
-                                "\"content\":\"请在周五前完成报名。\"," +
-                                "\"category\":\"VOLUNTEER\"," +
-                                "\"tags\":[\"Volunteer\",\"Grade12\"]}"))
+                        .content(createInfoPayload(
+                                "Volunteer signup notice",
+                                "Please submit before Friday",
+                                "VOLUNTEER",
+                                Arrays.asList("Volunteer", "Grade12"),
+                                Arrays.asList(studentA.getId(), studentB.getId())
+                        )))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.type").value("INFO"))
-                .andExpect(jsonPath("$.title").value("义工活动报名通知"))
+                .andExpect(jsonPath("$.title").value("Volunteer signup notice"))
                 .andExpect(jsonPath("$.category").value("VOLUNTEER"))
                 .andExpect(jsonPath("$.tags.length()").value(2))
-                .andExpect(jsonPath("$.targetStudentCount", greaterThanOrEqualTo(2)))
+                .andExpect(jsonPath("$.targetStudentCount").value(2))
                 .andReturn();
         long infoId = objectMapper.readTree(createResult.getResponse().getContentAsString()).path("id").asLong();
 
@@ -95,11 +104,136 @@ class TaskCenterInfoDllApiTest {
     }
 
     @Test
+    void createInfoDeduplicatesStudentIdsAndCountsTargets() throws Exception {
+        Teacher teacher = createTeacherAccount("info_teacher_dedupe", "Info Dedupe Teacher");
+        Student studentA = createStudentAccount("info_dedupe_student_a", "Ded", "A", "DA");
+        Student studentB = createStudentAccount("info_dedupe_student_b", "Ded", "B", "DB");
+        assignTeacherStudent(teacher, studentA, TeacherStudentStatus.ACTIVE);
+        assignTeacherStudent(teacher, studentB, TeacherStudentStatus.ACTIVE);
+
+        MvcResult createResult = mockMvc.perform(post("/api/teacher/tasks/infos")
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createInfoPayload(
+                                "Duplicate targets",
+                                "Only unique students should be targeted",
+                                "ACTIVITY",
+                                Arrays.asList("Tag1"),
+                                Arrays.asList(studentA.getId(), studentA.getId(), studentB.getId())
+                        )))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.targetStudentCount").value(2))
+                .andReturn();
+        long infoId = objectMapper.readTree(createResult.getResponse().getContentAsString()).path("id").asLong();
+
+        mockMvc.perform(get("/api/student/tasks")
+                        .header("Authorization", bearerFor(studentA.getUser()))
+                        .param("type", "INFO")
+                        .param("page", "1")
+                        .param("size", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[*].id", hasItem((int) infoId)));
+        mockMvc.perform(get("/api/student/tasks")
+                        .header("Authorization", bearerFor(studentB.getUser()))
+                        .param("type", "INFO")
+                        .param("page", "1")
+                        .param("size", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[*].id", hasItem((int) infoId)));
+    }
+
+    @Test
+    void createInfoWithoutStudentIds_returns400() throws Exception {
+        Teacher teacher = createTeacherAccount("info_teacher_missing_ids", "Missing Ids Teacher");
+
+        Map<String, Object> payload = new LinkedHashMap<String, Object>();
+        payload.put("title", "Missing targets");
+        payload.put("content", "No students selected");
+        payload.put("category", "ACTIVITY");
+        payload.put("tags", Arrays.asList("Notice"));
+
+        mockMvc.perform(post("/api/teacher/tasks/infos")
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payload)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("studentIds is required"));
+    }
+
+    @Test
+    void createInfoWithInvalidStudentIds_returns400() throws Exception {
+        Teacher teacher = createTeacherAccount("info_teacher_invalid_ids", "Invalid Ids Teacher");
+
+        mockMvc.perform(post("/api/teacher/tasks/infos")
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createInfoPayload(
+                                "Invalid targets",
+                                "contains invalid id",
+                                "ACTIVITY",
+                                Arrays.asList("Notice"),
+                                Arrays.asList(0L, -1L)
+                        )))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("studentIds must contain positive integers"));
+    }
+
+    @Test
+    void createInfoForUnassignableStudent_returns400() throws Exception {
+        Teacher teacherA = createTeacherAccount("info_teacher_scope_a", "Scope A");
+        Teacher teacherB = createTeacherAccount("info_teacher_scope_b", "Scope B");
+        Student student = createStudentAccount("info_scope_student", "Scope", "Student", "Scope");
+        assignTeacherStudent(teacherB, student, TeacherStudentStatus.ACTIVE);
+
+        mockMvc.perform(post("/api/teacher/tasks/infos")
+                        .header("Authorization", bearerFor(teacherA.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createInfoPayload(
+                                "Out of scope",
+                                "teacher cannot target this student",
+                                "ACTIVITY",
+                                Arrays.asList("Scope"),
+                                Arrays.asList(student.getId())
+                        )))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("STUDENT_NOT_ASSIGNABLE"));
+    }
+
+    @Test
+    void createInfoForArchivedStudent_returns400() throws Exception {
+        Teacher teacher = createTeacherAccount("info_teacher_archived", "Archived Teacher");
+        Student student = createStudentAccount("info_archived_student", "Archived", "Student", "Archived");
+        assignTeacherStudent(teacher, student, TeacherStudentStatus.ACTIVE);
+        student.getUser().updateStatus(UserAccountStatus.ARCHIVED, teacher.getUser().getId());
+        userRepository.save(student.getUser());
+
+        mockMvc.perform(post("/api/teacher/tasks/infos")
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createInfoPayload(
+                                "Archived target",
+                                "archived students are invalid targets",
+                                "ACTIVITY",
+                                Arrays.asList("Archive"),
+                                Arrays.asList(student.getId())
+                        )))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("STUDENT_ARCHIVED"));
+    }
+
+    @Test
     void studentListInfoAndMarkRead_success() throws Exception {
         Teacher teacher = createTeacherAccount("info_teacher_read", "Info Read Teacher");
         Student student = createStudentAccount("info_student_read", "Read", "Student", "Reader");
         assignTeacherStudent(teacher, student, TeacherStudentStatus.ACTIVE);
-        long infoId = createInfoAsTeacher(teacher.getUser(), "开放日报名", "本周报名", "ACTIVITY", "[\"OpenDay\"]");
+        long infoId = createInfoAsTeacher(
+                teacher.getUser(),
+                "Open day signup",
+                "Please signup this week",
+                "ACTIVITY",
+                Arrays.asList("OpenDay"),
+                Arrays.asList(student.getId())
+        );
 
         mockMvc.perform(get("/api/student/tasks")
                         .header("Authorization", bearerFor(student.getUser()))
@@ -127,7 +261,39 @@ class TaskCenterInfoDllApiTest {
                         .param("page", "1")
                         .param("size", "20"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.items.length()").value(0));
+                .andExpect(jsonPath("$.items[*].id", not(hasItem((int) infoId))));
+    }
+
+    @Test
+    void nonTargetStudentCannotSeeOrMarkInfoRead() throws Exception {
+        Teacher teacher = createTeacherAccount("info_teacher_target_only", "Target Teacher");
+        Student targetStudent = createStudentAccount("info_target_student", "Target", "Student", "Target");
+        Student otherStudent = createStudentAccount("info_other_student", "Other", "Student", "Other");
+        assignTeacherStudent(teacher, targetStudent, TeacherStudentStatus.ACTIVE);
+
+        long infoId = createInfoAsTeacher(
+                teacher.getUser(),
+                "Target only",
+                "Only one student should receive this",
+                "ACTIVITY",
+                Arrays.asList("Targeted"),
+                Arrays.asList(targetStudent.getId())
+        );
+
+        mockMvc.perform(get("/api/student/tasks")
+                        .header("Authorization", bearerFor(otherStudent.getUser()))
+                        .param("type", "INFO")
+                        .param("page", "1")
+                        .param("size", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[*].id", not(hasItem((int) infoId))));
+
+        mockMvc.perform(patch("/api/student/tasks/{infoId}/read", infoId)
+                        .header("Authorization", bearerFor(otherStudent.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
     }
 
     @Test
@@ -135,8 +301,22 @@ class TaskCenterInfoDllApiTest {
         Teacher teacher = createTeacherAccount("info_teacher_filter", "Info Filter Teacher");
         Student student = createStudentAccount("info_student_filter", "Filter", "Student", "Filter");
         assignTeacherStudent(teacher, student, TeacherStudentStatus.ACTIVE);
-        createInfoAsTeacher(teacher.getUser(), "活动通知", "大学开放日安排", "ACTIVITY", "[\"OpenDay\",\"Grade12\"]");
-        createInfoAsTeacher(teacher.getUser(), "义工提醒", "提交义工表单", "VOLUNTEER", "[\"Volunteer\"]");
+        createInfoAsTeacher(
+                teacher.getUser(),
+                "Activity notice",
+                "University open day arrangement",
+                "ACTIVITY",
+                Arrays.asList("OpenDay", "Grade12"),
+                Arrays.asList(student.getId())
+        );
+        createInfoAsTeacher(
+                teacher.getUser(),
+                "Volunteer reminder",
+                "Submit volunteer form",
+                "VOLUNTEER",
+                Arrays.asList("Volunteer"),
+                Arrays.asList(student.getId())
+        );
 
         mockMvc.perform(get("/api/teacher/tasks")
                         .header("Authorization", bearerFor(teacher.getUser()))
@@ -156,34 +336,17 @@ class TaskCenterInfoDllApiTest {
                         .param("size", "20"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items.length()").value(1))
-                .andExpect(jsonPath("$.items[0].title").value("活动通知"));
+                .andExpect(jsonPath("$.items[0].title").value("Activity notice"));
 
         mockMvc.perform(get("/api/teacher/tasks")
                         .header("Authorization", bearerFor(teacher.getUser()))
                         .param("type", "INFO")
-                        .param("keyword", "义工")
+                        .param("keyword", "volunteer")
                         .param("page", "1")
                         .param("size", "20"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items.length()").value(1))
-                .andExpect(jsonPath("$.items[0].title").value("义工提醒"));
-    }
-
-    @Test
-    void studentCanMarkInfoRead_whenNotPreviouslyAssignedByOwnership() throws Exception {
-        Teacher teacher = createTeacherAccount("info_teacher_own", "Info Own Teacher");
-        Student owner = createStudentAccount("info_student_owner", "Owner", "One", "Owner");
-        Student other = createStudentAccount("info_student_other", "Other", "Two", "Other");
-        assignTeacherStudent(teacher, owner, TeacherStudentStatus.ACTIVE);
-        long infoId = createInfoAsTeacher(teacher.getUser(), "仅目标学生可见", "测试", "ACTIVITY", "[]");
-
-        mockMvc.perform(patch("/api/student/tasks/{infoId}/read", infoId)
-                        .header("Authorization", bearerFor(other.getUser()))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(infoId))
-                .andExpect(jsonPath("$.read").value(true));
+                .andExpect(jsonPath("$.items[0].title").value("Volunteer reminder"));
     }
 
     @Test
@@ -195,11 +358,11 @@ class TaskCenterInfoDllApiTest {
         MvcResult templateResult = mockMvc.perform(post("/api/teacher/tasks/dll-templates")
                         .header("Authorization", bearerFor(teacher.getUser()))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"OUAC 材料包模板\"," +
-                                "\"description\":\"申请材料打包\"," +
+                        .content("{\"name\":\"OUAC package template\"," +
+                                "\"description\":\"Application package\"," +
                                 "\"payloadSchema\":\"{\\\"fields\\\":[\\\"deadline\\\"]}\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.name").value("OUAC 材料包模板"))
+                .andExpect(jsonPath("$.name").value("OUAC package template"))
                 .andReturn();
         long templateId = objectMapper.readTree(templateResult.getResponse().getContentAsString()).path("id").asLong();
 
@@ -207,7 +370,7 @@ class TaskCenterInfoDllApiTest {
                         .header("Authorization", bearerFor(teacher.getUser()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"assignedStudentId\":" + student.getId() + "," +
-                                "\"title\":\"OUAC 材料任务\"," +
+                                "\"title\":\"OUAC package task\"," +
                                 "\"status\":\"IN_PROGRESS\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.templateId").value(templateId))
@@ -236,7 +399,7 @@ class TaskCenterInfoDllApiTest {
         MvcResult templateResult = mockMvc.perform(post("/api/teacher/tasks/dll-templates")
                         .header("Authorization", bearerFor(teacherA.getUser()))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"模板A\",\"description\":\"A\",\"payloadSchema\":\"{}\"}"))
+                        .content("{\"name\":\"Template A\",\"description\":\"A\",\"payloadSchema\":\"{}\"}"))
                 .andExpect(status().isOk())
                 .andReturn();
         long templateId = objectMapper.readTree(templateResult.getResponse().getContentAsString()).path("id").asLong();
@@ -255,12 +418,19 @@ class TaskCenterInfoDllApiTest {
         Teacher teacher = createTeacherAccount("info_dll_teacher", "Info DLL Teacher");
         Student student = createStudentAccount("info_dll_student", "Global", "Student", "Global");
         assignTeacherStudent(teacher, student, TeacherStudentStatus.ACTIVE);
-        long infoId = createInfoAsTeacher(teacher.getUser(), "全局信息", "管理员应可见", "ACTIVITY", "[]");
+        long infoId = createInfoAsTeacher(
+                teacher.getUser(),
+                "Global info",
+                "Admin should see this",
+                "ACTIVITY",
+                Arrays.asList("Global"),
+                Arrays.asList(student.getId())
+        );
 
         MvcResult templateResult = mockMvc.perform(post("/api/teacher/tasks/dll-templates")
                         .header("Authorization", bearerFor(teacher.getUser()))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"全局DLL模板\",\"description\":\"d\",\"payloadSchema\":\"{}\"}"))
+                        .content("{\"name\":\"Global DLL template\",\"description\":\"d\",\"payloadSchema\":\"{}\"}"))
                 .andExpect(status().isOk())
                 .andReturn();
         long templateId = objectMapper.readTree(templateResult.getResponse().getContentAsString()).path("id").asLong();
@@ -287,18 +457,30 @@ class TaskCenterInfoDllApiTest {
                                      String title,
                                      String content,
                                      String category,
-                                     String tagsJsonArray) throws Exception {
+                                     List<String> tags,
+                                     List<Long> studentIds) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/teacher/tasks/infos")
                         .header("Authorization", bearerFor(teacherUser))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"title\":\"" + title + "\"," +
-                                "\"content\":\"" + content + "\"," +
-                                "\"category\":\"" + category + "\"," +
-                                "\"tags\":" + tagsJsonArray + "}"))
+                        .content(createInfoPayload(title, content, category, tags, studentIds)))
                 .andExpect(status().isOk())
                 .andReturn();
         JsonNode json = objectMapper.readTree(result.getResponse().getContentAsString());
         return json.path("id").asLong();
+    }
+
+    private String createInfoPayload(String title,
+                                     String content,
+                                     String category,
+                                     List<String> tags,
+                                     List<Long> studentIds) throws Exception {
+        Map<String, Object> payload = new LinkedHashMap<String, Object>();
+        payload.put("title", title);
+        payload.put("content", content);
+        payload.put("category", category);
+        payload.put("tags", tags);
+        payload.put("studentIds", studentIds);
+        return objectMapper.writeValueAsString(payload);
     }
 
     private long createDllTaskAsTeacher(User teacherUser, long templateId, long studentId) throws Exception {

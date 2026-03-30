@@ -1,13 +1,17 @@
 package com.studentmanagement.studentmanagementserver.domain.task;
 
 import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
+import com.studentmanagement.studentmanagementserver.domain.enums.TeacherStudentStatus;
+import com.studentmanagement.studentmanagementserver.domain.enums.UserAccountStatus;
 import com.studentmanagement.studentmanagementserver.domain.student.Student;
 import com.studentmanagement.studentmanagementserver.domain.teacher.Teacher;
+import com.studentmanagement.studentmanagementserver.domain.teacher.TeacherStudent;
 import com.studentmanagement.studentmanagementserver.domain.user.User;
 import com.studentmanagement.studentmanagementserver.repo.InfoTaskRecipientRepository;
 import com.studentmanagement.studentmanagementserver.repo.InfoTaskRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentRepository;
 import com.studentmanagement.studentmanagementserver.repo.TeacherRepository;
+import com.studentmanagement.studentmanagementserver.repo.TeacherStudentRepository;
 import com.studentmanagement.studentmanagementserver.service.ApiRequestException;
 import com.studentmanagement.studentmanagementserver.service.AuthSessionService;
 import com.studentmanagement.studentmanagementserver.service.TeacherBindingRequiredException;
@@ -37,23 +41,28 @@ public class InfoTaskCenterService {
     private static final int TITLE_MAX_LENGTH = 200;
     private static final int CONTENT_MAX_LENGTH = 4000;
     private static final int TAG_MAX_LENGTH = 50;
+    private static final String STUDENT_NOT_ASSIGNABLE_CODE = "STUDENT_NOT_ASSIGNABLE";
+    private static final String STUDENT_ARCHIVED_CODE = "STUDENT_ARCHIVED";
 
     private final AuthSessionService authSessionService;
     private final InfoTaskRepository infoTaskRepository;
     private final InfoTaskRecipientRepository infoTaskRecipientRepository;
     private final StudentRepository studentRepository;
     private final TeacherRepository teacherRepository;
+    private final TeacherStudentRepository teacherStudentRepository;
 
     public InfoTaskCenterService(AuthSessionService authSessionService,
                                  InfoTaskRepository infoTaskRepository,
                                  InfoTaskRecipientRepository infoTaskRecipientRepository,
                                  StudentRepository studentRepository,
-                                 TeacherRepository teacherRepository) {
+                                 TeacherRepository teacherRepository,
+                                 TeacherStudentRepository teacherStudentRepository) {
         this.authSessionService = authSessionService;
         this.infoTaskRepository = infoTaskRepository;
         this.infoTaskRecipientRepository = infoTaskRecipientRepository;
         this.studentRepository = studentRepository;
         this.teacherRepository = teacherRepository;
+        this.teacherStudentRepository = teacherStudentRepository;
     }
 
     @Transactional(readOnly = true)
@@ -147,9 +156,10 @@ public class InfoTaskCenterService {
         String content = requireNonBlank(requestBody.getContent(), "content", CONTENT_MAX_LENGTH);
         InfoTaskCategory category = parseCategoryRequired(requestBody.getCategory());
         List<String> tags = normalizeTags(requestBody.getTags());
+        List<Long> studentIds = normalizeStudentIds(requestBody.getStudentIds());
 
         Teacher publisher = resolveTeacherForWrite(operator);
-        List<Student> targetStudents = resolveTargetStudentsForInfo();
+        List<Student> targetStudents = resolveTargetStudentsForInfo(operator, publisher, studentIds);
         int targetCount = targetStudents.size();
 
         InfoTask infoTask = new InfoTask(
@@ -191,19 +201,81 @@ public class InfoTaskCenterService {
         return toInfoTaskDto(saved.getInfoTask(), saved.isRead(), saved.getReadAt());
     }
 
-    private List<Student> resolveTargetStudentsForInfo() {
-        List<Student> sourceStudents = studentRepository.findAllWithUser();
-        if (sourceStudents.isEmpty()) {
-            return Collections.emptyList();
+    private List<Long> normalizeStudentIds(List<Long> rawStudentIds) {
+        if (rawStudentIds == null || rawStudentIds.isEmpty()) {
+            throw badRequest("studentIds is required");
         }
 
-        Map<Long, Student> deduplicated = new LinkedHashMap<Long, Student>();
-        for (Student student : sourceStudents) {
-            if (student.getId() != null) {
-                deduplicated.put(student.getId(), student);
+        LinkedHashSet<Long> deduplicated = new LinkedHashSet<Long>();
+        for (Long rawId : rawStudentIds) {
+            if (rawId == null || rawId.longValue() <= 0L) {
+                throw badRequest("studentIds must contain positive integers");
             }
+            deduplicated.add(rawId);
         }
-        return new ArrayList<Student>(deduplicated.values());
+        if (deduplicated.isEmpty()) {
+            throw badRequest("studentIds is required");
+        }
+        return new ArrayList<Long>(deduplicated);
+    }
+
+    private List<Student> resolveTargetStudentsForInfo(User operator,
+                                                       Teacher teacher,
+                                                       List<Long> targetStudentIds) {
+        List<Student> sourceStudents = studentRepository.findByIdInWithUser(targetStudentIds);
+        Map<Long, Student> studentById = new LinkedHashMap<Long, Student>();
+        for (Student sourceStudent : sourceStudents) {
+            if (sourceStudent == null || sourceStudent.getId() == null) {
+                continue;
+            }
+            studentById.put(sourceStudent.getId(), sourceStudent);
+        }
+
+        List<Student> orderedStudents = new ArrayList<Student>(targetStudentIds.size());
+        for (Long studentId : targetStudentIds) {
+            Student student = studentById.get(studentId);
+            if (student == null) {
+                throw badRequest("studentId is invalid: " + studentId);
+            }
+            if (isStudentArchived(student)) {
+                throw studentArchivedException(studentId);
+            }
+            if (operator.getRole() == UserRole.TEACHER) {
+                ensureStudentAssignableForTeacher(teacher, studentId);
+            }
+            orderedStudents.add(student);
+        }
+
+        return orderedStudents;
+    }
+
+    private void ensureStudentAssignableForTeacher(Teacher teacher, Long studentId) {
+        Long teacherId = teacher == null ? null : teacher.getId();
+        TeacherStudent relation = (teacherId == null || studentId == null)
+                ? null
+                : teacherStudentRepository.findTopByTeacher_IdAndStudent_IdOrderByIdDesc(teacherId, studentId).orElse(null);
+        if (relation == null || relation.getStatus() != TeacherStudentStatus.ACTIVE) {
+            throw new ApiRequestException(
+                    HttpStatus.BAD_REQUEST,
+                    STUDENT_NOT_ASSIGNABLE_CODE,
+                    "studentId is not assignable to current teacher: " + studentId
+            );
+        }
+    }
+
+    private ApiRequestException studentArchivedException(Long studentId) {
+        return new ApiRequestException(
+                HttpStatus.BAD_REQUEST,
+                STUDENT_ARCHIVED_CODE,
+                "student is archived and cannot be assigned: " + studentId
+        );
+    }
+
+    private boolean isStudentArchived(Student student) {
+        if (student == null || student.getUser() == null) {
+            return true;
+        }
+        return student.getUser().getStatus() == UserAccountStatus.ARCHIVED;
     }
 
     private Teacher resolveTeacherForWrite(User operator) {

@@ -7,6 +7,7 @@ public class CreateInfoRequestDto {
     private String content;
     private String category;
     private List<String> tags;
+    private List<Long> studentIds;
 
     public String getTitle() {
         return title;
@@ -38,5 +39,13 @@ public class CreateInfoRequestDto {
 
     public void setTags(List<String> tags) {
         this.tags = tags;
+    }
+
+    public List<Long> getStudentIds() {
+        return studentIds;
+    }
+
+    public void setStudentIds(List<Long> studentIds) {
+        this.studentIds = studentIds;
     }
 }
