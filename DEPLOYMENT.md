@@ -187,6 +187,7 @@ On each push to `main`, `.github/workflows/deploy.yml` does:
    - run migrations:
      - `scripts/migrations/20260318_teacher_student_ownership_deprecation.sql`
      - `scripts/migrations/20260323_add_student_profile_teacher_note.sql`
+     - `scripts/migrations/20260327_add_performance_indexes.sql`
      - prefer `docker exec $DB_CONTAINER_NAME ... psql`
      - fallback to local `psql` client
    - build (`./mvnw` or `mvn`)

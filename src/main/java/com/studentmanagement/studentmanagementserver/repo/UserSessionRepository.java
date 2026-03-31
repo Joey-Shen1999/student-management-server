@@ -13,6 +13,14 @@ public interface UserSessionRepository extends JpaRepository<UserSession, Long> 
 
     Optional<UserSession> findByTokenHash(String tokenHash);
 
+    @Query("select s from UserSession s " +
+            "join fetch s.user " +
+            "where s.tokenHash = :tokenHash " +
+            "and s.revokedAt is null " +
+            "and s.expiresAt > :now")
+    Optional<UserSession> findActiveByTokenHash(@Param("tokenHash") String tokenHash,
+                                                @Param("now") LocalDateTime now);
+
     @Modifying
     @Query("update UserSession s set s.revokedAt = :revokedAt where s.user.id = :userId and s.revokedAt is null")
     int revokeAllActiveSessions(@Param("userId") Long userId, @Param("revokedAt") LocalDateTime revokedAt);

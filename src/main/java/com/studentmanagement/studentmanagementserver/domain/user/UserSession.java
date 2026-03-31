@@ -11,6 +11,7 @@ import java.time.LocalDateTime;
         indexes = {
                 @Index(name = "idx_user_sessions_token_hash", columnList = "tokenHash", unique = true),
                 @Index(name = "idx_user_sessions_user_id", columnList = "user_id"),
+                @Index(name = "idx_user_sessions_user_revoked", columnList = "user_id,revokedAt"),
                 @Index(name = "idx_user_sessions_expires_at", columnList = "expiresAt")
         }
 )

@@ -18,7 +18,8 @@ import java.time.LocalDateTime;
         name = "student_identity_file",
         indexes = {
                 @Index(name = "idx_student_identity_file_profile_id", columnList = "student_profile_id"),
-                @Index(name = "idx_student_identity_file_uploaded_at", columnList = "uploaded_at")
+                @Index(name = "idx_student_identity_file_uploaded_at", columnList = "uploaded_at"),
+                @Index(name = "idx_student_identity_profile_uploaded_id", columnList = "student_profile_id,uploaded_at,id")
         }
 )
 public class StudentIdentityFile extends BaseEntity {

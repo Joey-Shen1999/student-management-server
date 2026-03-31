@@ -25,11 +25,13 @@ import org.springframework.web.server.ResponseStatusException;
 import javax.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 public class InfoTaskCenterService {
@@ -41,6 +43,7 @@ public class InfoTaskCenterService {
     private static final int TITLE_MAX_LENGTH = 200;
     private static final int CONTENT_MAX_LENGTH = 4000;
     private static final int TAG_MAX_LENGTH = 50;
+    private static final int TASK_GROUP_ID_MAX_LENGTH = 64;
     private static final String STUDENT_NOT_ASSIGNABLE_CODE = "STUDENT_NOT_ASSIGNABLE";
     private static final String STUDENT_ARCHIVED_CODE = "STUDENT_ARCHIVED";
 
@@ -96,9 +99,19 @@ public class InfoTaskCenterService {
                 PageRequest.of(page - 1, size)
         );
 
-        List<InfoTaskDto> items = new ArrayList<InfoTaskDto>(infoPage.getContent().size());
-        for (InfoTaskRecipient recipient : infoPage.getContent()) {
-            items.add(toInfoTaskDto(recipient.getInfoTask(), recipient.isRead(), recipient.getReadAt()));
+        List<InfoTaskRecipient> studentRecipients = infoPage.getContent();
+        Map<Long, List<Long>> recipientStudentIdsByInfoTaskId =
+                loadRecipientStudentIdsByInfoTaskIds(collectInfoTaskIdsFromRecipients(studentRecipients));
+
+        List<InfoTaskDto> items = new ArrayList<InfoTaskDto>(studentRecipients.size());
+        for (InfoTaskRecipient recipient : studentRecipients) {
+            InfoTask infoTask = recipient.getInfoTask();
+            items.add(toInfoTaskDto(
+                    infoTask,
+                    recipient.isRead(),
+                    recipient.getReadAt(),
+                    recipientStudentIdsByInfoTaskId.get(infoTask.getId())
+            ));
         }
         return new InfoListResponseDto(items, infoPage.getTotalElements(), page, size);
     }
@@ -134,9 +147,18 @@ public class InfoTaskCenterService {
                 PageRequest.of(page - 1, size)
         );
 
-        List<InfoTaskDto> items = new ArrayList<InfoTaskDto>(infoPage.getContent().size());
-        for (InfoTask infoTask : infoPage.getContent()) {
-            items.add(toInfoTaskDto(infoTask, false, null));
+        List<InfoTask> infoTasks = infoPage.getContent();
+        Map<Long, List<Long>> recipientStudentIdsByInfoTaskId =
+                loadRecipientStudentIdsByInfoTaskIds(collectInfoTaskIdsFromInfos(infoTasks));
+
+        List<InfoTaskDto> items = new ArrayList<InfoTaskDto>(infoTasks.size());
+        for (InfoTask infoTask : infoTasks) {
+            items.add(toInfoTaskDto(
+                    infoTask,
+                    false,
+                    null,
+                    recipientStudentIdsByInfoTaskId.get(infoTask.getId())
+            ));
         }
         return new InfoListResponseDto(items, infoPage.getTotalElements(), page, size);
     }
@@ -157,30 +179,46 @@ public class InfoTaskCenterService {
         InfoTaskCategory category = parseCategoryRequired(requestBody.getCategory());
         List<String> tags = normalizeTags(requestBody.getTags());
         List<Long> studentIds = normalizeStudentIds(requestBody.getStudentIds());
+        String taskGroupId = normalizeOptionalTaskGroupId(requestBody.getTaskGroupId());
+        Long goalId = normalizeOptionalGoalId(requestBody.getGoalId());
 
         Teacher publisher = resolveTeacherForWrite(operator);
         List<Student> targetStudents = resolveTargetStudentsForInfo(operator, publisher, studentIds);
         int targetCount = targetStudents.size();
 
-        InfoTask infoTask = new InfoTask(
+        String tagsText = joinTags(tags);
+        InfoTask infoTask = null;
+        if (taskGroupId != null) {
+            infoTask = infoTaskRepository.findTopByPublishedByTeacher_IdAndTaskGroupIdOrderByIdDesc(
+                    publisher.getId(),
+                    taskGroupId
+            ).orElse(null);
+        }
+        if (infoTask == null && goalId != null) {
+            infoTask = infoTaskRepository.findTopByPublishedByTeacher_IdAndGoalIdOrderByIdDesc(publisher.getId(), goalId)
+                    .orElse(null);
+        }
+
+        if (infoTask != null) {
+            infoTask.overwrite(title, content, category, tagsText, targetCount, goalId, taskGroupId);
+            infoTask = infoTaskRepository.save(infoTask);
+            overwriteRecipients(infoTask, targetStudents);
+            return toInfoTaskDto(infoTask, false, null, findRecipientStudentIdsByInfoTaskId(infoTask.getId()));
+        }
+
+        infoTask = new InfoTask(
                 title,
                 content,
                 category,
-                joinTags(tags),
+                tagsText,
                 targetCount,
-                publisher
+                publisher,
+                goalId,
+                taskGroupId
         );
         infoTask = infoTaskRepository.save(infoTask);
-
-        if (!targetStudents.isEmpty()) {
-            List<InfoTaskRecipient> recipients = new ArrayList<InfoTaskRecipient>(targetStudents.size());
-            for (Student student : targetStudents) {
-                recipients.add(new InfoTaskRecipient(infoTask, student));
-            }
-            infoTaskRecipientRepository.saveAll(recipients);
-        }
-
-        return toInfoTaskDto(infoTask, false, null);
+        saveRecipients(infoTask, targetStudents);
+        return toInfoTaskDto(infoTask, false, null, findRecipientStudentIdsByInfoTaskId(infoTask.getId()));
     }
 
     @Transactional
@@ -198,7 +236,12 @@ public class InfoTaskCenterService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Info task not found."));
         recipient.markRead();
         InfoTaskRecipient saved = infoTaskRecipientRepository.save(recipient);
-        return toInfoTaskDto(saved.getInfoTask(), saved.isRead(), saved.getReadAt());
+        return toInfoTaskDto(
+                saved.getInfoTask(),
+                saved.isRead(),
+                saved.getReadAt(),
+                findRecipientStudentIdsByInfoTaskId(saved.getInfoTask().getId())
+        );
     }
 
     private List<Long> normalizeStudentIds(List<Long> rawStudentIds) {
@@ -217,6 +260,152 @@ public class InfoTaskCenterService {
             throw badRequest("studentIds is required");
         }
         return new ArrayList<Long>(deduplicated);
+    }
+
+    private Long normalizeOptionalGoalId(Long rawGoalId) {
+        if (rawGoalId == null) {
+            return null;
+        }
+        return requirePositiveId(rawGoalId, "goalId");
+    }
+
+    private String normalizeOptionalTaskGroupId(String rawTaskGroupId) {
+        String normalized = trimToNull(rawTaskGroupId);
+        if (normalized == null) {
+            return null;
+        }
+        if (normalized.length() > TASK_GROUP_ID_MAX_LENGTH) {
+            throw badRequest("taskGroupId too long");
+        }
+        return normalized;
+    }
+
+    private void saveRecipients(InfoTask infoTask, List<Student> targetStudents) {
+        if (targetStudents == null || targetStudents.isEmpty()) {
+            return;
+        }
+        List<InfoTaskRecipient> recipients = new ArrayList<InfoTaskRecipient>(targetStudents.size());
+        for (Student student : targetStudents) {
+            recipients.add(new InfoTaskRecipient(infoTask, student));
+        }
+        infoTaskRecipientRepository.saveAll(recipients);
+    }
+
+    private void overwriteRecipients(InfoTask infoTask, List<Student> targetStudents) {
+        List<InfoTaskRecipient> existingRecipients = infoTaskRecipientRepository.findByInfoTask_Id(infoTask.getId());
+        Map<Long, InfoTaskRecipient> existingByStudentId = new HashMap<Long, InfoTaskRecipient>(existingRecipients.size());
+        for (InfoTaskRecipient recipient : existingRecipients) {
+            if (recipient == null || recipient.getStudent() == null || recipient.getStudent().getId() == null) {
+                continue;
+            }
+            existingByStudentId.put(recipient.getStudent().getId(), recipient);
+        }
+
+        Set<Long> targetStudentIds = new LinkedHashSet<Long>();
+        List<InfoTaskRecipient> recipientsToCreate = new ArrayList<InfoTaskRecipient>();
+        for (Student student : targetStudents) {
+            if (student == null || student.getId() == null) {
+                continue;
+            }
+            Long studentId = student.getId();
+            targetStudentIds.add(studentId);
+            InfoTaskRecipient existing = existingByStudentId.remove(studentId);
+            if (existing == null) {
+                recipientsToCreate.add(new InfoTaskRecipient(infoTask, student));
+            } else {
+                existing.markUnread();
+            }
+        }
+
+        List<InfoTaskRecipient> recipientsToDelete = new ArrayList<InfoTaskRecipient>();
+        for (Map.Entry<Long, InfoTaskRecipient> entry : existingByStudentId.entrySet()) {
+            if (!targetStudentIds.contains(entry.getKey())) {
+                recipientsToDelete.add(entry.getValue());
+            }
+        }
+
+        if (!recipientsToDelete.isEmpty()) {
+            infoTaskRecipientRepository.deleteAll(recipientsToDelete);
+        }
+        if (!recipientsToCreate.isEmpty()) {
+            infoTaskRecipientRepository.saveAll(recipientsToCreate);
+        }
+    }
+
+    private Map<Long, List<Long>> loadRecipientStudentIdsByInfoTaskIds(List<Long> infoTaskIds) {
+        if (infoTaskIds == null || infoTaskIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        LinkedHashSet<Long> deduplicatedInfoTaskIds = new LinkedHashSet<Long>();
+        for (Long infoTaskId : infoTaskIds) {
+            if (infoTaskId != null) {
+                deduplicatedInfoTaskIds.add(infoTaskId);
+            }
+        }
+        if (deduplicatedInfoTaskIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        Map<Long, List<Long>> recipientStudentIdsByInfoTaskId =
+                new LinkedHashMap<Long, List<Long>>(deduplicatedInfoTaskIds.size());
+        for (Long infoTaskId : deduplicatedInfoTaskIds) {
+            recipientStudentIdsByInfoTaskId.put(infoTaskId, new ArrayList<Long>());
+        }
+
+        List<InfoTaskRecipientRepository.InfoTaskRecipientStudentIdView> recipientRows =
+                infoTaskRecipientRepository.findRecipientStudentIdsByInfoTaskIds(
+                        new ArrayList<Long>(deduplicatedInfoTaskIds)
+                );
+        for (InfoTaskRecipientRepository.InfoTaskRecipientStudentIdView recipientRow : recipientRows) {
+            if (recipientRow == null || recipientRow.getInfoTaskId() == null || recipientRow.getStudentId() == null) {
+                continue;
+            }
+            List<Long> recipientStudentIds = recipientStudentIdsByInfoTaskId.get(recipientRow.getInfoTaskId());
+            if (recipientStudentIds != null) {
+                recipientStudentIds.add(recipientRow.getStudentId());
+            }
+        }
+        return recipientStudentIdsByInfoTaskId;
+    }
+
+    private List<Long> collectInfoTaskIdsFromRecipients(List<InfoTaskRecipient> infoTaskRecipients) {
+        if (infoTaskRecipients == null || infoTaskRecipients.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<Long> infoTaskIds = new ArrayList<Long>(infoTaskRecipients.size());
+        for (InfoTaskRecipient infoTaskRecipient : infoTaskRecipients) {
+            if (infoTaskRecipient == null || infoTaskRecipient.getInfoTask() == null || infoTaskRecipient.getInfoTask().getId() == null) {
+                continue;
+            }
+            infoTaskIds.add(infoTaskRecipient.getInfoTask().getId());
+        }
+        return infoTaskIds;
+    }
+
+    private List<Long> collectInfoTaskIdsFromInfos(List<InfoTask> infoTasks) {
+        if (infoTasks == null || infoTasks.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<Long> infoTaskIds = new ArrayList<Long>(infoTasks.size());
+        for (InfoTask infoTask : infoTasks) {
+            if (infoTask == null || infoTask.getId() == null) {
+                continue;
+            }
+            infoTaskIds.add(infoTask.getId());
+        }
+        return infoTaskIds;
+    }
+
+    private List<Long> findRecipientStudentIdsByInfoTaskId(Long infoTaskId) {
+        if (infoTaskId == null) {
+            return Collections.emptyList();
+        }
+        List<Long> recipientStudentIds = infoTaskRecipientRepository.findStudentIdsByInfoTaskId(infoTaskId);
+        if (recipientStudentIds == null) {
+            return Collections.emptyList();
+        }
+        return recipientStudentIds;
     }
 
     private List<Student> resolveTargetStudentsForInfo(User operator,
@@ -298,7 +487,10 @@ public class InfoTaskCenterService {
                 .orElseThrow(TeacherBindingRequiredException::new);
     }
 
-    private InfoTaskDto toInfoTaskDto(InfoTask infoTask, boolean read, java.time.LocalDateTime readAt) {
+    private InfoTaskDto toInfoTaskDto(InfoTask infoTask,
+                                      boolean read,
+                                      java.time.LocalDateTime readAt,
+                                      List<Long> recipientStudentIds) {
         Teacher publisher = infoTask.getPublishedByTeacher();
         return new InfoTaskDto(
                 infoTask.getId(),
@@ -307,6 +499,9 @@ public class InfoTaskCenterService {
                 infoTask.getContent(),
                 infoTask.getCategory(),
                 parseTags(infoTask.getTagsText()),
+                infoTask.getGoalId(),
+                infoTask.getTaskGroupId(),
+                recipientStudentIds == null ? Collections.<Long>emptyList() : recipientStudentIds,
                 infoTask.getTargetStudentCount(),
                 publisher.getId(),
                 buildTeacherDisplayName(publisher),

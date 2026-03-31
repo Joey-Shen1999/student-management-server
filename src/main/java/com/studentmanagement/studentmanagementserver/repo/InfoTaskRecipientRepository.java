@@ -9,9 +9,15 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface InfoTaskRecipientRepository extends JpaRepository<InfoTaskRecipient, Long> {
+
+    interface InfoTaskRecipientStudentIdView {
+        Long getInfoTaskId();
+        Long getStudentId();
+    }
 
     @EntityGraph(attributePaths = {
             "infoTask",
@@ -45,4 +51,20 @@ public interface InfoTaskRecipientRepository extends JpaRepository<InfoTaskRecip
             "student.user"
     })
     Optional<InfoTaskRecipient> findByInfoTask_IdAndStudent_Id(Long infoTaskId, Long studentId);
+
+    @EntityGraph(attributePaths = {
+            "student",
+            "student.user"
+    })
+    List<InfoTaskRecipient> findByInfoTask_Id(Long infoTaskId);
+
+    @Query("select r.student.id from InfoTaskRecipient r " +
+            "where r.infoTask.id = :infoTaskId " +
+            "order by r.student.id asc")
+    List<Long> findStudentIdsByInfoTaskId(@Param("infoTaskId") Long infoTaskId);
+
+    @Query("select r.infoTask.id as infoTaskId, r.student.id as studentId from InfoTaskRecipient r " +
+            "where r.infoTask.id in :infoTaskIds " +
+            "order by r.infoTask.id asc, r.student.id asc")
+    List<InfoTaskRecipientStudentIdView> findRecipientStudentIdsByInfoTaskIds(@Param("infoTaskIds") List<Long> infoTaskIds);
 }

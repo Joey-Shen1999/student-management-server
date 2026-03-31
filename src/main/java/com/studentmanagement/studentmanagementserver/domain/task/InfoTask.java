@@ -19,7 +19,11 @@ import javax.persistence.Table;
         name = "info_tasks",
         indexes = {
                 @Index(name = "idx_info_tasks_publisher", columnList = "published_by_teacher_id"),
-                @Index(name = "idx_info_tasks_category", columnList = "category")
+                @Index(name = "idx_info_tasks_category", columnList = "category"),
+                @Index(name = "idx_info_tasks_publisher_updated_id", columnList = "published_by_teacher_id,updatedAt,id"),
+                @Index(name = "idx_info_tasks_category_updated_id", columnList = "category,updatedAt,id"),
+                @Index(name = "idx_info_tasks_publisher_goal", columnList = "published_by_teacher_id,goal_id"),
+                @Index(name = "idx_info_tasks_publisher_task_group", columnList = "published_by_teacher_id,task_group_id")
         }
 )
 public class InfoTask extends BaseEntity {
@@ -40,6 +44,12 @@ public class InfoTask extends BaseEntity {
     @Column(name = "target_student_count", nullable = false)
     private int targetStudentCount;
 
+    @Column(name = "goal_id")
+    private Long goalId;
+
+    @Column(name = "task_group_id", length = 64)
+    private String taskGroupId;
+
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "published_by_teacher_id", nullable = false)
     private Teacher publishedByTeacher;
@@ -53,12 +63,51 @@ public class InfoTask extends BaseEntity {
                     String tagsText,
                     int targetStudentCount,
                     Teacher publishedByTeacher) {
+        this(title, content, category, tagsText, targetStudentCount, publishedByTeacher, null, null);
+    }
+
+    public InfoTask(String title,
+                    String content,
+                    InfoTaskCategory category,
+                    String tagsText,
+                    int targetStudentCount,
+                    Teacher publishedByTeacher,
+                    Long goalId) {
+        this(title, content, category, tagsText, targetStudentCount, publishedByTeacher, goalId, null);
+    }
+
+    public InfoTask(String title,
+                    String content,
+                    InfoTaskCategory category,
+                    String tagsText,
+                    int targetStudentCount,
+                    Teacher publishedByTeacher,
+                    Long goalId,
+                    String taskGroupId) {
         this.title = title;
         this.content = content;
         this.category = category;
         this.tagsText = tagsText;
         this.targetStudentCount = targetStudentCount;
         this.publishedByTeacher = publishedByTeacher;
+        this.goalId = goalId;
+        this.taskGroupId = taskGroupId;
+    }
+
+    public void overwrite(String title,
+                          String content,
+                          InfoTaskCategory category,
+                          String tagsText,
+                          int targetStudentCount,
+                          Long goalId,
+                          String taskGroupId) {
+        this.title = title;
+        this.content = content;
+        this.category = category;
+        this.tagsText = tagsText;
+        this.targetStudentCount = targetStudentCount;
+        this.goalId = goalId;
+        this.taskGroupId = taskGroupId;
     }
 
     @PrePersist
@@ -89,6 +138,14 @@ public class InfoTask extends BaseEntity {
 
     public int getTargetStudentCount() {
         return targetStudentCount;
+    }
+
+    public Long getGoalId() {
+        return goalId;
+    }
+
+    public String getTaskGroupId() {
+        return taskGroupId;
     }
 
     public Teacher getPublishedByTeacher() {

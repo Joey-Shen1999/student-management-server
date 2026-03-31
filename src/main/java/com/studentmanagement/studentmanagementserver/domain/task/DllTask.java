@@ -22,7 +22,8 @@ import javax.persistence.Table;
                 @Index(name = "idx_dll_task_template", columnList = "template_id"),
                 @Index(name = "idx_dll_task_assigned_student", columnList = "assigned_student_id"),
                 @Index(name = "idx_dll_task_created_by_teacher", columnList = "created_by_teacher_id"),
-                @Index(name = "idx_dll_task_status", columnList = "status")
+                @Index(name = "idx_dll_task_status", columnList = "status"),
+                @Index(name = "idx_dll_task_creator_updated_id", columnList = "created_by_teacher_id,updatedAt,id")
         }
 )
 public class DllTask extends BaseEntity {

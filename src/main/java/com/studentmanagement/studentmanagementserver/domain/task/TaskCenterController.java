@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -100,6 +101,29 @@ public class TaskCenterController {
             @RequestBody(required = false) CreateGoalRequestDto requestBody,
             HttpServletRequest request) {
         return ResponseEntity.ok(goalTaskCenterService.createGoal(requestBody, request));
+    }
+
+    @PostMapping("/api/teacher/tasks/goal-groups")
+    public ResponseEntity<GoalGroupResponseDto> createGoalGroup(
+            @RequestBody(required = false) GoalGroupUpsertRequestDto requestBody,
+            HttpServletRequest request) {
+        return ResponseEntity.ok(goalTaskCenterService.createGoalGroup(requestBody, request));
+    }
+
+    @PutMapping("/api/teacher/tasks/goal-groups/{taskGroupId}")
+    public ResponseEntity<GoalGroupResponseDto> overwriteGoalGroup(
+            @PathVariable String taskGroupId,
+            @RequestBody(required = false) GoalGroupUpsertRequestDto requestBody,
+            HttpServletRequest request) {
+        return ResponseEntity.ok(goalTaskCenterService.overwriteGoalGroup(taskGroupId, requestBody, request));
+    }
+
+    @PatchMapping("/api/teacher/tasks/goals/{goalId}")
+    public ResponseEntity<GoalTaskDto> updateGoal(
+            @PathVariable Long goalId,
+            @RequestBody(required = false) UpdateGoalRequestDto requestBody,
+            HttpServletRequest request) {
+        return ResponseEntity.ok(goalTaskCenterService.updateGoal(goalId, requestBody, request));
     }
 
     @PostMapping("/api/teacher/tasks/infos")

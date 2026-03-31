@@ -8,6 +8,8 @@ public class CreateInfoRequestDto {
     private String category;
     private List<String> tags;
     private List<Long> studentIds;
+    private String taskGroupId;
+    private Long goalId;
 
     public String getTitle() {
         return title;
@@ -47,5 +49,21 @@ public class CreateInfoRequestDto {
 
     public void setStudentIds(List<Long> studentIds) {
         this.studentIds = studentIds;
+    }
+
+    public String getTaskGroupId() {
+        return taskGroupId;
+    }
+
+    public void setTaskGroupId(String taskGroupId) {
+        this.taskGroupId = taskGroupId;
+    }
+
+    public Long getGoalId() {
+        return goalId;
+    }
+
+    public void setGoalId(Long goalId) {
+        this.goalId = goalId;
     }
 }

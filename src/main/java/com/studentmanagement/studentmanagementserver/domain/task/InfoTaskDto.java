@@ -9,6 +9,9 @@ public class InfoTaskDto {
     private String content;
     private InfoTaskCategory category;
     private List<String> tags;
+    private Long goalId;
+    private String taskGroupId;
+    private List<Long> recipientStudentIds;
     private int targetStudentCount;
     private Long publishedByTeacherId;
     private String publishedByTeacherName;
@@ -23,6 +26,9 @@ public class InfoTaskDto {
                        String content,
                        InfoTaskCategory category,
                        List<String> tags,
+                       Long goalId,
+                       String taskGroupId,
+                       List<Long> recipientStudentIds,
                        int targetStudentCount,
                        Long publishedByTeacherId,
                        String publishedByTeacherName,
@@ -36,6 +42,9 @@ public class InfoTaskDto {
         this.content = content;
         this.category = category;
         this.tags = tags;
+        this.goalId = goalId;
+        this.taskGroupId = taskGroupId;
+        this.recipientStudentIds = recipientStudentIds;
         this.targetStudentCount = targetStudentCount;
         this.publishedByTeacherId = publishedByTeacherId;
         this.publishedByTeacherName = publishedByTeacherName;
@@ -67,6 +76,18 @@ public class InfoTaskDto {
 
     public List<String> getTags() {
         return tags;
+    }
+
+    public Long getGoalId() {
+        return goalId;
+    }
+
+    public String getTaskGroupId() {
+        return taskGroupId;
+    }
+
+    public List<Long> getRecipientStudentIds() {
+        return recipientStudentIds;
     }
 
     public int getTargetStudentCount() {

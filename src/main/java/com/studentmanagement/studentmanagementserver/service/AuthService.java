@@ -142,7 +142,7 @@ public class AuthService {
             Student student = studentRepository.findByUser_Id(user.getId())
                     .orElseThrow(() -> new IllegalStateException("Student profile missing"));
             studentId = student.getId();
-            requiresProfileCompletion = !studentProfileRepository.findByStudent_Id(studentId).isPresent();
+            requiresProfileCompletion = !studentProfileRepository.existsByStudent_Id(studentId);
         } else if (user.getRole() == UserRole.TEACHER || user.getRole() == UserRole.ADMIN) {
             teacherId = teacherRepository.findByUser_Id(user.getId())
                     .orElseThrow(TeacherBindingRequiredException::new)

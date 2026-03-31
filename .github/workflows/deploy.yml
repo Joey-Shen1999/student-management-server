@@ -93,6 +93,7 @@ jobs:
           MIGRATION_FILES=(
             "scripts/migrations/20260318_teacher_student_ownership_deprecation.sql"
             "scripts/migrations/20260323_add_student_profile_teacher_note.sql"
+            "scripts/migrations/20260327_add_performance_indexes.sql"
           )
 
           DB_CONTAINER_NAME="${DB_CONTAINER_NAME:-uni_apply_db}"

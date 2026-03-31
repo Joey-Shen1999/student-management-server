@@ -22,6 +22,14 @@ public class AuthSessionService {
 
     private static final String AUTHORIZATION_HEADER = "Authorization";
     private static final String BEARER_PREFIX = "Bearer ";
+    private static final char[] HEX_DIGITS = "0123456789abcdef".toCharArray();
+    private static final ThreadLocal<MessageDigest> SHA_256 = ThreadLocal.withInitial(() -> {
+        try {
+            return MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 not available", e);
+        }
+    });
 
     private final UserSessionRepository userSessionRepository;
     private final SecureRandom secureRandom = new SecureRandom();
@@ -61,11 +69,8 @@ public class AuthSessionService {
         String accessToken = resolveBearerToken(request);
         String tokenHash = sha256Hex(accessToken);
 
-        UserSession session = userSessionRepository.findByTokenHash(tokenHash)
+        UserSession session = userSessionRepository.findActiveByTokenHash(tokenHash, LocalDateTime.now())
                 .orElseThrow(this::unauthenticated);
-        if (!session.isActiveAt(LocalDateTime.now())) {
-            throw unauthenticated();
-        }
         return session;
     }
 
@@ -92,17 +97,16 @@ public class AuthSessionService {
     }
 
     private String sha256Hex(String value) {
-        try {
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
-            byte[] digest = md.digest(value.getBytes(StandardCharsets.UTF_8));
-            StringBuilder sb = new StringBuilder(digest.length * 2);
-            for (byte b : digest) {
-                sb.append(String.format("%02x", b));
-            }
-            return sb.toString();
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 not available", e);
+        MessageDigest md = SHA_256.get();
+        md.reset();
+        byte[] digest = md.digest(value.getBytes(StandardCharsets.UTF_8));
+        char[] hex = new char[digest.length * 2];
+        for (int i = 0; i < digest.length; i++) {
+            int unsigned = digest[i] & 0xFF;
+            hex[i * 2] = HEX_DIGITS[unsigned >>> 4];
+            hex[i * 2 + 1] = HEX_DIGITS[unsigned & 0x0F];
         }
+        return new String(hex);
     }
 
     private ResponseStatusException unauthenticated() {

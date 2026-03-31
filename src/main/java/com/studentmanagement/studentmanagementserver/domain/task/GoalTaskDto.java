@@ -7,6 +7,7 @@ public class GoalTaskDto {
     private String description;
     private GoalTaskStatus status;
     private String dueAt;
+    private String taskGroupId;
     private Long assignedStudentId;
     private String assignedStudentName;
     private Long assignedByTeacherId;
@@ -22,6 +23,7 @@ public class GoalTaskDto {
                        String description,
                        GoalTaskStatus status,
                        String dueAt,
+                       String taskGroupId,
                        Long assignedStudentId,
                        String assignedStudentName,
                        Long assignedByTeacherId,
@@ -36,6 +38,7 @@ public class GoalTaskDto {
         this.description = description;
         this.status = status;
         this.dueAt = dueAt;
+        this.taskGroupId = taskGroupId;
         this.assignedStudentId = assignedStudentId;
         this.assignedStudentName = assignedStudentName;
         this.assignedByTeacherId = assignedByTeacherId;
@@ -68,6 +71,10 @@ public class GoalTaskDto {
 
     public String getDueAt() {
         return dueAt;
+    }
+
+    public String getTaskGroupId() {
+        return taskGroupId;
     }
 
     public Long getAssignedStudentId() {

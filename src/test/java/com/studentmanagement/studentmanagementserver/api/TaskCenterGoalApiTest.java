@@ -31,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -84,6 +85,7 @@ class TaskCenterGoalApiTest {
                 .andExpect(jsonPath("$.status").value("NOT_STARTED"))
                 .andExpect(jsonPath("$.assignedStudentId").value(student.getId()))
                 .andExpect(jsonPath("$.assignedByTeacherId").value(teacher.getId()))
+                .andExpect(jsonPath("$.taskGroupId").isNotEmpty())
                 .andExpect(jsonPath("$.dueAt").value("2026-03-15"))
                 .andReturn();
         long goalId = objectMapper.readTree(createResult.getResponse().getContentAsString()).path("id").asLong();
@@ -287,6 +289,219 @@ class TaskCenterGoalApiTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("BAD_REQUEST"))
                 .andExpect(jsonPath("$.message").value("dueAt must be yyyy-mm-dd"));
+    }
+
+    @Test
+    void teacherEditGoal_canUpdateStudentAndKeepStatusAndCompletedAt() throws Exception {
+        Teacher teacher = createTeacherAccount("task_teacher_edit", "Task Teacher Edit");
+        Student studentA = createStudentAccount("task_edit_student_a", "Student", "A", "A");
+        Student studentB = createStudentAccount("task_edit_student_b", "Student", "B", "B");
+        assignTeacherStudent(teacher, studentA, TeacherStudentStatus.ACTIVE);
+        assignTeacherStudent(teacher, studentB, TeacherStudentStatus.ACTIVE);
+
+        long goalId = createGoalAsTeacher(
+                teacher.getUser(),
+                studentA.getId(),
+                "Original title",
+                "Original description",
+                "2026-04-01"
+        );
+
+        MvcResult statusResult = mockMvc.perform(patch("/api/teacher/tasks/{taskId}/status", goalId)
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"COMPLETED\",\"progressNote\":\"done\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.completedAt").isNotEmpty())
+                .andReturn();
+        String completedAtBeforeEdit = objectMapper.readTree(statusResult.getResponse().getContentAsString())
+                .path("completedAt")
+                .asText();
+
+        MvcResult editResult = mockMvc.perform(patch("/api/teacher/tasks/goals/{goalId}", goalId)
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"studentId\":" + studentB.getId() + "," +
+                                "\"title\":\"Updated title\"," +
+                                "\"description\":\"Updated description\"," +
+                                "\"dueAt\":\"2026-04-15\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(goalId))
+                .andExpect(jsonPath("$.title").value("Updated title"))
+                .andExpect(jsonPath("$.description").value("Updated description"))
+                .andExpect(jsonPath("$.dueAt").value("2026-04-15"))
+                .andExpect(jsonPath("$.assignedStudentId").value(studentB.getId()))
+                .andExpect(jsonPath("$.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.progressNote").value("done"))
+                .andReturn();
+        String completedAtAfterEdit = objectMapper.readTree(editResult.getResponse().getContentAsString())
+                .path("completedAt")
+                .asText();
+        assertEquals(completedAtBeforeEdit, completedAtAfterEdit);
+
+        mockMvc.perform(get("/api/teacher/tasks")
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .param("type", "GOAL")
+                        .param("studentId", String.valueOf(studentB.getId()))
+                        .param("page", "1")
+                        .param("size", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].id").value(goalId))
+                .andExpect(jsonPath("$.items[0].title").value("Updated title"))
+                .andExpect(jsonPath("$.items[0].assignedStudentId").value(studentB.getId()));
+    }
+
+    @Test
+    void teacherCannotEditOtherTeacherGoal_returns403() throws Exception {
+        Teacher teacherA = createTeacherAccount("task_goal_edit_teacher_a", "Task Edit Teacher A");
+        Teacher teacherB = createTeacherAccount("task_goal_edit_teacher_b", "Task Edit Teacher B");
+        Student student = createStudentAccount("task_goal_edit_student", "Edit", "Student", "EditStudent");
+        assignTeacherStudent(teacherA, student, TeacherStudentStatus.ACTIVE);
+        assignTeacherStudent(teacherB, student, TeacherStudentStatus.ACTIVE);
+
+        long goalId = createGoalAsTeacher(
+                teacherA.getUser(),
+                student.getId(),
+                "Teacher A Goal",
+                "Owned by teacher A",
+                "2026-04-12"
+        );
+
+        mockMvc.perform(patch("/api/teacher/tasks/goals/{goalId}", goalId)
+                        .header("Authorization", bearerFor(teacherB.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"studentId\":" + student.getId() + "," +
+                                "\"title\":\"Hack title\"," +
+                                "\"description\":\"Hack description\"," +
+                                "\"dueAt\":\"2026-04-13\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+    }
+
+    @Test
+    void teacherCreateAndOverwriteGoalGroup_keepsExistingStatusFields() throws Exception {
+        Teacher teacher = createTeacherAccount("task_group_teacher", "Task Group Teacher");
+        Student studentA = createStudentAccount("task_group_student_a", "Group", "A", "GA");
+        Student studentB = createStudentAccount("task_group_student_b", "Group", "B", "GB");
+        Student studentC = createStudentAccount("task_group_student_c", "Group", "C", "GC");
+        assignTeacherStudent(teacher, studentA, TeacherStudentStatus.ACTIVE);
+        assignTeacherStudent(teacher, studentB, TeacherStudentStatus.ACTIVE);
+        assignTeacherStudent(teacher, studentC, TeacherStudentStatus.ACTIVE);
+
+        MvcResult createGroupResult = mockMvc.perform(post("/api/teacher/tasks/goal-groups")
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"Group title v1\"," +
+                                "\"description\":\"Group description v1\"," +
+                                "\"dueAt\":\"2026-04-20\"," +
+                                "\"studentIds\":[" + studentA.getId() + "," + studentB.getId() + "]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(2))
+                .andReturn();
+
+        JsonNode createdGroupJson = objectMapper.readTree(createGroupResult.getResponse().getContentAsString());
+        String taskGroupId = createdGroupJson.path("taskGroupId").asText();
+        long goalAId = 0L;
+        for (JsonNode item : createdGroupJson.path("items")) {
+            if (item.path("assignedStudentId").asLong() == studentA.getId()) {
+                goalAId = item.path("id").asLong();
+                break;
+            }
+        }
+        assertTrue(goalAId > 0L);
+
+        mockMvc.perform(patch("/api/teacher/tasks/{taskId}/status", goalAId)
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"COMPLETED\",\"progressNote\":\"group-done\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.progressNote").value("group-done"));
+
+        MvcResult overwriteResult = mockMvc.perform(put("/api/teacher/tasks/goal-groups/{taskGroupId}", taskGroupId)
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"Group title v2\"," +
+                                "\"description\":\"Group description v2\"," +
+                                "\"dueAt\":\"2026-04-28\"," +
+                                "\"studentIds\":[" + studentA.getId() + "," + studentC.getId() + "]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.taskGroupId").value(taskGroupId))
+                .andExpect(jsonPath("$.total").value(2))
+                .andReturn();
+
+        JsonNode overwriteJson = objectMapper.readTree(overwriteResult.getResponse().getContentAsString());
+        boolean foundA = false;
+        boolean foundC = false;
+        for (JsonNode item : overwriteJson.path("items")) {
+            long assignedStudentId = item.path("assignedStudentId").asLong();
+            if (assignedStudentId == studentA.getId()) {
+                foundA = true;
+                assertEquals(goalAId, item.path("id").asLong());
+                assertEquals("COMPLETED", item.path("status").asText());
+                assertEquals("group-done", item.path("progressNote").asText());
+                assertEquals("2026-04-28", item.path("dueAt").asText());
+            } else if (assignedStudentId == studentC.getId()) {
+                foundC = true;
+                assertEquals("NOT_STARTED", item.path("status").asText());
+                assertEquals("Group title v2", item.path("title").asText());
+            } else if (assignedStudentId == studentB.getId()) {
+                throw new AssertionError("studentB should have been removed from task group");
+            }
+        }
+        assertTrue(foundA);
+        assertTrue(foundC);
+    }
+
+    @Test
+    void teacherCannotOverwriteOtherTeacherGoalGroup_returns403() throws Exception {
+        Teacher teacherA = createTeacherAccount("task_group_owner_teacher", "Task Group Owner");
+        Teacher teacherB = createTeacherAccount("task_group_other_teacher", "Task Group Other");
+        Student student = createStudentAccount("task_group_forbidden_student", "Group", "Forbidden", "GF");
+        assignTeacherStudent(teacherA, student, TeacherStudentStatus.ACTIVE);
+        assignTeacherStudent(teacherB, student, TeacherStudentStatus.ACTIVE);
+
+        MvcResult createGroupResult = mockMvc.perform(post("/api/teacher/tasks/goal-groups")
+                        .header("Authorization", bearerFor(teacherA.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"Owner group\"," +
+                                "\"description\":\"Owner group desc\"," +
+                                "\"dueAt\":\"2026-04-21\"," +
+                                "\"studentIds\":[" + student.getId() + "]}"))
+                .andExpect(status().isOk())
+                .andReturn();
+        String taskGroupId = objectMapper.readTree(createGroupResult.getResponse().getContentAsString())
+                .path("taskGroupId")
+                .asText();
+
+        mockMvc.perform(put("/api/teacher/tasks/goal-groups/{taskGroupId}", taskGroupId)
+                        .header("Authorization", bearerFor(teacherB.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"Hack\"," +
+                                "\"description\":\"Hack\"," +
+                                "\"dueAt\":\"2026-04-22\"," +
+                                "\"studentIds\":[" + student.getId() + "]}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+    }
+
+    @Test
+    void overwriteGoalGroup_notFound_returns404() throws Exception {
+        Teacher teacher = createTeacherAccount("task_group_404_teacher", "Task Group 404");
+        Student student = createStudentAccount("task_group_404_student", "Group", "NotFound", "GNF");
+        assignTeacherStudent(teacher, student, TeacherStudentStatus.ACTIVE);
+
+        mockMvc.perform(put("/api/teacher/tasks/goal-groups/{taskGroupId}", "group-not-exist")
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"Any\"," +
+                                "\"description\":\"Any\"," +
+                                "\"dueAt\":\"2026-04-22\"," +
+                                "\"studentIds\":[" + student.getId() + "]}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
     }
 
     private long createGoalAsTeacher(User teacherUser,

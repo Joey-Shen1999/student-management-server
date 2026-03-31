@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface TeacherStudentRepository extends JpaRepository<TeacherStudent, Long> {
 
@@ -18,6 +19,8 @@ public interface TeacherStudentRepository extends JpaRepository<TeacherStudent, 
     boolean existsByTeacher_IdAndStudent_IdAndStatus(Long teacherId,
                                                      Long studentId,
                                                      TeacherStudentStatus status);
+
+    Optional<TeacherStudent> findTopByTeacher_IdAndStudent_IdOrderByIdDesc(Long teacherId, Long studentId);
 
     @Query("select ts from TeacherStudent ts " +
             "join fetch ts.student s " +

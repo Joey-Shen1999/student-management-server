@@ -23,7 +23,9 @@ import java.time.LocalDateTime;
         indexes = {
                 @Index(name = "idx_info_recipient_student", columnList = "student_id"),
                 @Index(name = "idx_info_recipient_task", columnList = "info_task_id"),
-                @Index(name = "idx_info_recipient_read", columnList = "is_read")
+                @Index(name = "idx_info_recipient_read", columnList = "is_read"),
+                @Index(name = "idx_info_recipient_student_read", columnList = "student_id,is_read"),
+                @Index(name = "idx_info_recipient_student_task", columnList = "student_id,info_task_id")
         }
 )
 public class InfoTaskRecipient extends BaseEntity {
@@ -63,6 +65,11 @@ public class InfoTaskRecipient extends BaseEntity {
         if (this.readAt == null) {
             this.readAt = LocalDateTime.now();
         }
+    }
+
+    public void markUnread() {
+        this.read = false;
+        this.readAt = null;
     }
 
     public InfoTask getInfoTask() {

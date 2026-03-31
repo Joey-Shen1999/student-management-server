@@ -11,6 +11,8 @@ import java.util.Optional;
 public interface StudentProfileRepository extends JpaRepository<StudentProfile, Long> {
     Optional<StudentProfile> findByStudent_Id(Long studentId);
 
+    boolean existsByStudent_Id(Long studentId);
+
     @Query("select sp from StudentProfile sp " +
             "join fetch sp.student s " +
             "where s.id in :studentIds")

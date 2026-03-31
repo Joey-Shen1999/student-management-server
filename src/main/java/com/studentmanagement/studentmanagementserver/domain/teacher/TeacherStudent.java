@@ -22,7 +22,9 @@ import java.time.LocalDateTime;
         indexes = {
                 @Index(name = "idx_teacher_student_teacher_id", columnList = "teacher_id"),
                 @Index(name = "idx_teacher_student_student_id", columnList = "student_id"),
-                @Index(name = "idx_teacher_student_status", columnList = "status")
+                @Index(name = "idx_teacher_student_status", columnList = "status"),
+                @Index(name = "idx_teacher_student_teacher_student", columnList = "teacher_id,student_id"),
+                @Index(name = "idx_teacher_student_teacher_status_student", columnList = "teacher_id,status,student_id")
         }
 )
 public class TeacherStudent extends BaseEntity {

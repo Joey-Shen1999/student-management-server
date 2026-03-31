@@ -18,7 +18,13 @@ import java.time.LocalDateTime;
 @Entity
 @Table(
         name = "student_school_record",
-        indexes = @Index(name = "idx_student_school_record_student_id", columnList = "student_id")
+        indexes = {
+                @Index(name = "idx_student_school_record_student_id", columnList = "student_id"),
+                @Index(
+                        name = "idx_student_school_record_student_type_name_dates",
+                        columnList = "student_id,school_type,school_name,start_time,end_time"
+                )
+        }
 )
 public class StudentSchoolRecord extends BaseEntity {
 

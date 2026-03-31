@@ -94,6 +94,8 @@ Migration note:
   - `scripts/migrations/20260318_teacher_student_ownership_deprecation.sql`
 - For teacher internal note field, run:
   - `scripts/migrations/20260323_add_student_profile_teacher_note.sql`
+- For performance indexes on task/profile/session hotspots, run:
+  - `scripts/migrations/20260327_add_performance_indexes.sql`
 
 ## Student Profile Contract (Latest)
 

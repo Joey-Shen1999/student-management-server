@@ -10,7 +10,11 @@ import java.time.LocalDateTime;
 @Entity
 @Table(
         name = "users",
-        indexes = @Index(name = "idx_users_username", columnList = "username", unique = true)
+        indexes = {
+                @Index(name = "idx_users_username", columnList = "username", unique = true),
+                @Index(name = "idx_users_role", columnList = "role"),
+                @Index(name = "idx_users_status", columnList = "status")
+        }
 )
 public class User extends BaseEntity {
 

@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface GoalTaskRepository extends JpaRepository<GoalTask, Long> {
@@ -59,4 +60,16 @@ public interface GoalTaskRepository extends JpaRepository<GoalTask, Long> {
     })
     @Query("select g from GoalTask g where g.id = :goalTaskId")
     Optional<GoalTask> findByIdWithRelations(@Param("goalTaskId") Long goalTaskId);
+
+    @EntityGraph(attributePaths = {
+            "assignedStudent",
+            "assignedStudent.user",
+            "assignedByTeacher",
+            "assignedByTeacher.user"
+    })
+    List<GoalTask> findByTaskGroupIdOrderByIdAsc(String taskGroupId);
+
+    boolean existsByTaskGroupId(String taskGroupId);
+
+    boolean existsByTaskGroupIdAndAssignedStudent_IdAndIdNot(String taskGroupId, Long assignedStudentId, Long id);
 }

@@ -36,9 +36,11 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
 import java.util.regex.Pattern;
 
 @Service
@@ -52,6 +54,7 @@ public class TaskCenterService {
     private static final int TITLE_MAX_LENGTH = 200;
     private static final int DESCRIPTION_MAX_LENGTH = 2000;
     private static final int PROGRESS_NOTE_MAX_LENGTH = 2000;
+    private static final int TASK_GROUP_ID_MAX_LENGTH = 64;
     private static final String STUDENT_NOT_ASSIGNABLE_CODE = "STUDENT_NOT_ASSIGNABLE";
     private static final String STUDENT_ARCHIVED_CODE = "STUDENT_ARCHIVED";
 
@@ -196,8 +199,181 @@ public class TaskCenterService {
             ensureStudentNotArchived(student);
         }
 
-        GoalTask goalTask = new GoalTask(title, description, dueAt, student, teacher);
+        String taskGroupId = generateTaskGroupId();
+        GoalTask goalTask = new GoalTask(title, description, dueAt, student, teacher, taskGroupId);
         GoalTask saved = goalTaskRepository.save(goalTask);
+        return toGoalTaskDto(saved);
+    }
+
+    @Transactional
+    public GoalGroupResponseDto createGoalGroup(GoalGroupUpsertRequestDto requestBody, HttpServletRequest request) {
+        User operator = authSessionService.requireAuthenticatedUser(request);
+        if (operator.getRole() != UserRole.TEACHER && operator.getRole() != UserRole.ADMIN) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: teacher/admin role required.");
+        }
+        if (requestBody == null) {
+            throw badRequest("request body is required");
+        }
+
+        String title = requireNonBlank(requestBody.getTitle(), "title", TITLE_MAX_LENGTH);
+        String description = requireNonBlank(requestBody.getDescription(), "description", DESCRIPTION_MAX_LENGTH);
+        LocalDate dueAt = parseDueAt(requestBody.getDueAt());
+        List<Long> studentIds = normalizeStudentIds(requestBody.getStudentIds());
+
+        String taskGroupId = normalizeTaskGroupIdForCreate(requestBody.getTaskGroupId());
+        if (goalTaskRepository.existsByTaskGroupId(taskGroupId)) {
+            throw new ApiRequestException(HttpStatus.CONFLICT, "RESOURCE_CONFLICT", "taskGroupId already exists");
+        }
+
+        Teacher teacher;
+        if (operator.getRole() == UserRole.TEACHER) {
+            teacher = requireTeacherByUser(operator);
+        } else {
+            teacher = resolveTeacherForWrite(operator);
+        }
+
+        List<Student> students = resolveStudentsForGoalWrite(operator, teacher, studentIds);
+        List<GoalTask> toCreate = new ArrayList<GoalTask>(students.size());
+        for (Student student : students) {
+            toCreate.add(new GoalTask(title, description, dueAt, student, teacher, taskGroupId));
+        }
+        if (!toCreate.isEmpty()) {
+            goalTaskRepository.saveAll(toCreate);
+        }
+
+        List<GoalTask> savedGoals = goalTaskRepository.findByTaskGroupIdOrderByIdAsc(taskGroupId);
+        return toGoalGroupResponse(taskGroupId, savedGoals);
+    }
+
+    @Transactional
+    public GoalGroupResponseDto overwriteGoalGroup(String taskGroupIdRaw,
+                                                   GoalGroupUpsertRequestDto requestBody,
+                                                   HttpServletRequest request) {
+        String taskGroupId = requireTaskGroupId(taskGroupIdRaw, "taskGroupId");
+        if (requestBody == null) {
+            throw badRequest("request body is required");
+        }
+
+        String bodyTaskGroupId = normalizeOptionalTaskGroupId(requestBody.getTaskGroupId());
+        if (bodyTaskGroupId != null && !taskGroupId.equals(bodyTaskGroupId)) {
+            throw badRequest("taskGroupId in path and body must match");
+        }
+
+        User operator = authSessionService.requireAuthenticatedUser(request);
+        if (operator.getRole() != UserRole.TEACHER && operator.getRole() != UserRole.ADMIN) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: teacher/admin role required.");
+        }
+
+        String title = requireNonBlank(requestBody.getTitle(), "title", TITLE_MAX_LENGTH);
+        String description = requireNonBlank(requestBody.getDescription(), "description", DESCRIPTION_MAX_LENGTH);
+        LocalDate dueAt = parseDueAt(requestBody.getDueAt());
+        List<Long> studentIds = normalizeStudentIds(requestBody.getStudentIds());
+
+        List<GoalTask> existingGoals = goalTaskRepository.findByTaskGroupIdOrderByIdAsc(taskGroupId);
+        if (existingGoals.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Task group not found.");
+        }
+
+        Teacher ownerTeacher = existingGoals.get(0).getAssignedByTeacher();
+        Long ownerTeacherId = ownerTeacher == null ? null : ownerTeacher.getId();
+        if (ownerTeacherId == null) {
+            throw badRequest("taskGroup owner teacher is invalid");
+        }
+        for (GoalTask goal : existingGoals) {
+            Teacher currentTeacher = goal.getAssignedByTeacher();
+            Long currentTeacherId = currentTeacher == null ? null : currentTeacher.getId();
+            if (!ownerTeacherId.equals(currentTeacherId)) {
+                throw badRequest("taskGroup has inconsistent owner teacher");
+            }
+        }
+
+        if (operator.getRole() == UserRole.TEACHER) {
+            Teacher operatorTeacher = requireTeacherByUser(operator);
+            if (!ownerTeacherId.equals(operatorTeacher.getId())) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: task group is not assigned by current teacher.");
+            }
+            ownerTeacher = operatorTeacher;
+        }
+
+        List<Student> targetStudents = resolveStudentsForGoalWrite(operator, ownerTeacher, studentIds);
+        Map<Long, GoalTask> existingByStudentId = new LinkedHashMap<Long, GoalTask>();
+        for (GoalTask goal : existingGoals) {
+            Student assignedStudent = goal.getAssignedStudent();
+            Long assignedStudentId = assignedStudent == null ? null : assignedStudent.getId();
+            if (assignedStudentId == null) {
+                continue;
+            }
+            existingByStudentId.put(assignedStudentId, goal);
+        }
+
+        List<GoalTask> toSave = new ArrayList<GoalTask>();
+        for (Student student : targetStudents) {
+            Long studentId = student.getId();
+            GoalTask existing = existingByStudentId.remove(studentId);
+            if (existing == null) {
+                toSave.add(new GoalTask(title, description, dueAt, student, ownerTeacher, taskGroupId));
+                continue;
+            }
+            existing.updateGoal(title, description, dueAt, student);
+            toSave.add(existing);
+        }
+
+        if (!toSave.isEmpty()) {
+            goalTaskRepository.saveAll(toSave);
+        }
+        if (!existingByStudentId.isEmpty()) {
+            goalTaskRepository.deleteAll(existingByStudentId.values());
+        }
+
+        List<GoalTask> savedGoals = goalTaskRepository.findByTaskGroupIdOrderByIdAsc(taskGroupId);
+        return toGoalGroupResponse(taskGroupId, savedGoals);
+    }
+
+    @Transactional
+    public GoalTaskDto updateGoal(Long goalId, UpdateGoalRequestDto requestBody, HttpServletRequest request) {
+        Long normalizedGoalId = requirePositiveId(goalId, "goalId");
+        if (requestBody == null) {
+            throw badRequest("request body is required");
+        }
+
+        User operator = authSessionService.requireAuthenticatedUser(request);
+        if (operator.getRole() != UserRole.TEACHER && operator.getRole() != UserRole.ADMIN) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: teacher/admin role required.");
+        }
+
+        Long studentId = requirePositiveId(requestBody.getStudentId(), "studentId");
+        String title = requireNonBlank(requestBody.getTitle(), "title", TITLE_MAX_LENGTH);
+        String description = requireNonBlank(requestBody.getDescription(), "description", DESCRIPTION_MAX_LENGTH);
+        LocalDate dueAt = parseDueAt(requestBody.getDueAt());
+
+        GoalTask task = goalTaskRepository.findByIdWithRelations(normalizedGoalId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found."));
+
+        Teacher teacher = null;
+        if (operator.getRole() == UserRole.TEACHER) {
+            teacher = requireTeacherByUser(operator);
+            if (!task.getAssignedByTeacher().getId().equals(teacher.getId())) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: task is not assigned by current teacher.");
+            }
+        }
+
+        Student student = studentRepository.findById(studentId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Student not found: " + studentId));
+        if (operator.getRole() == UserRole.TEACHER) {
+            ensureStudentAssignableForTeacher(teacher, student);
+        } else {
+            ensureStudentNotArchived(student);
+        }
+        if (goalTaskRepository.existsByTaskGroupIdAndAssignedStudent_IdAndIdNot(
+                task.getTaskGroupId(),
+                student.getId(),
+                task.getId()
+        )) {
+            throw badRequest("student already exists in taskGroup");
+        }
+
+        task.updateGoal(title, description, dueAt, student);
+        GoalTask saved = goalTaskRepository.save(task);
         return toGoalTaskDto(saved);
     }
 
@@ -331,6 +507,14 @@ public class TaskCenterService {
         return new GoalListResponseDto(items, result.getTotalElements(), page, size);
     }
 
+    private GoalGroupResponseDto toGoalGroupResponse(String taskGroupId, List<GoalTask> goals) {
+        List<GoalTaskDto> items = new ArrayList<GoalTaskDto>(goals.size());
+        for (GoalTask task : goals) {
+            items.add(toGoalTaskDto(task));
+        }
+        return new GoalGroupResponseDto(taskGroupId, items, items.size());
+    }
+
     private GoalTaskDto toGoalTaskDto(GoalTask task) {
         Student student = task.getAssignedStudent();
         Teacher teacher = task.getAssignedByTeacher();
@@ -341,6 +525,7 @@ public class TaskCenterService {
                 task.getDescription(),
                 task.getStatus(),
                 task.getDueAt() == null ? null : task.getDueAt().toString(),
+                task.getTaskGroupId(),
                 student.getId(),
                 buildStudentDisplayName(student),
                 teacher.getId(),
@@ -395,10 +580,10 @@ public class TaskCenterService {
     private void ensureStudentAssignableForTeacher(Teacher teacher, Student student) {
         Long teacherId = teacher == null ? null : teacher.getId();
         Long studentId = student == null ? null : student.getId();
-        boolean assigned = teacherId != null
-                && studentId != null
-                && teacherStudentRepository.existsByTeacher_IdAndStudent_Id(teacherId, studentId);
-        if (!assigned) {
+        TeacherStudent relation = (teacherId == null || studentId == null)
+                ? null
+                : teacherStudentRepository.findTopByTeacher_IdAndStudent_IdOrderByIdDesc(teacherId, studentId).orElse(null);
+        if (relation == null) {
             throw new ApiRequestException(
                     HttpStatus.BAD_REQUEST,
                     STUDENT_NOT_ASSIGNABLE_CODE,
@@ -408,12 +593,7 @@ public class TaskCenterService {
         if (isStudentArchived(student)) {
             throw studentArchivedException();
         }
-        boolean active = teacherStudentRepository.existsByTeacher_IdAndStudent_IdAndStatus(
-                teacherId,
-                studentId,
-                TeacherStudentStatus.ACTIVE
-        );
-        if (!active) {
+        if (relation.getStatus() != TeacherStudentStatus.ACTIVE) {
             throw studentArchivedException();
         }
     }
@@ -721,6 +901,81 @@ public class TaskCenterService {
         } catch (NumberFormatException ex) {
             throw badRequest(fieldName + " must be a positive integer");
         }
+    }
+
+    private List<Long> normalizeStudentIds(List<Long> rawStudentIds) {
+        if (rawStudentIds == null || rawStudentIds.isEmpty()) {
+            throw badRequest("studentIds is required");
+        }
+
+        LinkedHashSet<Long> deduplicated = new LinkedHashSet<Long>();
+        for (Long studentId : rawStudentIds) {
+            if (studentId == null || studentId.longValue() <= 0L) {
+                throw badRequest("studentIds must contain positive integers");
+            }
+            deduplicated.add(studentId);
+        }
+        if (deduplicated.isEmpty()) {
+            throw badRequest("studentIds is required");
+        }
+        return new ArrayList<Long>(deduplicated);
+    }
+
+    private List<Student> resolveStudentsForGoalWrite(User operator, Teacher teacher, List<Long> studentIds) {
+        List<Student> sourceStudents = studentRepository.findByIdInWithUser(studentIds);
+        Map<Long, Student> studentById = new HashMap<Long, Student>(sourceStudents.size());
+        for (Student sourceStudent : sourceStudents) {
+            if (sourceStudent == null || sourceStudent.getId() == null) {
+                continue;
+            }
+            studentById.put(sourceStudent.getId(), sourceStudent);
+        }
+
+        List<Student> orderedStudents = new ArrayList<Student>(studentIds.size());
+        for (Long studentId : studentIds) {
+            Student student = studentById.get(studentId);
+            if (student == null) {
+                throw badRequest("studentId is invalid: " + studentId);
+            }
+            if (operator.getRole() == UserRole.TEACHER) {
+                ensureStudentAssignableForTeacher(teacher, student);
+            } else {
+                ensureStudentNotArchived(student);
+            }
+            orderedStudents.add(student);
+        }
+        return orderedStudents;
+    }
+
+    private String normalizeTaskGroupIdForCreate(String rawTaskGroupId) {
+        String normalized = normalizeOptionalTaskGroupId(rawTaskGroupId);
+        if (normalized != null) {
+            return normalized;
+        }
+        return generateTaskGroupId();
+    }
+
+    private String normalizeOptionalTaskGroupId(String rawTaskGroupId) {
+        String normalized = trimToNull(rawTaskGroupId);
+        if (normalized == null) {
+            return null;
+        }
+        return requireTaskGroupId(normalized, "taskGroupId");
+    }
+
+    private String requireTaskGroupId(String rawTaskGroupId, String fieldName) {
+        String normalized = trimToNull(rawTaskGroupId);
+        if (normalized == null) {
+            throw badRequest(fieldName + " is required");
+        }
+        if (normalized.length() > TASK_GROUP_ID_MAX_LENGTH) {
+            throw badRequest(fieldName + " too long");
+        }
+        return normalized;
+    }
+
+    private String generateTaskGroupId() {
+        return UUID.randomUUID().toString();
     }
 
     private Long requirePositiveId(Long id, String fieldName) {

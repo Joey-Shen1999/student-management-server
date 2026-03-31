@@ -9,6 +9,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Optional;
+
 public interface InfoTaskRepository extends JpaRepository<InfoTask, Long> {
 
     @EntityGraph(attributePaths = {
@@ -29,4 +31,16 @@ public interface InfoTaskRepository extends JpaRepository<InfoTask, Long> {
                                     @Param("tag") String tag,
                                     @Param("keyword") String keyword,
                                     Pageable pageable);
+
+    @EntityGraph(attributePaths = {
+            "publishedByTeacher",
+            "publishedByTeacher.user"
+    })
+    Optional<InfoTask> findTopByPublishedByTeacher_IdAndGoalIdOrderByIdDesc(Long publishedByTeacherId, Long goalId);
+
+    @EntityGraph(attributePaths = {
+            "publishedByTeacher",
+            "publishedByTeacher.user"
+    })
+    Optional<InfoTask> findTopByPublishedByTeacher_IdAndTaskGroupIdOrderByIdDesc(Long publishedByTeacherId, String taskGroupId);
 }

@@ -31,6 +31,7 @@ import java.util.Map;
 
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.not;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -90,6 +91,11 @@ class TaskCenterInfoDllApiTest {
                 .andExpect(jsonPath("$.title").value("Volunteer signup notice"))
                 .andExpect(jsonPath("$.category").value("VOLUNTEER"))
                 .andExpect(jsonPath("$.tags.length()").value(2))
+                .andExpect(jsonPath("$.goalId").isEmpty())
+                .andExpect(jsonPath("$.taskGroupId").isEmpty())
+                .andExpect(jsonPath("$.recipientStudentIds.length()").value(2))
+                .andExpect(jsonPath("$.recipientStudentIds", hasItem(studentA.getId().intValue())))
+                .andExpect(jsonPath("$.recipientStudentIds", hasItem(studentB.getId().intValue())))
                 .andExpect(jsonPath("$.targetStudentCount").value(2))
                 .andReturn();
         long infoId = objectMapper.readTree(createResult.getResponse().getContentAsString()).path("id").asLong();
@@ -100,7 +106,9 @@ class TaskCenterInfoDllApiTest {
                         .param("page", "1")
                         .param("size", "20"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.items[*].id", hasItem((int) infoId)));
+                .andExpect(jsonPath("$.items[*].id", hasItem((int) infoId)))
+                .andExpect(jsonPath("$.items[0].recipientStudentIds", hasItem(studentA.getId().intValue())))
+                .andExpect(jsonPath("$.items[0].recipientStudentIds", hasItem(studentB.getId().intValue())));
     }
 
     @Test
@@ -140,6 +148,205 @@ class TaskCenterInfoDllApiTest {
                         .param("size", "20"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items[*].id", hasItem((int) infoId)));
+    }
+
+    @Test
+    void createInfoWithTaskGroupId_overwritesExistingInfoInsteadOfCreatingNew() throws Exception {
+        Teacher teacher = createTeacherAccount("info_teacher_task_group_upsert", "Info Task Group Upsert");
+        Student studentA = createStudentAccount("info_task_group_student_a", "Task", "A", "TA");
+        Student studentB = createStudentAccount("info_task_group_student_b", "Task", "B", "TB");
+        Student studentC = createStudentAccount("info_task_group_student_c", "Task", "C", "TC");
+        assignTeacherStudent(teacher, studentA, TeacherStudentStatus.ACTIVE);
+        assignTeacherStudent(teacher, studentB, TeacherStudentStatus.ACTIVE);
+        assignTeacherStudent(teacher, studentC, TeacherStudentStatus.ACTIVE);
+
+        String taskGroupId = "tg-20260330-001";
+        MvcResult firstCreateResult = mockMvc.perform(post("/api/teacher/tasks/infos")
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createInfoPayload(
+                                "Task group update v1",
+                                "first content",
+                                "ACTIVITY",
+                                Arrays.asList("Task", "Group"),
+                                Arrays.asList(studentA.getId(), studentB.getId()),
+                                taskGroupId,
+                                null
+                        )))
+                .andExpect(status().isOk())
+                .andReturn();
+        long firstInfoId = objectMapper.readTree(firstCreateResult.getResponse().getContentAsString()).path("id").asLong();
+
+        MvcResult secondCreateResult = mockMvc.perform(post("/api/teacher/tasks/infos")
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createInfoPayload(
+                                "Task group update v2",
+                                "second content",
+                                "ACTIVITY",
+                                Arrays.asList("Task", "Group", "Updated"),
+                                Arrays.asList(studentB.getId(), studentC.getId()),
+                                taskGroupId,
+                                null
+                        )))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.title").value("Task group update v2"))
+                .andExpect(jsonPath("$.taskGroupId").value(taskGroupId))
+                .andExpect(jsonPath("$.recipientStudentIds.length()").value(2))
+                .andExpect(jsonPath("$.recipientStudentIds", hasItem(studentB.getId().intValue())))
+                .andExpect(jsonPath("$.recipientStudentIds", hasItem(studentC.getId().intValue())))
+                .andExpect(jsonPath("$.recipientStudentIds", not(hasItem(studentA.getId().intValue()))))
+                .andExpect(jsonPath("$.targetStudentCount").value(2))
+                .andReturn();
+        long secondInfoId = objectMapper.readTree(secondCreateResult.getResponse().getContentAsString()).path("id").asLong();
+        assertEquals(firstInfoId, secondInfoId);
+
+        MvcResult thirdCreateResult = mockMvc.perform(post("/api/teacher/tasks/infos")
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createInfoPayload(
+                                "Task group update v2",
+                                "second content",
+                                "ACTIVITY",
+                                Arrays.asList("Task", "Group", "Updated"),
+                                Arrays.asList(studentB.getId(), studentC.getId()),
+                                taskGroupId,
+                                null
+                        )))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(firstInfoId))
+                .andExpect(jsonPath("$.recipientStudentIds.length()").value(2))
+                .andReturn();
+        long thirdInfoId = objectMapper.readTree(thirdCreateResult.getResponse().getContentAsString()).path("id").asLong();
+        assertEquals(firstInfoId, thirdInfoId);
+
+        mockMvc.perform(get("/api/teacher/tasks")
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .param("type", "INFO")
+                        .param("page", "1")
+                        .param("size", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].id").value(firstInfoId))
+                .andExpect(jsonPath("$.items[0].title").value("Task group update v2"))
+                .andExpect(jsonPath("$.items[0].taskGroupId").value(taskGroupId))
+                .andExpect(jsonPath("$.items[0].recipientStudentIds", hasItem(studentB.getId().intValue())))
+                .andExpect(jsonPath("$.items[0].recipientStudentIds", hasItem(studentC.getId().intValue())))
+                .andExpect(jsonPath("$.items[0].recipientStudentIds", not(hasItem(studentA.getId().intValue()))));
+
+        mockMvc.perform(get("/api/student/tasks")
+                        .header("Authorization", bearerFor(studentA.getUser()))
+                        .param("type", "INFO")
+                        .param("page", "1")
+                        .param("size", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[*].id", not(hasItem((int) firstInfoId))));
+
+        mockMvc.perform(get("/api/student/tasks")
+                        .header("Authorization", bearerFor(studentB.getUser()))
+                        .param("type", "INFO")
+                        .param("page", "1")
+                        .param("size", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[*].id", hasItem((int) firstInfoId)));
+
+        mockMvc.perform(get("/api/student/tasks")
+                        .header("Authorization", bearerFor(studentC.getUser()))
+                        .param("type", "INFO")
+                        .param("page", "1")
+                        .param("size", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[*].id", hasItem((int) firstInfoId)));
+    }
+
+    @Test
+    void createInfoWithGoalId_overwritesExistingInfoInsteadOfCreatingNew() throws Exception {
+        Teacher teacher = createTeacherAccount("info_teacher_goal_upsert", "Info Goal Upsert Teacher");
+        Student studentA = createStudentAccount("info_goal_upsert_student_a", "Goal", "A", "GoalA");
+        Student studentB = createStudentAccount("info_goal_upsert_student_b", "Goal", "B", "GoalB");
+        Student studentC = createStudentAccount("info_goal_upsert_student_c", "Goal", "C", "GoalC");
+        assignTeacherStudent(teacher, studentA, TeacherStudentStatus.ACTIVE);
+        assignTeacherStudent(teacher, studentB, TeacherStudentStatus.ACTIVE);
+        assignTeacherStudent(teacher, studentC, TeacherStudentStatus.ACTIVE);
+
+        long goalId = 1001L;
+        MvcResult firstCreateResult = mockMvc.perform(post("/api/teacher/tasks/infos")
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createInfoPayload(
+                                "Task update v1",
+                                "First content",
+                                "ACTIVITY",
+                                Arrays.asList("Task", "Update"),
+                                Arrays.asList(studentA.getId(), studentB.getId()),
+                                null,
+                                goalId
+                        )))
+                .andExpect(status().isOk())
+                .andReturn();
+        long firstInfoId = objectMapper.readTree(firstCreateResult.getResponse().getContentAsString()).path("id").asLong();
+
+        MvcResult secondCreateResult = mockMvc.perform(post("/api/teacher/tasks/infos")
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createInfoPayload(
+                                "Task update v2",
+                                "Second content",
+                                "ACTIVITY",
+                                Arrays.asList("Task", "Updated"),
+                                Arrays.asList(studentB.getId(), studentC.getId()),
+                                null,
+                                goalId
+                        )))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.title").value("Task update v2"))
+                .andExpect(jsonPath("$.goalId").value((int) goalId))
+                .andExpect(jsonPath("$.recipientStudentIds.length()").value(2))
+                .andExpect(jsonPath("$.recipientStudentIds", hasItem(studentB.getId().intValue())))
+                .andExpect(jsonPath("$.recipientStudentIds", hasItem(studentC.getId().intValue())))
+                .andExpect(jsonPath("$.recipientStudentIds", not(hasItem(studentA.getId().intValue()))))
+                .andExpect(jsonPath("$.targetStudentCount").value(2))
+                .andReturn();
+        long secondInfoId = objectMapper.readTree(secondCreateResult.getResponse().getContentAsString()).path("id").asLong();
+        assertEquals(firstInfoId, secondInfoId);
+
+        mockMvc.perform(get("/api/teacher/tasks")
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .param("type", "INFO")
+                        .param("page", "1")
+                        .param("size", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].id").value(firstInfoId))
+                .andExpect(jsonPath("$.items[0].title").value("Task update v2"))
+                .andExpect(jsonPath("$.items[0].goalId").value((int) goalId))
+                .andExpect(jsonPath("$.items[0].recipientStudentIds", hasItem(studentB.getId().intValue())))
+                .andExpect(jsonPath("$.items[0].recipientStudentIds", hasItem(studentC.getId().intValue())))
+                .andExpect(jsonPath("$.items[0].recipientStudentIds", not(hasItem(studentA.getId().intValue()))));
+
+        mockMvc.perform(get("/api/student/tasks")
+                        .header("Authorization", bearerFor(studentA.getUser()))
+                        .param("type", "INFO")
+                        .param("page", "1")
+                        .param("size", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[*].id", not(hasItem((int) firstInfoId))));
+
+        mockMvc.perform(get("/api/student/tasks")
+                        .header("Authorization", bearerFor(studentB.getUser()))
+                        .param("type", "INFO")
+                        .param("page", "1")
+                        .param("size", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[*].id", hasItem((int) firstInfoId)));
+
+        mockMvc.perform(get("/api/student/tasks")
+                        .header("Authorization", bearerFor(studentC.getUser()))
+                        .param("type", "INFO")
+                        .param("page", "1")
+                        .param("size", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[*].id", hasItem((int) firstInfoId)));
     }
 
     @Test
@@ -474,12 +681,37 @@ class TaskCenterInfoDllApiTest {
                                      String category,
                                      List<String> tags,
                                      List<Long> studentIds) throws Exception {
+        return createInfoPayload(title, content, category, tags, studentIds, null, null);
+    }
+
+    private String createInfoPayload(String title,
+                                     String content,
+                                     String category,
+                                     List<String> tags,
+                                     List<Long> studentIds,
+                                     Long goalId) throws Exception {
+        return createInfoPayload(title, content, category, tags, studentIds, null, goalId);
+    }
+
+    private String createInfoPayload(String title,
+                                     String content,
+                                     String category,
+                                     List<String> tags,
+                                     List<Long> studentIds,
+                                     String taskGroupId,
+                                     Long goalId) throws Exception {
         Map<String, Object> payload = new LinkedHashMap<String, Object>();
         payload.put("title", title);
         payload.put("content", content);
         payload.put("category", category);
         payload.put("tags", tags);
         payload.put("studentIds", studentIds);
+        if (taskGroupId != null) {
+            payload.put("taskGroupId", taskGroupId);
+        }
+        if (goalId != null) {
+            payload.put("goalId", goalId);
+        }
         return objectMapper.writeValueAsString(payload);
     }
 
