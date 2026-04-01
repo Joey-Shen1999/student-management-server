@@ -1,5 +1,8 @@
 # Deployment Guide (GitHub Actions -> AWS Ubuntu)
 
+DB safety runbook:
+- `docs/db-preflight-and-rollback.md`
+
 ## 1. GitHub Actions Configuration
 Configure in `Repository -> Settings -> Secrets and variables -> Actions`.
 
@@ -184,6 +187,9 @@ On each push to `main`, `.github/workflows/deploy.yml` does:
    - `git fetch --all --prune`
    - `git reset --hard origin/main`
    - `git clean -fd`
+   - run DB preflight (read-only):
+     - `scripts/ops/preflight_release_20260330.sql`
+     - deploy is blocked if preflight fails
    - run migrations:
      - `scripts/migrations/20260318_teacher_student_ownership_deprecation.sql`
      - `scripts/migrations/20260323_add_student_profile_teacher_note.sql`
@@ -220,6 +226,13 @@ Fix:
 - Check Java version and Maven/Maven Wrapper.
 - Check server disk/memory.
 - Run build manually on server to reproduce.
+
+### 7.4.1 DB preflight fails
+- Read failure details from deployment logs.
+- Run the same SQL manually:
+  - `scripts/ops/preflight_release_20260330.sql`
+- Resolve blocking DB issues first, then re-run deployment.
+- Use rollback guidance in `docs/db-preflight-and-rollback.md`.
 
 ### 7.5 Service restart/startup fails
 Check:

@@ -90,6 +90,8 @@ jobs:
           git reset --hard origin/main
           git clean -fd
 
+          PRECHECK_FILE="scripts/ops/preflight_release_20260330.sql"
+
           MIGRATION_FILES=(
             "scripts/migrations/20260318_teacher_student_ownership_deprecation.sql"
             "scripts/migrations/20260323_add_student_profile_teacher_note.sql"
@@ -103,37 +105,45 @@ jobs:
           DB_USER="${DB_USER:-postgres}"
           DB_PASSWORD="${DB_PASSWORD:-postgres}"
 
-          run_migration() {
-            local migration_file="$1"
-            local migration_tmp="/tmp/$(basename "$migration_file")"
+          run_sql_file() {
+            local sql_file="$1"
+            local sql_mode="$2"
+            local sql_tmp="/tmp/$(basename "$sql_file")"
             if command -v docker >/dev/null 2>&1 && docker ps --format '{{.Names}}' | grep -qx "$DB_CONTAINER_NAME"; then
-              echo "Running DB migration via Docker container: $migration_file"
-              docker cp "$migration_file" "$DB_CONTAINER_NAME:$migration_tmp"
+              echo "Running DB $sql_mode via Docker container: $sql_file"
+              docker cp "$sql_file" "$DB_CONTAINER_NAME:$sql_tmp"
               docker exec \
                 -e PGPASSWORD="$DB_PASSWORD" \
                 "$DB_CONTAINER_NAME" \
-                psql -U "$DB_USER" -d "$DB_NAME" -f "$migration_tmp"
+                psql -v ON_ERROR_STOP=1 -U "$DB_USER" -d "$DB_NAME" -f "$sql_tmp"
             elif command -v psql >/dev/null 2>&1; then
-              echo "Running DB migration via local psql client: $migration_file"
+              echo "Running DB $sql_mode via local psql client: $sql_file"
               PGPASSWORD="$DB_PASSWORD" \
                 psql \
+                  -v ON_ERROR_STOP=1 \
                   -h "$DB_HOST" \
                   -p "$DB_PORT" \
                   -U "$DB_USER" \
                   -d "$DB_NAME" \
-                  -f "$migration_file"
+                  -f "$sql_file"
             else
               echo "No migration runner available (neither Docker DB container nor psql client found)."
               exit 1
             fi
           }
 
+          if [ ! -f "$PRECHECK_FILE" ]; then
+            echo "Preflight file not found: $PRECHECK_FILE"
+            exit 1
+          fi
+          run_sql_file "$PRECHECK_FILE" "preflight"
+
           for migration_file in "${MIGRATION_FILES[@]}"; do
             if [ ! -f "$migration_file" ]; then
               echo "Migration file not found: $migration_file"
               exit 1
             fi
-            run_migration "$migration_file"
+            run_sql_file "$migration_file" "migration"
           done
 
           if [ -f mvnw ]; then
