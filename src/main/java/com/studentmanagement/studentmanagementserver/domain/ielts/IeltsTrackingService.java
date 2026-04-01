@@ -9,6 +9,7 @@ import com.studentmanagement.studentmanagementserver.domain.student.StudentSchoo
 import com.studentmanagement.studentmanagementserver.domain.teacher.Teacher;
 import com.studentmanagement.studentmanagementserver.domain.user.User;
 import com.studentmanagement.studentmanagementserver.repo.StudentIeltsModuleRepository;
+import com.studentmanagement.studentmanagementserver.repo.StudentIeltsManualStatusAuditLogRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentIeltsRecordRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentProfileRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentRepository;
@@ -45,10 +46,25 @@ public class IeltsTrackingService {
     private static final Pattern DATE_PATTERN = Pattern.compile("\\d{4}-\\d{2}-\\d{2}");
     private static final int MAX_RECORD_ID_LENGTH = 64;
     private static final int CANADA_STUDY_YEARS_THRESHOLD = 4;
+    private static final int VALIDITY_ANCHOR_MONTH = 5;
+    private static final int VALIDITY_ANCHOR_DAY = 31;
+    private static final int VALIDITY_ROLLING_YEARS = 2;
+    private static final double STRICT_MIN_OVERALL = 7.0d;
+    private static final double STRICT_MIN_LISTENING = 6.5d;
+    private static final double STRICT_MIN_READING = 6.5d;
+    private static final double STRICT_MIN_WRITING = 6.5d;
+    private static final double STRICT_MIN_SPEAKING = 6.5d;
+    private static final double COMMON_MIN_OVERALL = 6.5d;
+    private static final double COMMON_MIN_LISTENING = 6.0d;
+    private static final double COMMON_MIN_READING = 6.0d;
+    private static final double COMMON_MIN_WRITING = 6.0d;
+    private static final double COMMON_MIN_SPEAKING = 6.0d;
     private static final String LANGUAGE_RISK_FLAG_RISK = "RISK";
     private static final String LANGUAGE_RISK_FLAG_LOW_RISK = "LOW_RISK";
     private static final String PROFILE_COMPLETENESS_COMPLETE = "COMPLETE";
     private static final String PROFILE_COMPLETENESS_INCOMPLETE = "INCOMPLETE";
+    private static final String MANUAL_STATUS_SOURCE_TEACHER_UPDATE = "TEACHER_UPDATE";
+    private static final String MANUAL_STATUS_SOURCE_STUDENT_DATA_UPDATE = "STUDENT_DATA_UPDATE_CLEAR";
 
     private final AuthSessionService authSessionService;
     private final ManagementAccessService managementAccessService;
@@ -58,6 +74,7 @@ public class IeltsTrackingService {
     private final StudentProfileRepository studentProfileRepository;
     private final StudentSchoolRecordRepository studentSchoolRecordRepository;
     private final StudentIeltsModuleRepository studentIeltsModuleRepository;
+    private final StudentIeltsManualStatusAuditLogRepository studentIeltsManualStatusAuditLogRepository;
     private final StudentIeltsRecordRepository studentIeltsRecordRepository;
 
     public IeltsTrackingService(AuthSessionService authSessionService,
@@ -68,6 +85,7 @@ public class IeltsTrackingService {
                                 StudentProfileRepository studentProfileRepository,
                                 StudentSchoolRecordRepository studentSchoolRecordRepository,
                                 StudentIeltsModuleRepository studentIeltsModuleRepository,
+                                StudentIeltsManualStatusAuditLogRepository studentIeltsManualStatusAuditLogRepository,
                                 StudentIeltsRecordRepository studentIeltsRecordRepository) {
         this.authSessionService = authSessionService;
         this.managementAccessService = managementAccessService;
@@ -77,12 +95,14 @@ public class IeltsTrackingService {
         this.studentProfileRepository = studentProfileRepository;
         this.studentSchoolRecordRepository = studentSchoolRecordRepository;
         this.studentIeltsModuleRepository = studentIeltsModuleRepository;
+        this.studentIeltsManualStatusAuditLogRepository = studentIeltsManualStatusAuditLogRepository;
         this.studentIeltsRecordRepository = studentIeltsRecordRepository;
     }
 
     @Transactional(readOnly = true)
     public StudentIeltsModuleStateDto getCurrentStudentModule(HttpServletRequest request) {
-        Student student = requireCurrentStudent(request);
+        CurrentStudentContext context = requireCurrentStudentContext(request);
+        Student student = context.student;
         StudentIeltsModule module = studentIeltsModuleRepository.findByStudent_Id(student.getId()).orElse(null);
         return buildModuleState(student, module);
     }
@@ -90,23 +110,39 @@ public class IeltsTrackingService {
     @Transactional
     public StudentIeltsModuleStateDto updateCurrentStudentRecords(StudentIeltsRecordsUpdateRequestDto requestBody,
                                                                   HttpServletRequest request) {
-        Student student = requireCurrentStudent(request);
+        CurrentStudentContext context = requireCurrentStudentContext(request);
+        Student student = context.student;
         RecordsUpdate normalized = normalizeRecordsUpdateRequest(requestBody);
-        return saveModuleState(student, normalized.hasTakenIeltsAcademic, normalized.preparationIntent, normalized.records, true);
+        return saveModuleState(
+                student,
+                normalized.hasTakenIeltsAcademic,
+                normalized.preparationIntent,
+                normalized.records,
+                true,
+                null,
+                true,
+                context.operator,
+                MANUAL_STATUS_SOURCE_STUDENT_DATA_UPDATE
+        );
     }
 
     @Transactional
     public StudentIeltsModuleStateDto updateCurrentStudentPreparationIntent(
             StudentIeltsPreparationIntentUpdateRequestDto requestBody,
             HttpServletRequest request) {
-        Student student = requireCurrentStudent(request);
+        CurrentStudentContext context = requireCurrentStudentContext(request);
+        Student student = context.student;
         PreparationIntentUpdate normalized = normalizePreparationIntentUpdateRequest(requestBody);
         return saveModuleState(
                 student,
                 normalized.hasTakenIeltsAcademic,
                 normalized.preparationIntent,
                 Collections.<NormalizedRecord>emptyList(),
-                !normalized.hasTakenIeltsAcademic
+                !normalized.hasTakenIeltsAcademic,
+                null,
+                true,
+                context.operator,
+                MANUAL_STATUS_SOURCE_STUDENT_DATA_UPDATE
         );
     }
 
@@ -121,14 +157,19 @@ public class IeltsTrackingService {
     public StudentIeltsModuleStateDto updateTeacherStudentModule(Long studentId,
                                                                  TeacherIeltsModuleUpdateRequestDto requestBody,
                                                                  HttpServletRequest request) {
-        Student student = requireTeacherAccessibleStudent(studentId, request);
+        TeacherStudentContext context = requireTeacherAccessibleStudentContext(studentId, request);
+        Student student = context.student;
         TeacherUpdate normalized = normalizeTeacherUpdateRequest(requestBody);
         return saveModuleState(
                 student,
                 normalized.hasTakenIeltsAcademic,
                 normalized.preparationIntent,
                 normalized.records,
-                normalized.overwriteRecords
+                normalized.overwriteRecords,
+                normalized.languageTrackingManualStatus,
+                normalized.overwriteLanguageTrackingManualStatus,
+                context.operator,
+                MANUAL_STATUS_SOURCE_TEACHER_UPDATE
         );
     }
 
@@ -169,7 +210,13 @@ public class IeltsTrackingService {
                 records.size(),
                 latestTestDate,
                 bestOverallBand,
-                moduleState.getUpdatedAt()
+                moduleState.getUpdatedAt(),
+                moduleState.getTrackingStatus(),
+                moduleState.getLanguageTrackingStatus(),
+                new IeltsSummarySnapshotDto(
+                        moduleState.getTrackingStatus(),
+                        moduleState.getLanguageTrackingStatus()
+                )
         );
     }
 
@@ -177,11 +224,18 @@ public class IeltsTrackingService {
                                                        boolean hasTakenIeltsAcademic,
                                                        IeltsPreparationIntent preparationIntent,
                                                        List<NormalizedRecord> records,
-                                                       boolean overwriteRecords) {
+                                                       boolean overwriteRecords,
+                                                       LanguageTrackingManualStatus languageTrackingManualStatus,
+                                                       boolean overwriteLanguageTrackingManualStatus,
+                                                       User operator,
+                                                       String manualStatusChangeSource) {
         StudentIeltsModule module = studentIeltsModuleRepository.findByStudent_Id(student.getId())
                 .orElseGet(() -> new StudentIeltsModule(student));
 
         module.updateState(hasTakenIeltsAcademic, preparationIntent);
+        if (overwriteLanguageTrackingManualStatus) {
+            applyLanguageTrackingManualStatus(module, languageTrackingManualStatus, operator, manualStatusChangeSource);
+        }
         module = studentIeltsModuleRepository.save(module);
 
         if (overwriteRecords) {
@@ -264,14 +318,24 @@ public class IeltsTrackingService {
                 : primarySchool.getEndTime().getYear();
         StudentIeltsLanguageRiskDto languageRisk = buildLanguageRisk(profile, schoolRecords, graduationYear);
 
+        boolean hasTakenIeltsAcademic = module != null && module.isHasTakenIeltsAcademic();
+        LanguageTrackingManualStatus languageTrackingManualStatus =
+                module == null ? null : module.getLanguageTrackingManualStatus();
+        IeltsTrackingStatus trackingStatus = deriveIeltsTrackingStatus(hasTakenIeltsAcademic, graduationYear, records);
+        LanguageTrackingStatus languageTrackingStatus =
+                deriveLanguageTrackingStatus(trackingStatus, languageTrackingManualStatus);
+
         String updatedAt = resolveUpdatedAt(module, records);
         return new StudentIeltsModuleStateDto(
                 student.getId(),
                 graduationYear,
-                module != null && module.isHasTakenIeltsAcademic(),
+                hasTakenIeltsAcademic,
                 module == null || module.getPreparationIntent() == null
                         ? IeltsPreparationIntent.UNSET.name()
                         : module.getPreparationIntent().name(),
+                languageTrackingManualStatus == null ? null : languageTrackingManualStatus.name(),
+                trackingStatus.name(),
+                languageTrackingStatus.name(),
                 recordDtos,
                 languageRisk,
                 updatedAt
@@ -420,6 +484,179 @@ public class IeltsTrackingService {
         return latest.atOffset(ZoneOffset.UTC).toString();
     }
 
+    private void applyLanguageTrackingManualStatus(StudentIeltsModule module,
+                                                   LanguageTrackingManualStatus nextStatus,
+                                                   User operator,
+                                                   String changeSource) {
+        if (module == null) {
+            return;
+        }
+
+        LanguageTrackingManualStatus previousStatus = module.getLanguageTrackingManualStatus();
+        if (previousStatus == nextStatus) {
+            return;
+        }
+
+        LocalDateTime changedAt = LocalDateTime.now();
+        Long operatorUserId = operator == null ? null : operator.getId();
+        module.updateLanguageTrackingManualStatus(nextStatus, operatorUserId, changedAt);
+
+        studentIeltsManualStatusAuditLogRepository.save(new StudentIeltsManualStatusAuditLog(
+                module.getStudent().getId(),
+                operator,
+                previousStatus == null ? null : previousStatus.name(),
+                nextStatus == null ? null : nextStatus.name(),
+                trimToNull(changeSource) == null ? "UNKNOWN" : trimToNull(changeSource),
+                changedAt
+        ));
+    }
+
+    private LanguageTrackingStatus deriveLanguageTrackingStatus(IeltsTrackingStatus trackingStatus,
+                                                                LanguageTrackingManualStatus manualStatus) {
+        if (manualStatus != null) {
+            return LanguageTrackingStatus.valueOf(manualStatus.name());
+        }
+        if (trackingStatus == IeltsTrackingStatus.GREEN_STRICT_PASS) {
+            return LanguageTrackingStatus.AUTO_PASS_ALL_SCHOOLS;
+        }
+        if (trackingStatus == IeltsTrackingStatus.GREEN_COMMON_PASS_WITH_WARNING) {
+            return LanguageTrackingStatus.AUTO_PASS_PARTIAL_SCHOOLS;
+        }
+        return LanguageTrackingStatus.NEEDS_TRACKING;
+    }
+
+    private IeltsTrackingStatus deriveIeltsTrackingStatus(boolean hasTakenIeltsAcademic,
+                                                          Integer graduationYear,
+                                                          List<StudentIeltsRecord> records) {
+        if (!hasTakenIeltsAcademic) {
+            return IeltsTrackingStatus.YELLOW_NEEDS_PREPARATION;
+        }
+        StudentIeltsRecord latestValidRecord = findLatestValidRecord(records, graduationYear);
+        if (latestValidRecord == null) {
+            return IeltsTrackingStatus.YELLOW_NEEDS_PREPARATION;
+        }
+        if (matchesThreshold(
+                latestValidRecord,
+                STRICT_MIN_OVERALL,
+                STRICT_MIN_LISTENING,
+                STRICT_MIN_READING,
+                STRICT_MIN_WRITING,
+                STRICT_MIN_SPEAKING
+        )) {
+            return IeltsTrackingStatus.GREEN_STRICT_PASS;
+        }
+        if (matchesThreshold(
+                latestValidRecord,
+                COMMON_MIN_OVERALL,
+                COMMON_MIN_LISTENING,
+                COMMON_MIN_READING,
+                COMMON_MIN_WRITING,
+                COMMON_MIN_SPEAKING
+        )) {
+            return IeltsTrackingStatus.GREEN_COMMON_PASS_WITH_WARNING;
+        }
+        return IeltsTrackingStatus.YELLOW_NEEDS_PREPARATION;
+    }
+
+    private StudentIeltsRecord findLatestValidRecord(List<StudentIeltsRecord> records, Integer graduationYear) {
+        if (records == null || records.isEmpty()) {
+            return null;
+        }
+        for (StudentIeltsRecord record : records) {
+            if (record == null || record.getTestDate() == null) {
+                continue;
+            }
+            if (isValidForTrackingWindow(record.getTestDate(), graduationYear)) {
+                return record;
+            }
+        }
+        return null;
+    }
+
+    private boolean isValidForTrackingWindow(LocalDate testDate, Integer graduationYear) {
+        if (testDate == null) {
+            return false;
+        }
+
+        Integer effectiveGraduationYear = resolveEffectiveGraduationYear(graduationYear);
+        if (effectiveGraduationYear == null) {
+            return false;
+        }
+
+        LocalDate anchorDate = LocalDate.of(
+                effectiveGraduationYear.intValue(),
+                VALIDITY_ANCHOR_MONTH,
+                VALIDITY_ANCHOR_DAY
+        );
+        LocalDate cutoffDate = LocalDate.of(
+                effectiveGraduationYear.intValue() - VALIDITY_ROLLING_YEARS,
+                VALIDITY_ANCHOR_MONTH,
+                VALIDITY_ANCHOR_DAY
+        );
+        return !testDate.isAfter(anchorDate) && !testDate.isBefore(cutoffDate);
+    }
+
+    private Integer resolveEffectiveGraduationYear(Integer graduationYear) {
+        Integer normalized = normalizeGraduationYear(graduationYear);
+        if (normalized != null) {
+            return normalized;
+        }
+        return resolveCurrentCohortGraduationYear();
+    }
+
+    private Integer normalizeGraduationYear(Integer graduationYear) {
+        if (graduationYear == null) {
+            return null;
+        }
+        int year = graduationYear.intValue();
+        if (year < 1900 || year > 2999) {
+            return null;
+        }
+        return Integer.valueOf(year);
+    }
+
+    private Integer resolveCurrentCohortGraduationYear() {
+        LocalDate todayUtc = LocalDate.now(ZoneOffset.UTC);
+        int currentYear = todayUtc.getYear();
+        boolean hasPassedAnchor = todayUtc.getMonthValue() > VALIDITY_ANCHOR_MONTH
+                || (todayUtc.getMonthValue() == VALIDITY_ANCHOR_MONTH && todayUtc.getDayOfMonth() > VALIDITY_ANCHOR_DAY);
+        int candidateYear = hasPassedAnchor ? currentYear + 1 : currentYear;
+        if (candidateYear < 1900 || candidateYear > 2999) {
+            return null;
+        }
+        return Integer.valueOf(candidateYear);
+    }
+
+    private boolean matchesThreshold(StudentIeltsRecord record,
+                                     double minimumOverall,
+                                     double minimumListening,
+                                     double minimumReading,
+                                     double minimumWriting,
+                                     double minimumSpeaking) {
+        if (record == null) {
+            return false;
+        }
+
+        Double overall = calculateOverallBandForTracking(record);
+        if (overall == null || overall.doubleValue() < minimumOverall) {
+            return false;
+        }
+
+        return record.getListening() >= minimumListening
+                && record.getReading() >= minimumReading
+                && record.getWriting() >= minimumWriting
+                && record.getSpeaking() >= minimumSpeaking;
+    }
+
+    private Double calculateOverallBandForTracking(StudentIeltsRecord record) {
+        if (record == null) {
+            return null;
+        }
+        double average = (record.getListening() + record.getReading() + record.getWriting() + record.getSpeaking()) / 4.0d;
+        double roundedHalfStep = Math.round(average * 2.0d) / 2.0d;
+        return Math.round(roundedHalfStep * 10.0d) / 10.0d;
+    }
+
     private StudentSchoolRecord findPrimarySchool(List<StudentSchoolRecord> schoolRecords) {
         if (schoolRecords == null || schoolRecords.isEmpty()) {
             return null;
@@ -502,6 +739,9 @@ public class IeltsTrackingService {
         if (requestBody == null) {
             throw validationFailed(Collections.singletonList("request body is required"));
         }
+        if (requestBody.isLanguageTrackingManualStatusPresent()) {
+            throw fieldForbidden("languageTrackingManualStatus");
+        }
 
         List<String> details = new ArrayList<String>();
         Boolean hasTaken = requestBody.getHasTakenIeltsAcademic();
@@ -524,6 +764,9 @@ public class IeltsTrackingService {
             StudentIeltsPreparationIntentUpdateRequestDto requestBody) {
         if (requestBody == null) {
             throw validationFailed(Collections.singletonList("request body is required"));
+        }
+        if (requestBody.isLanguageTrackingManualStatusPresent()) {
+            throw fieldForbidden("languageTrackingManualStatus");
         }
 
         List<String> details = new ArrayList<String>();
@@ -553,6 +796,15 @@ public class IeltsTrackingService {
         }
 
         List<String> details = new ArrayList<String>();
+        boolean overwriteLanguageTrackingManualStatus = requestBody.isLanguageTrackingManualStatusPresent();
+        LanguageTrackingManualStatus languageTrackingManualStatus = overwriteLanguageTrackingManualStatus
+                ? parseLanguageTrackingManualStatus(
+                requestBody.getLanguageTrackingManualStatus(),
+                "languageTrackingManualStatus",
+                details
+        )
+                : null;
+
         Boolean hasTaken = requestBody.getHasTakenIeltsAcademic();
         if (hasTaken == null) {
             details.add("hasTakenIeltsAcademic is required");
@@ -579,7 +831,9 @@ public class IeltsTrackingService {
                     true,
                     IeltsPreparationIntent.UNSET,
                     records,
-                    requestBody.getRecords() != null
+                    requestBody.getRecords() != null,
+                    languageTrackingManualStatus,
+                    overwriteLanguageTrackingManualStatus
             );
         }
 
@@ -592,7 +846,14 @@ public class IeltsTrackingService {
         if (!details.isEmpty()) {
             throw validationFailed(details);
         }
-        return new TeacherUpdate(false, intent, Collections.<NormalizedRecord>emptyList(), true);
+        return new TeacherUpdate(
+                false,
+                intent,
+                Collections.<NormalizedRecord>emptyList(),
+                true,
+                languageTrackingManualStatus,
+                overwriteLanguageTrackingManualStatus
+        );
     }
 
     private List<NormalizedRecord> normalizeRecords(List<StudentIeltsRecordDto> rawRecords,
@@ -662,6 +923,21 @@ public class IeltsTrackingService {
         }
     }
 
+    private LanguageTrackingManualStatus parseLanguageTrackingManualStatus(String rawManualStatus,
+                                                                           String fieldPath,
+                                                                           List<String> details) {
+        String normalized = trimToNull(rawManualStatus);
+        if (normalized == null) {
+            return null;
+        }
+        try {
+            return LanguageTrackingManualStatus.valueOf(normalized.toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            details.add(fieldPath + " invalid");
+            return null;
+        }
+    }
+
     private LocalDate parseDate(String rawDate, String fieldPath, List<String> details) {
         String normalized = trimToNull(rawDate);
         if (normalized == null) {
@@ -702,22 +978,27 @@ public class IeltsTrackingService {
         return Math.abs(scaled - Math.rint(scaled)) < 0.000001d;
     }
 
-    private Student requireCurrentStudent(HttpServletRequest request) {
+    private CurrentStudentContext requireCurrentStudentContext(HttpServletRequest request) {
         User operator = authSessionService.requireAuthenticatedUser(request);
         if (operator.getRole() != UserRole.STUDENT) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: student role required.");
         }
-        return studentRepository.findByUser_Id(operator.getId())
+        Student student = studentRepository.findByUser_Id(operator.getId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Student profile not found."));
+        return new CurrentStudentContext(student, operator);
     }
 
     private Student requireTeacherAccessibleStudent(Long studentId, HttpServletRequest request) {
+        return requireTeacherAccessibleStudentContext(studentId, request).student;
+    }
+
+    private TeacherStudentContext requireTeacherAccessibleStudentContext(Long studentId, HttpServletRequest request) {
         User operator = managementAccessService.requireStudentAccountManagementAccess(request);
         Long normalizedStudentId = requirePositiveId(studentId, "studentId");
         Student student = studentRepository.findById(normalizedStudentId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Student not found: " + normalizedStudentId));
         ensureTeacherCanAccessStudent(operator, normalizedStudentId);
-        return student;
+        return new TeacherStudentContext(student, operator);
     }
 
     private void ensureTeacherCanAccessStudent(User operator, Long studentId) {
@@ -751,12 +1032,41 @@ public class IeltsTrackingService {
         return new ApiRequestException(HttpStatus.BAD_REQUEST, "BAD_REQUEST", "Validation failed.", details);
     }
 
+    private ApiRequestException fieldForbidden(String fieldName) {
+        return new ApiRequestException(
+                HttpStatus.FORBIDDEN,
+                "FIELD_FORBIDDEN",
+                "Forbidden field in student request.",
+                Collections.singletonList(fieldName + " is not allowed for student APIs")
+        );
+    }
+
     private String trimToNull(String value) {
         if (value == null) {
             return null;
         }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private static class CurrentStudentContext {
+        private final Student student;
+        private final User operator;
+
+        private CurrentStudentContext(Student student, User operator) {
+            this.student = student;
+            this.operator = operator;
+        }
+    }
+
+    private static class TeacherStudentContext {
+        private final Student student;
+        private final User operator;
+
+        private TeacherStudentContext(Student student, User operator) {
+            this.student = student;
+            this.operator = operator;
+        }
     }
 
     private static class RecordsUpdate {
@@ -789,15 +1099,21 @@ public class IeltsTrackingService {
         private final IeltsPreparationIntent preparationIntent;
         private final List<NormalizedRecord> records;
         private final boolean overwriteRecords;
+        private final LanguageTrackingManualStatus languageTrackingManualStatus;
+        private final boolean overwriteLanguageTrackingManualStatus;
 
         private TeacherUpdate(boolean hasTakenIeltsAcademic,
                               IeltsPreparationIntent preparationIntent,
                               List<NormalizedRecord> records,
-                              boolean overwriteRecords) {
+                              boolean overwriteRecords,
+                              LanguageTrackingManualStatus languageTrackingManualStatus,
+                              boolean overwriteLanguageTrackingManualStatus) {
             this.hasTakenIeltsAcademic = hasTakenIeltsAcademic;
             this.preparationIntent = preparationIntent;
             this.records = records;
             this.overwriteRecords = overwriteRecords;
+            this.languageTrackingManualStatus = languageTrackingManualStatus;
+            this.overwriteLanguageTrackingManualStatus = overwriteLanguageTrackingManualStatus;
         }
     }
 

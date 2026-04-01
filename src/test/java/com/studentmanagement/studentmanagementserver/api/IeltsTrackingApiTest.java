@@ -32,6 +32,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -82,6 +83,9 @@ class IeltsTrackingApiTest {
                 .andExpect(jsonPath("$.studentId").value(student.getId()))
                 .andExpect(jsonPath("$.hasTakenIeltsAcademic").value(false))
                 .andExpect(jsonPath("$.preparationIntent").value("UNSET"))
+                .andExpect(jsonPath("$.languageTrackingManualStatus").value(nullValue()))
+                .andExpect(jsonPath("$.trackingStatus").value("YELLOW_NEEDS_PREPARATION"))
+                .andExpect(jsonPath("$.languageTrackingStatus").value("NEEDS_TRACKING"))
                 .andExpect(jsonPath("$.records.length()").value(0))
                 .andExpect(jsonPath("$.languageRisk.shouldShowIeltsModule").value(true))
                 .andExpect(jsonPath("$.languageRisk.languageRiskFlag").value("RISK"));
@@ -128,6 +132,48 @@ class IeltsTrackingApiTest {
     }
 
     @Test
+    void studentUpdateRecords_withManualStatusField_returns403FieldForbidden() throws Exception {
+        Student student = createStudentAccount("ielts_student_records_forbidden", "IELTS", "Forbidden", "Forbidden");
+
+        Map<String, Object> record = new LinkedHashMap<String, Object>();
+        record.put("recordId", "r-1");
+        record.put("testDate", "2025-10-12");
+        record.put("listening", 6.5d);
+        record.put("reading", 6.5d);
+        record.put("writing", 6.0d);
+        record.put("speaking", 6.0d);
+
+        Map<String, Object> payload = new LinkedHashMap<String, Object>();
+        payload.put("hasTakenIeltsAcademic", true);
+        payload.put("languageTrackingManualStatus", "TEACHER_REVIEW_APPROVED");
+        payload.put("records", Arrays.asList(record));
+
+        mockMvc.perform(put("/api/student/ielts-module/records")
+                        .header("Authorization", bearerFor(student.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payload)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FIELD_FORBIDDEN"));
+    }
+
+    @Test
+    void studentUpdatePreparationIntent_withManualStatusField_returns403FieldForbidden() throws Exception {
+        Student student = createStudentAccount("ielts_student_intent_forbidden", "IELTS", "IntentF", "IntentF");
+
+        Map<String, Object> payload = new LinkedHashMap<String, Object>();
+        payload.put("hasTakenIeltsAcademic", false);
+        payload.put("preparationIntent", "PREPARING");
+        payload.put("languageTrackingManualStatus", "TEACHER_REVIEW_APPROVED");
+
+        mockMvc.perform(put("/api/student/ielts-module/preparation-intent")
+                        .header("Authorization", bearerFor(student.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payload)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FIELD_FORBIDDEN"));
+    }
+
+    @Test
     void studentUpdateRecords_invalidBandStep_returns400() throws Exception {
         Student student = createStudentAccount("ielts_student_bad_band", "IELTS", "Band", "Band");
 
@@ -165,7 +211,9 @@ class IeltsTrackingApiTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.studentId").value(student.getId()))
                 .andExpect(jsonPath("$.recordCount").value(0))
-                .andExpect(jsonPath("$.preparationIntent").value("NOT_PREPARING"));
+                .andExpect(jsonPath("$.preparationIntent").value("NOT_PREPARING"))
+                .andExpect(jsonPath("$.languageTrackingStatus").value("NEEDS_TRACKING"))
+                .andExpect(jsonPath("$.summary.languageTrackingStatus").value("NEEDS_TRACKING"));
     }
 
     @Test
@@ -179,6 +227,166 @@ class IeltsTrackingApiTest {
                         .header("Authorization", bearerFor(teacherA.getUser())))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+    }
+
+    @Test
+    void teacherManualApprovedThenClear_restoresAutomaticStatus() throws Exception {
+        Teacher teacher = createTeacherAccount("ielts_teacher_manual", "IELTS Teacher Manual");
+        Student student = createStudentAccount("ielts_student_manual", "IELTS", "Manual", "Manual");
+        assignTeacherStudent(teacher, student, TeacherStudentStatus.ACTIVE);
+        saveProfileAndSchool(
+                student,
+                "Chinese",
+                "China",
+                LocalDate.of(2023, 9, 1),
+                LocalDate.of(2027, 6, 30),
+                "Canada"
+        );
+
+        Map<String, Object> strictRecord = new LinkedHashMap<String, Object>();
+        strictRecord.put("recordId", "strict-1");
+        strictRecord.put("testDate", "2025-10-12");
+        strictRecord.put("listening", 7.0d);
+        strictRecord.put("reading", 7.0d);
+        strictRecord.put("writing", 7.0d);
+        strictRecord.put("speaking", 7.0d);
+
+        Map<String, Object> approvePayload = new LinkedHashMap<String, Object>();
+        approvePayload.put("hasTakenIeltsAcademic", true);
+        approvePayload.put("records", Arrays.asList(strictRecord));
+        approvePayload.put("languageTrackingManualStatus", "TEACHER_REVIEW_APPROVED");
+
+        mockMvc.perform(put("/api/teacher/students/{studentId}/ielts-module", student.getId())
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(approvePayload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.trackingStatus").value("GREEN_STRICT_PASS"))
+                .andExpect(jsonPath("$.languageTrackingManualStatus").value("TEACHER_REVIEW_APPROVED"))
+                .andExpect(jsonPath("$.languageTrackingStatus").value("TEACHER_REVIEW_APPROVED"));
+
+        mockMvc.perform(get("/api/teacher/students/{studentId}/ielts-summary", student.getId())
+                        .header("Authorization", bearerFor(teacher.getUser())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.trackingStatus").value("GREEN_STRICT_PASS"))
+                .andExpect(jsonPath("$.languageTrackingStatus").value("TEACHER_REVIEW_APPROVED"))
+                .andExpect(jsonPath("$.summary.trackingStatus").value("GREEN_STRICT_PASS"))
+                .andExpect(jsonPath("$.summary.languageTrackingStatus").value("TEACHER_REVIEW_APPROVED"));
+
+        Map<String, Object> clearPayload = new LinkedHashMap<String, Object>();
+        clearPayload.put("hasTakenIeltsAcademic", true);
+        clearPayload.put("languageTrackingManualStatus", null);
+
+        mockMvc.perform(put("/api/teacher/students/{studentId}/ielts-module", student.getId())
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(clearPayload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.trackingStatus").value("GREEN_STRICT_PASS"))
+                .andExpect(jsonPath("$.languageTrackingManualStatus").value(nullValue()))
+                .andExpect(jsonPath("$.languageTrackingStatus").value("AUTO_PASS_ALL_SCHOOLS"));
+    }
+
+    @Test
+    void teacherManualStatus_nonNullAlwaysOverridesFinalStatus() throws Exception {
+        Teacher teacher = createTeacherAccount("ielts_teacher_manual_override", "IELTS Teacher Manual Override");
+        Student student = createStudentAccount("ielts_student_manual_override", "IELTS", "ManualOv", "ManualOv");
+        assignTeacherStudent(teacher, student, TeacherStudentStatus.ACTIVE);
+        saveProfileAndSchool(
+                student,
+                "Chinese",
+                "China",
+                LocalDate.of(2023, 9, 1),
+                LocalDate.of(2027, 6, 30),
+                "Canada"
+        );
+
+        mockMvc.perform(put("/api/teacher/students/{studentId}/ielts-module", student.getId())
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(teacherRecordsPayloadWithManual("strict-manual", 7.0d, 7.0d, 7.0d, 7.0d, "NEEDS_TRACKING")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.trackingStatus").value("GREEN_STRICT_PASS"))
+                .andExpect(jsonPath("$.languageTrackingManualStatus").value("NEEDS_TRACKING"))
+                .andExpect(jsonPath("$.languageTrackingStatus").value("NEEDS_TRACKING"));
+    }
+
+    @Test
+    void trackingStatusMapsToLanguageTrackingStatus_strictCommonYellow() throws Exception {
+        Teacher teacher = createTeacherAccount("ielts_teacher_mapping", "IELTS Teacher Mapping");
+        Student student = createStudentAccount("ielts_student_mapping", "IELTS", "Mapping", "Mapping");
+        assignTeacherStudent(teacher, student, TeacherStudentStatus.ACTIVE);
+        saveProfileAndSchool(
+                student,
+                "Chinese",
+                "China",
+                LocalDate.of(2023, 9, 1),
+                LocalDate.of(2027, 6, 30),
+                "Canada"
+        );
+
+        mockMvc.perform(put("/api/teacher/students/{studentId}/ielts-module", student.getId())
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(teacherRecordsPayloadWithManual("strict-r", 7.0d, 7.0d, 7.0d, 7.0d, null)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.trackingStatus").value("GREEN_STRICT_PASS"))
+                .andExpect(jsonPath("$.languageTrackingStatus").value("AUTO_PASS_ALL_SCHOOLS"));
+
+        mockMvc.perform(put("/api/teacher/students/{studentId}/ielts-module", student.getId())
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(teacherRecordsPayloadWithManual("common-r", 6.5d, 6.5d, 6.0d, 6.0d, null)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.trackingStatus").value("GREEN_COMMON_PASS_WITH_WARNING"))
+                .andExpect(jsonPath("$.languageTrackingStatus").value("AUTO_PASS_PARTIAL_SCHOOLS"));
+
+        mockMvc.perform(put("/api/teacher/students/{studentId}/ielts-module", student.getId())
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(teacherRecordsPayloadWithManual("yellow-r", 5.5d, 5.5d, 5.5d, 5.5d, null)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.trackingStatus").value("YELLOW_NEEDS_PREPARATION"))
+                .andExpect(jsonPath("$.languageTrackingStatus").value("NEEDS_TRACKING"));
+    }
+
+    @Test
+    void studentUpdateClearsManualAndRecomputesLanguageTrackingStatus() throws Exception {
+        Teacher teacher = createTeacherAccount("ielts_teacher_student_clear", "IELTS Teacher Student Clear");
+        Student student = createStudentAccount("ielts_student_clear_manual", "IELTS", "Clear", "Clear");
+        assignTeacherStudent(teacher, student, TeacherStudentStatus.ACTIVE);
+        saveProfileAndSchool(
+                student,
+                "Chinese",
+                "China",
+                LocalDate.of(2023, 9, 1),
+                LocalDate.of(2027, 6, 30),
+                "Canada"
+        );
+
+        mockMvc.perform(put("/api/teacher/students/{studentId}/ielts-module", student.getId())
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(teacherRecordsPayloadWithManual(
+                                "strict-before-clear",
+                                7.0d,
+                                7.0d,
+                                7.0d,
+                                7.0d,
+                                "TEACHER_REVIEW_APPROVED"
+                        )))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.languageTrackingManualStatus").value("TEACHER_REVIEW_APPROVED"))
+                .andExpect(jsonPath("$.languageTrackingStatus").value("TEACHER_REVIEW_APPROVED"));
+
+        mockMvc.perform(put("/api/student/ielts-module/records")
+                        .header("Authorization", bearerFor(student.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(recordsPayload(true, 6.5d, 6.5d, 6.0d, 6.0d)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.trackingStatus").value("GREEN_COMMON_PASS_WITH_WARNING"))
+                .andExpect(jsonPath("$.languageTrackingManualStatus").value(nullValue()))
+                .andExpect(jsonPath("$.languageTrackingStatus").value("AUTO_PASS_PARTIAL_SCHOOLS"));
     }
 
     private String recordsPayload(boolean hasTaken, double listening, double reading, double writing, double speaking) throws Exception {
@@ -208,6 +416,28 @@ class IeltsTrackingApiTest {
         payload.put("hasTakenIeltsAcademic", hasTaken);
         payload.put("preparationIntent", preparationIntent);
         payload.put("records", Arrays.asList());
+        return objectMapper.writeValueAsString(payload);
+    }
+
+    private String teacherRecordsPayloadWithManual(String recordId,
+                                                   double listening,
+                                                   double reading,
+                                                   double writing,
+                                                   double speaking,
+                                                   String languageTrackingManualStatus) throws Exception {
+        Map<String, Object> record = new LinkedHashMap<String, Object>();
+        record.put("recordId", recordId);
+        record.put("testDate", "2025-10-12");
+        record.put("listening", listening);
+        record.put("reading", reading);
+        record.put("writing", writing);
+        record.put("speaking", speaking);
+
+        Map<String, Object> payload = new LinkedHashMap<String, Object>();
+        payload.put("hasTakenIeltsAcademic", true);
+        payload.put("preparationIntent", "UNSET");
+        payload.put("records", Arrays.asList(record));
+        payload.put("languageTrackingManualStatus", languageTrackingManualStatus);
         return objectMapper.writeValueAsString(payload);
     }
 

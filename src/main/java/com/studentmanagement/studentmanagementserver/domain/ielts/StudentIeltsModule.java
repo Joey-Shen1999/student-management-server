@@ -13,6 +13,7 @@ import javax.persistence.JoinColumn;
 import javax.persistence.OneToOne;
 import javax.persistence.Table;
 import javax.persistence.UniqueConstraint;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(
@@ -37,6 +38,16 @@ public class StudentIeltsModule extends BaseEntity {
     @Column(name = "preparation_intent", nullable = false, length = 20)
     private IeltsPreparationIntent preparationIntent;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "language_tracking_manual_status", length = 64)
+    private LanguageTrackingManualStatus languageTrackingManualStatus;
+
+    @Column(name = "language_tracking_manual_status_updated_by")
+    private Long languageTrackingManualStatusUpdatedBy;
+
+    @Column(name = "language_tracking_manual_status_updated_at")
+    private LocalDateTime languageTrackingManualStatusUpdatedAt;
+
     protected StudentIeltsModule() {
     }
 
@@ -44,6 +55,7 @@ public class StudentIeltsModule extends BaseEntity {
         this.student = student;
         this.hasTakenIeltsAcademic = false;
         this.preparationIntent = IeltsPreparationIntent.UNSET;
+        this.languageTrackingManualStatus = null;
     }
 
     public Student getStudent() {
@@ -58,8 +70,28 @@ public class StudentIeltsModule extends BaseEntity {
         return preparationIntent;
     }
 
+    public LanguageTrackingManualStatus getLanguageTrackingManualStatus() {
+        return languageTrackingManualStatus;
+    }
+
+    public Long getLanguageTrackingManualStatusUpdatedBy() {
+        return languageTrackingManualStatusUpdatedBy;
+    }
+
+    public LocalDateTime getLanguageTrackingManualStatusUpdatedAt() {
+        return languageTrackingManualStatusUpdatedAt;
+    }
+
     public void updateState(boolean hasTakenIeltsAcademic, IeltsPreparationIntent preparationIntent) {
         this.hasTakenIeltsAcademic = hasTakenIeltsAcademic;
         this.preparationIntent = preparationIntent == null ? IeltsPreparationIntent.UNSET : preparationIntent;
+    }
+
+    public void updateLanguageTrackingManualStatus(LanguageTrackingManualStatus languageTrackingManualStatus,
+                                                   Long updatedBy,
+                                                   LocalDateTime updatedAt) {
+        this.languageTrackingManualStatus = languageTrackingManualStatus;
+        this.languageTrackingManualStatusUpdatedBy = updatedBy;
+        this.languageTrackingManualStatusUpdatedAt = updatedAt;
     }
 }

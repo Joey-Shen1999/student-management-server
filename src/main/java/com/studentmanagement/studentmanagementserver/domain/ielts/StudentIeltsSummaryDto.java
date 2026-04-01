@@ -9,6 +9,11 @@ public class StudentIeltsSummaryDto {
     private String latestTestDate;
     private Double bestOverallBand;
     private String updatedAt;
+    // Deprecated compatibility fields; target removal date: 2026-05-31.
+    private String trackingStatus;
+    // Deprecated compatibility fields; target removal date: 2026-05-31.
+    private String languageTrackingStatus;
+    private IeltsSummarySnapshotDto summary;
 
     public StudentIeltsSummaryDto(Long studentId,
                                   boolean shouldShowIeltsModule,
@@ -17,7 +22,10 @@ public class StudentIeltsSummaryDto {
                                   Integer recordCount,
                                   String latestTestDate,
                                   Double bestOverallBand,
-                                  String updatedAt) {
+                                  String updatedAt,
+                                  String trackingStatus,
+                                  String languageTrackingStatus,
+                                  IeltsSummarySnapshotDto summary) {
         this.studentId = studentId;
         this.shouldShowIeltsModule = shouldShowIeltsModule;
         this.hasTakenIeltsAcademic = hasTakenIeltsAcademic;
@@ -26,6 +34,9 @@ public class StudentIeltsSummaryDto {
         this.latestTestDate = latestTestDate;
         this.bestOverallBand = bestOverallBand;
         this.updatedAt = updatedAt;
+        this.trackingStatus = trackingStatus;
+        this.languageTrackingStatus = languageTrackingStatus;
+        this.summary = summary;
     }
 
     public Long getStudentId() {
@@ -58,5 +69,17 @@ public class StudentIeltsSummaryDto {
 
     public String getUpdatedAt() {
         return updatedAt;
+    }
+
+    public String getTrackingStatus() {
+        return trackingStatus;
+    }
+
+    public String getLanguageTrackingStatus() {
+        return languageTrackingStatus;
+    }
+
+    public IeltsSummarySnapshotDto getSummary() {
+        return summary;
     }
 }
