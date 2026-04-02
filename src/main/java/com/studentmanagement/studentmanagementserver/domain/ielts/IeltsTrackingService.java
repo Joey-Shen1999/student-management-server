@@ -69,10 +69,23 @@ public class IeltsTrackingService {
     private static final double TOEFL_COMMON_MIN_READING = 4.0d;
     private static final double TOEFL_COMMON_MIN_WRITING = 4.0d;
     private static final double TOEFL_COMMON_MIN_SPEAKING = 4.0d;
+    private static final double DUOLINGO_STRICT_MIN_OVERALL = 130.0d;
+    private static final double DUOLINGO_STRICT_MIN_LISTENING = 120.0d;
+    private static final double DUOLINGO_STRICT_MIN_READING = 120.0d;
+    private static final double DUOLINGO_STRICT_MIN_WRITING = 120.0d;
+    private static final double DUOLINGO_STRICT_MIN_SPEAKING = 120.0d;
+    private static final double DUOLINGO_COMMON_MIN_OVERALL = 120.0d;
+    private static final double DUOLINGO_COMMON_MIN_LISTENING = 110.0d;
+    private static final double DUOLINGO_COMMON_MIN_READING = 110.0d;
+    private static final double DUOLINGO_COMMON_MIN_WRITING = 110.0d;
+    private static final double DUOLINGO_COMMON_MIN_SPEAKING = 110.0d;
     private static final double IELTS_MIN_SCORE = 0.0d;
     private static final double IELTS_MAX_SCORE = 9.0d;
     private static final double TOEFL_MIN_SCORE = 1.0d;
     private static final double TOEFL_MAX_SCORE = 6.0d;
+    private static final double DUOLINGO_MIN_SCORE = 10.0d;
+    private static final double DUOLINGO_MAX_SCORE = 160.0d;
+    private static final double DUOLINGO_SCORE_STEP = 5.0d;
     private static final String LANGUAGE_RISK_FLAG_RISK = "RISK";
     private static final String LANGUAGE_RISK_FLAG_LOW_RISK = "LOW_RISK";
     private static final String PROFILE_COMPLETENESS_COMPLETE = "COMPLETE";
@@ -208,6 +221,7 @@ public class IeltsTrackingService {
         List<StudentIeltsRecordDto> records = moduleState.getRecords() == null
                 ? Collections.<StudentIeltsRecordDto>emptyList()
                 : moduleState.getRecords();
+        LanguageScoreType summaryLanguageScoreType = resolveLanguageScoreType(moduleState.getLanguageScoreType());
 
         String latestTestDate = null;
         Double bestOverallBand = null;
@@ -218,7 +232,7 @@ public class IeltsTrackingService {
             if (latestTestDate == null && record.getTestDate() != null) {
                 latestTestDate = record.getTestDate();
             }
-            Double overall = calculateOverallBand(record);
+            Double overall = calculateOverallBand(record, summaryLanguageScoreType);
             if (overall == null) {
                 continue;
             }
@@ -606,6 +620,32 @@ public class IeltsTrackingService {
         }
         LanguageScoreType resolvedLanguageScoreType = resolveLanguageScoreType(languageScoreType);
 
+        if (resolvedLanguageScoreType == LanguageScoreType.DUOLINGO) {
+            if (matchesThreshold(
+                    latestValidRecord,
+                    resolvedLanguageScoreType,
+                    DUOLINGO_STRICT_MIN_OVERALL,
+                    DUOLINGO_STRICT_MIN_LISTENING,
+                    DUOLINGO_STRICT_MIN_READING,
+                    DUOLINGO_STRICT_MIN_WRITING,
+                    DUOLINGO_STRICT_MIN_SPEAKING
+            )) {
+                return IeltsTrackingStatus.GREEN_STRICT_PASS;
+            }
+            if (matchesThreshold(
+                    latestValidRecord,
+                    resolvedLanguageScoreType,
+                    DUOLINGO_COMMON_MIN_OVERALL,
+                    DUOLINGO_COMMON_MIN_LISTENING,
+                    DUOLINGO_COMMON_MIN_READING,
+                    DUOLINGO_COMMON_MIN_WRITING,
+                    DUOLINGO_COMMON_MIN_SPEAKING
+            )) {
+                return IeltsTrackingStatus.GREEN_COMMON_PASS_WITH_WARNING;
+            }
+            return IeltsTrackingStatus.YELLOW_NEEDS_PREPARATION;
+        }
+
         if (resolvedLanguageScoreType == LanguageScoreType.TOEFL) {
             if (matchesThreshold(
                     latestValidRecord,
@@ -754,6 +794,10 @@ public class IeltsTrackingService {
         }
         LanguageScoreType resolvedLanguageScoreType = resolveLanguageScoreType(languageScoreType);
         double average = (record.getListening() + record.getReading() + record.getWriting() + record.getSpeaking()) / 4.0d;
+        if (resolvedLanguageScoreType == LanguageScoreType.DUOLINGO) {
+            double roundedStep = roundToNearestStep(average, DUOLINGO_SCORE_STEP);
+            return Math.round(roundedStep * 10.0d) / 10.0d;
+        }
         if (resolvedLanguageScoreType == LanguageScoreType.TOEFL) {
             return Math.round(average * 10.0d) / 10.0d;
         }
@@ -827,7 +871,7 @@ public class IeltsTrackingService {
         return right.compareTo(left);
     }
 
-    private Double calculateOverallBand(StudentIeltsRecordDto record) {
+    private Double calculateOverallBand(StudentIeltsRecordDto record, LanguageScoreType languageScoreType) {
         if (record == null
                 || record.getListening() == null
                 || record.getReading() == null
@@ -835,7 +879,12 @@ public class IeltsTrackingService {
                 || record.getSpeaking() == null) {
             return null;
         }
+        LanguageScoreType resolvedLanguageScoreType = resolveLanguageScoreType(languageScoreType);
         double average = (record.getListening() + record.getReading() + record.getWriting() + record.getSpeaking()) / 4.0d;
+        if (resolvedLanguageScoreType == LanguageScoreType.DUOLINGO) {
+            double roundedStep = roundToNearestStep(average, DUOLINGO_SCORE_STEP);
+            return Math.round(roundedStep * 10.0d) / 10.0d;
+        }
         return Math.round(average * 10.0d) / 10.0d;
     }
 
@@ -858,6 +907,7 @@ public class IeltsTrackingService {
                 requestBody.getLanguageScoreType(),
                 existingLanguageScoreType,
                 requestBody.isToeflRecordsPresent(),
+                requestBody.isDuolingoRecordsPresent(),
                 "languageScoreType",
                 details
         );
@@ -865,11 +915,17 @@ public class IeltsTrackingService {
                 languageScoreType,
                 requestBody.getRecords(),
                 requestBody.getToeflRecords(),
-                requestBody.isToeflRecordsPresent()
+                requestBody.isToeflRecordsPresent(),
+                requestBody.getDuolingoRecords(),
+                requestBody.isDuolingoRecordsPresent()
         );
         List<NormalizedRecord> records = normalizeRecords(
                 rawRecords,
-                resolveRequestedRecordsFieldPath(languageScoreType, requestBody.isToeflRecordsPresent()),
+                resolveRequestedRecordsFieldPath(
+                        languageScoreType,
+                        requestBody.isToeflRecordsPresent(),
+                        requestBody.isDuolingoRecordsPresent()
+                ),
                 languageScoreType,
                 details
         );
@@ -901,6 +957,7 @@ public class IeltsTrackingService {
         LanguageScoreType languageScoreType = resolveRequestedLanguageScoreType(
                 requestBody.getLanguageScoreType(),
                 existingLanguageScoreType,
+                false,
                 false,
                 "languageScoreType",
                 details
@@ -945,6 +1002,7 @@ public class IeltsTrackingService {
                 requestBody.getLanguageScoreType(),
                 existingLanguageScoreType,
                 requestBody.isToeflRecordsPresent(),
+                requestBody.isDuolingoRecordsPresent(),
                 "languageScoreType",
                 details
         );
@@ -964,13 +1022,19 @@ public class IeltsTrackingService {
                     languageScoreType,
                     requestBody.getRecords(),
                     requestBody.getToeflRecords(),
-                    requestBody.isToeflRecordsPresent()
+                    requestBody.isToeflRecordsPresent(),
+                    requestBody.getDuolingoRecords(),
+                    requestBody.isDuolingoRecordsPresent()
             );
             List<NormalizedRecord> records = rawRecords == null
                     ? Collections.<NormalizedRecord>emptyList()
                     : normalizeRecords(
                     rawRecords,
-                    resolveRequestedRecordsFieldPath(languageScoreType, requestBody.isToeflRecordsPresent()),
+                    resolveRequestedRecordsFieldPath(
+                            languageScoreType,
+                            requestBody.isToeflRecordsPresent(),
+                            requestBody.isDuolingoRecordsPresent()
+                    ),
                     languageScoreType,
                     details
             );
@@ -992,11 +1056,17 @@ public class IeltsTrackingService {
                 languageScoreType,
                 requestBody.getRecords(),
                 requestBody.getToeflRecords(),
-                requestBody.isToeflRecordsPresent()
+                requestBody.isToeflRecordsPresent(),
+                requestBody.getDuolingoRecords(),
+                requestBody.isDuolingoRecordsPresent()
         );
         List<NormalizedRecord> records = normalizeRecords(
                 rawRecords,
-                resolveRequestedRecordsFieldPath(languageScoreType, requestBody.isToeflRecordsPresent()),
+                resolveRequestedRecordsFieldPath(
+                        languageScoreType,
+                        requestBody.isToeflRecordsPresent(),
+                        requestBody.isDuolingoRecordsPresent()
+                ),
                 languageScoreType,
                 details
         );
@@ -1022,6 +1092,7 @@ public class IeltsTrackingService {
     private LanguageScoreType resolveRequestedLanguageScoreType(String rawLanguageScoreType,
                                                                 LanguageScoreType fallbackLanguageScoreType,
                                                                 boolean toeflRecordsPresent,
+                                                                boolean duolingoRecordsPresent,
                                                                 String fieldPath,
                                                                 List<String> details) {
         String normalizedRaw = trimToNull(rawLanguageScoreType);
@@ -1033,6 +1104,9 @@ public class IeltsTrackingService {
                 return resolveLanguageScoreType(fallbackLanguageScoreType);
             }
         }
+        if (duolingoRecordsPresent) {
+            return LanguageScoreType.DUOLINGO;
+        }
         if (toeflRecordsPresent) {
             return LanguageScoreType.TOEFL;
         }
@@ -1043,22 +1117,49 @@ public class IeltsTrackingService {
         return languageScoreType == null ? LanguageScoreType.IELTS : languageScoreType;
     }
 
+    private LanguageScoreType resolveLanguageScoreType(String languageScoreType) {
+        String normalized = trimToNull(languageScoreType);
+        if (normalized == null) {
+            return LanguageScoreType.IELTS;
+        }
+        try {
+            return LanguageScoreType.valueOf(normalized.toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            return LanguageScoreType.IELTS;
+        }
+    }
+
     private List<StudentIeltsRecordDto> resolveRequestedRecords(LanguageScoreType languageScoreType,
                                                                 List<StudentIeltsRecordDto> records,
                                                                 List<StudentIeltsRecordDto> toeflRecords,
-                                                                boolean toeflRecordsPresent) {
-        if (resolveLanguageScoreType(languageScoreType) == LanguageScoreType.TOEFL) {
+                                                                boolean toeflRecordsPresent,
+                                                                List<StudentIeltsRecordDto> duolingoRecords,
+                                                                boolean duolingoRecordsPresent) {
+        LanguageScoreType resolvedLanguageScoreType = resolveLanguageScoreType(languageScoreType);
+        if (resolvedLanguageScoreType == LanguageScoreType.TOEFL) {
             if (toeflRecordsPresent) {
                 return toeflRecords;
+            }
+            return records;
+        }
+        if (resolvedLanguageScoreType == LanguageScoreType.DUOLINGO) {
+            if (duolingoRecordsPresent) {
+                return duolingoRecords;
             }
             return records;
         }
         return records;
     }
 
-    private String resolveRequestedRecordsFieldPath(LanguageScoreType languageScoreType, boolean toeflRecordsPresent) {
-        if (resolveLanguageScoreType(languageScoreType) == LanguageScoreType.TOEFL && toeflRecordsPresent) {
+    private String resolveRequestedRecordsFieldPath(LanguageScoreType languageScoreType,
+                                                    boolean toeflRecordsPresent,
+                                                    boolean duolingoRecordsPresent) {
+        LanguageScoreType resolvedLanguageScoreType = resolveLanguageScoreType(languageScoreType);
+        if (resolvedLanguageScoreType == LanguageScoreType.TOEFL && toeflRecordsPresent) {
             return "toeflRecords";
+        }
+        if (resolvedLanguageScoreType == LanguageScoreType.DUOLINGO && duolingoRecordsPresent) {
+            return "duolingoRecords";
         }
         return "records";
     }
@@ -1174,13 +1275,27 @@ public class IeltsTrackingService {
         }
         double value = rawBand.doubleValue();
         LanguageScoreType resolvedLanguageScoreType = resolveLanguageScoreType(languageScoreType);
-        double min = resolvedLanguageScoreType == LanguageScoreType.TOEFL ? TOEFL_MIN_SCORE : IELTS_MIN_SCORE;
-        double max = resolvedLanguageScoreType == LanguageScoreType.TOEFL ? TOEFL_MAX_SCORE : IELTS_MAX_SCORE;
+        double min;
+        double max;
+        if (resolvedLanguageScoreType == LanguageScoreType.TOEFL) {
+            min = TOEFL_MIN_SCORE;
+            max = TOEFL_MAX_SCORE;
+        } else if (resolvedLanguageScoreType == LanguageScoreType.DUOLINGO) {
+            min = DUOLINGO_MIN_SCORE;
+            max = DUOLINGO_MAX_SCORE;
+        } else {
+            min = IELTS_MIN_SCORE;
+            max = IELTS_MAX_SCORE;
+        }
         if (value < min || value > max) {
             details.add(fieldPath + " must be between " + min + " and " + max);
             return null;
         }
-        if (!isHalfStep(value)) {
+        if (resolvedLanguageScoreType == LanguageScoreType.DUOLINGO && !isStep(value, DUOLINGO_SCORE_STEP)) {
+            details.add(fieldPath + " must use 5-point steps");
+            return null;
+        }
+        if (resolvedLanguageScoreType != LanguageScoreType.DUOLINGO && !isHalfStep(value)) {
             details.add(fieldPath + " must use 0.5 steps");
             return null;
         }
@@ -1190,6 +1305,15 @@ public class IeltsTrackingService {
     private boolean isHalfStep(double value) {
         double scaled = value * 2.0d;
         return Math.abs(scaled - Math.rint(scaled)) < 0.000001d;
+    }
+
+    private boolean isStep(double value, double step) {
+        double scaled = value / step;
+        return Math.abs(scaled - Math.rint(scaled)) < 0.000001d;
+    }
+
+    private double roundToNearestStep(double value, double step) {
+        return Math.round(value / step) * step;
     }
 
     private CurrentStudentContext requireCurrentStudentContext(HttpServletRequest request) {

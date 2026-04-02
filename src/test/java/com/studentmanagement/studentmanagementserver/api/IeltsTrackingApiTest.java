@@ -560,6 +560,226 @@ class IeltsTrackingApiTest {
     }
 
     @Test
+    void studentUpdatePreparationIntent_withDuolingoType_persistsType() throws Exception {
+        Student student = createStudentAccount("ielts_student_duo_intent", "DUO", "Intent", "Intent");
+
+        Map<String, Object> payload = new LinkedHashMap<String, Object>();
+        payload.put("hasTakenIeltsAcademic", false);
+        payload.put("languageScoreType", "DUOLINGO");
+        payload.put("preparationIntent", "PREPARING");
+
+        mockMvc.perform(put("/api/student/ielts-module/preparation-intent")
+                        .header("Authorization", bearerFor(student.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.languageScoreType").value("DUOLINGO"))
+                .andExpect(jsonPath("$.hasTakenIeltsAcademic").value(false))
+                .andExpect(jsonPath("$.preparationIntent").value("PREPARING"));
+
+        mockMvc.perform(get("/api/student/ielts-module")
+                        .header("Authorization", bearerFor(student.getUser())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.languageScoreType").value("DUOLINGO"))
+                .andExpect(jsonPath("$.summary.languageScoreType").value("DUOLINGO"));
+    }
+
+    @Test
+    void studentUpdateDuolingoRecords_persistsLanguageScoreTypeAndUsesDuolingoRecordsFirst() throws Exception {
+        Teacher teacher = createTeacherAccount("ielts_teacher_duolingo_priority", "IELTS Teacher DUOLINGO Priority");
+        Student student = createStudentAccount("ielts_student_duolingo_priority", "DUOLINGO", "Priority", "Priority");
+        assignTeacherStudent(teacher, student, TeacherStudentStatus.ACTIVE);
+        saveProfileAndSchool(
+                student,
+                "Chinese",
+                "China",
+                LocalDate.of(2023, 9, 1),
+                LocalDate.of(2027, 6, 30),
+                "Canada"
+        );
+
+        Map<String, Object> fallbackRecord = createRecord("ignored-record", "2025-10-12", 7.0d, 7.0d, 7.0d, 7.0d);
+        Map<String, Object> duolingoRecord = createRecord("duolingo-record", "2025-10-12", 130.0d, 130.0d, 130.0d, 130.0d);
+
+        Map<String, Object> payload = new LinkedHashMap<String, Object>();
+        payload.put("hasTakenIeltsAcademic", true);
+        payload.put("test_type", "DUOLINGO");
+        payload.put("records", Arrays.asList(fallbackRecord));
+        payload.put("duolingoRecords", Arrays.asList(duolingoRecord));
+
+        mockMvc.perform(put("/api/student/ielts-module/records")
+                        .header("Authorization", bearerFor(student.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.languageScoreType").value("DUOLINGO"))
+                .andExpect(jsonPath("$.trackingStatus").value("GREEN_STRICT_PASS"))
+                .andExpect(jsonPath("$.records[0].recordId").value("duolingo-record"));
+
+        mockMvc.perform(get("/api/student/ielts-module")
+                        .header("Authorization", bearerFor(student.getUser())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.languageScoreType").value("DUOLINGO"))
+                .andExpect(jsonPath("$.trackingStatus").value("GREEN_STRICT_PASS"))
+                .andExpect(jsonPath("$.summary.languageScoreType").value("DUOLINGO"));
+
+        mockMvc.perform(get("/api/teacher/students/{studentId}/ielts-module", student.getId())
+                        .header("Authorization", bearerFor(teacher.getUser())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.languageScoreType").value("DUOLINGO"))
+                .andExpect(jsonPath("$.trackingStatus").value("GREEN_STRICT_PASS"))
+                .andExpect(jsonPath("$.summary.languageScoreType").value("DUOLINGO"));
+
+        mockMvc.perform(get("/api/teacher/students/{studentId}/ielts-summary", student.getId())
+                        .header("Authorization", bearerFor(teacher.getUser())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.languageScoreType").value("DUOLINGO"))
+                .andExpect(jsonPath("$.trackingStatus").value("GREEN_STRICT_PASS"))
+                .andExpect(jsonPath("$.summary.languageScoreType").value("DUOLINGO"))
+                .andExpect(jsonPath("$.summary.languageTrackingStatus").value("AUTO_PASS_ALL_SCHOOLS"));
+    }
+
+    @Test
+    void teacherUpdateDuolingoRecords_thresholdsStrictCommonYellow() throws Exception {
+        Teacher teacher = createTeacherAccount("ielts_teacher_duolingo_thresholds", "IELTS Teacher DUOLINGO Thresholds");
+        Student student = createStudentAccount("ielts_student_duolingo_thresholds", "DUOLINGO", "Thresholds", "Thresholds");
+        assignTeacherStudent(teacher, student, TeacherStudentStatus.ACTIVE);
+        saveProfileAndSchool(
+                student,
+                "Chinese",
+                "China",
+                LocalDate.of(2023, 9, 1),
+                LocalDate.of(2027, 6, 30),
+                "Canada"
+        );
+
+        Map<String, Object> strictPayload = new LinkedHashMap<String, Object>();
+        strictPayload.put("hasTakenIeltsAcademic", true);
+        strictPayload.put("testType", "DUOLINGO");
+        strictPayload.put("records", Arrays.asList(createRecord("duolingo-strict", "2025-10-12", 130.0d, 130.0d, 130.0d, 130.0d)));
+
+        mockMvc.perform(put("/api/teacher/students/{studentId}/ielts-module", student.getId())
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(strictPayload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.languageScoreType").value("DUOLINGO"))
+                .andExpect(jsonPath("$.trackingStatus").value("GREEN_STRICT_PASS"))
+                .andExpect(jsonPath("$.languageTrackingStatus").value("AUTO_PASS_ALL_SCHOOLS"));
+
+        Map<String, Object> commonPayload = new LinkedHashMap<String, Object>();
+        commonPayload.put("hasTakenIeltsAcademic", true);
+        commonPayload.put("languageScoreType", "DUOLINGO");
+        commonPayload.put("duolingoRecords", Arrays.asList(createRecord("duolingo-common", "2025-10-12", 120.0d, 120.0d, 120.0d, 120.0d)));
+
+        mockMvc.perform(put("/api/teacher/students/{studentId}/ielts-module", student.getId())
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(commonPayload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.languageScoreType").value("DUOLINGO"))
+                .andExpect(jsonPath("$.trackingStatus").value("GREEN_COMMON_PASS_WITH_WARNING"))
+                .andExpect(jsonPath("$.languageTrackingStatus").value("AUTO_PASS_PARTIAL_SCHOOLS"));
+
+        Map<String, Object> yellowPayload = new LinkedHashMap<String, Object>();
+        yellowPayload.put("hasTakenIeltsAcademic", true);
+        yellowPayload.put("languageScoreType", "DUOLINGO");
+        yellowPayload.put("duolingoRecords", Arrays.asList(createRecord("duolingo-yellow", "2025-10-12", 110.0d, 110.0d, 110.0d, 110.0d)));
+
+        mockMvc.perform(put("/api/teacher/students/{studentId}/ielts-module", student.getId())
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(yellowPayload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.languageScoreType").value("DUOLINGO"))
+                .andExpect(jsonPath("$.trackingStatus").value("YELLOW_NEEDS_PREPARATION"))
+                .andExpect(jsonPath("$.languageTrackingStatus").value("NEEDS_TRACKING"));
+    }
+
+    @Test
+    void teacherUpdateDuolingoRecords_outsideValidityWindow_resultsYellow() throws Exception {
+        Teacher teacher = createTeacherAccount("ielts_teacher_duolingo_window", "IELTS Teacher DUOLINGO Window");
+        Student student = createStudentAccount("ielts_student_duolingo_window", "DUOLINGO", "Window", "Window");
+        assignTeacherStudent(teacher, student, TeacherStudentStatus.ACTIVE);
+        saveProfileAndSchool(
+                student,
+                "Chinese",
+                "China",
+                LocalDate.of(2023, 9, 1),
+                LocalDate.of(2027, 6, 30),
+                "Canada"
+        );
+
+        Map<String, Object> payload = new LinkedHashMap<String, Object>();
+        payload.put("hasTakenIeltsAcademic", true);
+        payload.put("languageScoreType", "DUOLINGO");
+        payload.put("duolingoRecords", Arrays.asList(createRecord("duolingo-expired", "2025-05-30", 140.0d, 140.0d, 140.0d, 140.0d)));
+
+        mockMvc.perform(put("/api/teacher/students/{studentId}/ielts-module", student.getId())
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.languageScoreType").value("DUOLINGO"))
+                .andExpect(jsonPath("$.trackingStatus").value("YELLOW_NEEDS_PREPARATION"))
+                .andExpect(jsonPath("$.languageTrackingStatus").value("NEEDS_TRACKING"));
+    }
+
+    @Test
+    void studentUpdateDuolingoRecords_invalidRange_returns400() throws Exception {
+        Student student = createStudentAccount("ielts_student_duolingo_invalid_range", "DUOLINGO", "Range", "Range");
+
+        Map<String, Object> payload = new LinkedHashMap<String, Object>();
+        payload.put("hasTakenIeltsAcademic", true);
+        payload.put("languageScoreType", "DUOLINGO");
+        payload.put("duolingoRecords", Arrays.asList(createRecord("duolingo-bad-range", "2025-10-12", 165.0d, 130.0d, 130.0d, 130.0d)));
+
+        mockMvc.perform(put("/api/student/ielts-module/records")
+                        .header("Authorization", bearerFor(student.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payload)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("BAD_REQUEST"))
+                .andExpect(jsonPath("$.details", hasItem("duolingoRecords[0].listening must be between 10.0 and 160.0")));
+    }
+
+    @Test
+    void studentUpdateDuolingoRecords_invalidStep_returns400() throws Exception {
+        Student student = createStudentAccount("ielts_student_duolingo_invalid_step", "DUOLINGO", "Step", "Step");
+
+        Map<String, Object> payload = new LinkedHashMap<String, Object>();
+        payload.put("hasTakenIeltsAcademic", true);
+        payload.put("languageScoreType", "DUOLINGO");
+        payload.put("duolingoRecords", Arrays.asList(createRecord("duolingo-bad-step", "2025-10-12", 121.0d, 130.0d, 130.0d, 130.0d)));
+
+        mockMvc.perform(put("/api/student/ielts-module/records")
+                        .header("Authorization", bearerFor(student.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payload)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("BAD_REQUEST"))
+                .andExpect(jsonPath("$.details", hasItem("duolingoRecords[0].listening must use 5-point steps")));
+    }
+
+    @Test
+    void studentUpdateDuolingoRecords_withManualStatusField_returns403FieldForbidden() throws Exception {
+        Student student = createStudentAccount("ielts_student_duolingo_manual_forbidden", "DUOLINGO", "Manual", "Manual");
+
+        Map<String, Object> payload = new LinkedHashMap<String, Object>();
+        payload.put("hasTakenIeltsAcademic", true);
+        payload.put("languageScoreType", "DUOLINGO");
+        payload.put("languageTrackingManualStatus", "TEACHER_REVIEW_APPROVED");
+        payload.put("duolingoRecords", Arrays.asList(createRecord("duolingo-forbidden", "2025-10-12", 130.0d, 130.0d, 130.0d, 130.0d)));
+
+        mockMvc.perform(put("/api/student/ielts-module/records")
+                        .header("Authorization", bearerFor(student.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payload)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FIELD_FORBIDDEN"));
+    }
+
+    @Test
     void readEndpoints_returnConsistentTrackingFields() throws Exception {
         Teacher teacher = createTeacherAccount("ielts_teacher_read_consistency", "IELTS Teacher Read Consistency");
         Student student = createStudentAccount("ielts_student_read_consistency", "Read", "Consistency", "Consistency");

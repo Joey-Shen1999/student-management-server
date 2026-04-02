@@ -13,8 +13,10 @@ public class StudentIeltsRecordsUpdateRequestDto {
     private String languageTrackingManualStatus;
     private List<StudentIeltsRecordDto> records;
     private List<StudentIeltsRecordDto> toeflRecords;
+    private List<StudentIeltsRecordDto> duolingoRecords;
     private boolean languageTrackingManualStatusPresent;
     private boolean toeflRecordsPresent;
+    private boolean duolingoRecordsPresent;
 
     public Boolean getHasTakenIeltsAcademic() {
         return hasTakenIeltsAcademic;
@@ -60,6 +62,16 @@ public class StudentIeltsRecordsUpdateRequestDto {
         this.toeflRecordsPresent = true;
     }
 
+    public List<StudentIeltsRecordDto> getDuolingoRecords() {
+        return duolingoRecords;
+    }
+
+    @JsonSetter("duolingoRecords")
+    public void setDuolingoRecords(List<StudentIeltsRecordDto> duolingoRecords) {
+        this.duolingoRecords = duolingoRecords;
+        this.duolingoRecordsPresent = true;
+    }
+
     @JsonIgnore
     public boolean isLanguageTrackingManualStatusPresent() {
         return languageTrackingManualStatusPresent;
@@ -68,5 +80,10 @@ public class StudentIeltsRecordsUpdateRequestDto {
     @JsonIgnore
     public boolean isToeflRecordsPresent() {
         return toeflRecordsPresent;
+    }
+
+    @JsonIgnore
+    public boolean isDuolingoRecordsPresent() {
+        return duolingoRecordsPresent;
     }
 }
