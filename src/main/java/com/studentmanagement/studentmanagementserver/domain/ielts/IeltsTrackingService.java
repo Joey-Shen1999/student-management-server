@@ -49,16 +49,30 @@ public class IeltsTrackingService {
     private static final int VALIDITY_ANCHOR_MONTH = 5;
     private static final int VALIDITY_ANCHOR_DAY = 31;
     private static final int VALIDITY_ROLLING_YEARS = 2;
-    private static final double STRICT_MIN_OVERALL = 7.0d;
-    private static final double STRICT_MIN_LISTENING = 6.5d;
-    private static final double STRICT_MIN_READING = 6.5d;
-    private static final double STRICT_MIN_WRITING = 6.5d;
-    private static final double STRICT_MIN_SPEAKING = 6.5d;
-    private static final double COMMON_MIN_OVERALL = 6.5d;
-    private static final double COMMON_MIN_LISTENING = 6.0d;
-    private static final double COMMON_MIN_READING = 6.0d;
-    private static final double COMMON_MIN_WRITING = 6.0d;
-    private static final double COMMON_MIN_SPEAKING = 6.0d;
+    private static final double IELTS_STRICT_MIN_OVERALL = 7.0d;
+    private static final double IELTS_STRICT_MIN_LISTENING = 6.5d;
+    private static final double IELTS_STRICT_MIN_READING = 6.5d;
+    private static final double IELTS_STRICT_MIN_WRITING = 6.5d;
+    private static final double IELTS_STRICT_MIN_SPEAKING = 6.5d;
+    private static final double IELTS_COMMON_MIN_OVERALL = 6.5d;
+    private static final double IELTS_COMMON_MIN_LISTENING = 6.0d;
+    private static final double IELTS_COMMON_MIN_READING = 6.0d;
+    private static final double IELTS_COMMON_MIN_WRITING = 6.0d;
+    private static final double IELTS_COMMON_MIN_SPEAKING = 6.0d;
+    private static final double TOEFL_STRICT_MIN_OVERALL = 5.0d;
+    private static final double TOEFL_STRICT_MIN_LISTENING = 4.5d;
+    private static final double TOEFL_STRICT_MIN_READING = 4.5d;
+    private static final double TOEFL_STRICT_MIN_WRITING = 4.5d;
+    private static final double TOEFL_STRICT_MIN_SPEAKING = 4.5d;
+    private static final double TOEFL_COMMON_MIN_OVERALL = 4.5d;
+    private static final double TOEFL_COMMON_MIN_LISTENING = 4.0d;
+    private static final double TOEFL_COMMON_MIN_READING = 4.0d;
+    private static final double TOEFL_COMMON_MIN_WRITING = 4.0d;
+    private static final double TOEFL_COMMON_MIN_SPEAKING = 4.0d;
+    private static final double IELTS_MIN_SCORE = 0.0d;
+    private static final double IELTS_MAX_SCORE = 9.0d;
+    private static final double TOEFL_MIN_SCORE = 1.0d;
+    private static final double TOEFL_MAX_SCORE = 6.0d;
     private static final String LANGUAGE_RISK_FLAG_RISK = "RISK";
     private static final String LANGUAGE_RISK_FLAG_LOW_RISK = "LOW_RISK";
     private static final String PROFILE_COMPLETENESS_COMPLETE = "COMPLETE";
@@ -112,12 +126,16 @@ public class IeltsTrackingService {
                                                                   HttpServletRequest request) {
         CurrentStudentContext context = requireCurrentStudentContext(request);
         Student student = context.student;
-        RecordsUpdate normalized = normalizeRecordsUpdateRequest(requestBody);
+        StudentIeltsModule existingModule = studentIeltsModuleRepository.findByStudent_Id(student.getId()).orElse(null);
+        LanguageScoreType existingLanguageScoreType =
+                resolveLanguageScoreType(existingModule == null ? null : existingModule.getLanguageScoreType());
+        RecordsUpdate normalized = normalizeRecordsUpdateRequest(requestBody, existingLanguageScoreType);
         return saveModuleState(
                 student,
                 normalized.hasTakenIeltsAcademic,
                 normalized.preparationIntent,
                 normalized.records,
+                normalized.languageScoreType,
                 true,
                 null,
                 true,
@@ -132,12 +150,16 @@ public class IeltsTrackingService {
             HttpServletRequest request) {
         CurrentStudentContext context = requireCurrentStudentContext(request);
         Student student = context.student;
-        PreparationIntentUpdate normalized = normalizePreparationIntentUpdateRequest(requestBody);
+        StudentIeltsModule existingModule = studentIeltsModuleRepository.findByStudent_Id(student.getId()).orElse(null);
+        LanguageScoreType existingLanguageScoreType =
+                resolveLanguageScoreType(existingModule == null ? null : existingModule.getLanguageScoreType());
+        PreparationIntentUpdate normalized = normalizePreparationIntentUpdateRequest(requestBody, existingLanguageScoreType);
         return saveModuleState(
                 student,
                 normalized.hasTakenIeltsAcademic,
                 normalized.preparationIntent,
                 Collections.<NormalizedRecord>emptyList(),
+                normalized.languageScoreType,
                 !normalized.hasTakenIeltsAcademic,
                 null,
                 true,
@@ -159,12 +181,16 @@ public class IeltsTrackingService {
                                                                  HttpServletRequest request) {
         TeacherStudentContext context = requireTeacherAccessibleStudentContext(studentId, request);
         Student student = context.student;
-        TeacherUpdate normalized = normalizeTeacherUpdateRequest(requestBody);
+        StudentIeltsModule existingModule = studentIeltsModuleRepository.findByStudent_Id(student.getId()).orElse(null);
+        LanguageScoreType existingLanguageScoreType =
+                resolveLanguageScoreType(existingModule == null ? null : existingModule.getLanguageScoreType());
+        TeacherUpdate normalized = normalizeTeacherUpdateRequest(requestBody, existingLanguageScoreType);
         return saveModuleState(
                 student,
                 normalized.hasTakenIeltsAcademic,
                 normalized.preparationIntent,
                 normalized.records,
+                normalized.languageScoreType,
                 normalized.overwriteRecords,
                 normalized.languageTrackingManualStatus,
                 normalized.overwriteLanguageTrackingManualStatus,
@@ -204,6 +230,7 @@ public class IeltsTrackingService {
         StudentIeltsLanguageRiskDto languageRisk = moduleState.getLanguageRisk();
         return new StudentIeltsSummaryDto(
                 moduleState.getStudentId(),
+                moduleState.getLanguageScoreType(),
                 languageRisk != null && languageRisk.isShouldShowIeltsModule(),
                 moduleState.isHasTakenIeltsAcademic(),
                 moduleState.getPreparationIntent(),
@@ -214,6 +241,7 @@ public class IeltsTrackingService {
                 moduleState.getTrackingStatus(),
                 moduleState.getLanguageTrackingStatus(),
                 new IeltsSummarySnapshotDto(
+                        moduleState.getLanguageScoreType(),
                         moduleState.getTrackingStatus(),
                         moduleState.getLanguageTrackingStatus()
                 )
@@ -224,6 +252,7 @@ public class IeltsTrackingService {
                                                        boolean hasTakenIeltsAcademic,
                                                        IeltsPreparationIntent preparationIntent,
                                                        List<NormalizedRecord> records,
+                                                       LanguageScoreType languageScoreType,
                                                        boolean overwriteRecords,
                                                        LanguageTrackingManualStatus languageTrackingManualStatus,
                                                        boolean overwriteLanguageTrackingManualStatus,
@@ -233,6 +262,7 @@ public class IeltsTrackingService {
                 .orElseGet(() -> new StudentIeltsModule(student));
 
         module.updateState(hasTakenIeltsAcademic, preparationIntent);
+        module.updateLanguageScoreType(resolveLanguageScoreType(languageScoreType));
         if (overwriteLanguageTrackingManualStatus) {
             applyLanguageTrackingManualStatus(module, languageTrackingManualStatus, operator, manualStatusChangeSource);
         }
@@ -246,7 +276,31 @@ public class IeltsTrackingService {
             }
         }
 
+        updateAndPersistDerivedStatuses(student, module);
         return buildModuleState(student, module);
+    }
+
+    private void updateAndPersistDerivedStatuses(Student student, StudentIeltsModule module) {
+        if (student == null || module == null || module.getId() == null) {
+            return;
+        }
+
+        List<StudentIeltsRecord> records =
+                studentIeltsRecordRepository.findByIeltsModule_IdOrderByTestDateDescIdDesc(module.getId());
+        List<StudentSchoolRecord> schoolRecords =
+                studentSchoolRecordRepository.findByStudent_IdOrderByIdAsc(student.getId());
+        Integer graduationYear = resolveGraduationYear(schoolRecords);
+        LanguageScoreType languageScoreType = resolveLanguageScoreType(module.getLanguageScoreType());
+        IeltsTrackingStatus trackingStatus = deriveIeltsTrackingStatus(
+                module.isHasTakenIeltsAcademic(),
+                languageScoreType,
+                graduationYear,
+                records
+        );
+        LanguageTrackingStatus languageTrackingStatus =
+                deriveLanguageTrackingStatus(trackingStatus, module.getLanguageTrackingManualStatus());
+        module.updateDerivedStatuses(trackingStatus, languageTrackingStatus);
+        studentIeltsModuleRepository.save(module);
     }
 
     private void overwriteIeltsRecords(StudentIeltsModule module, List<NormalizedRecord> normalizedRecords) {
@@ -312,16 +366,16 @@ public class IeltsTrackingService {
         StudentProfile profile = studentProfileRepository.findByStudent_Id(student.getId()).orElse(null);
         List<StudentSchoolRecord> schoolRecords = studentSchoolRecordRepository.findByStudent_IdOrderByIdAsc(student.getId());
 
-        StudentSchoolRecord primarySchool = findPrimarySchool(schoolRecords);
-        Integer graduationYear = primarySchool == null || primarySchool.getEndTime() == null
-                ? null
-                : primarySchool.getEndTime().getYear();
+        Integer graduationYear = resolveGraduationYear(schoolRecords);
         StudentIeltsLanguageRiskDto languageRisk = buildLanguageRisk(profile, schoolRecords, graduationYear);
 
         boolean hasTakenIeltsAcademic = module != null && module.isHasTakenIeltsAcademic();
+        LanguageScoreType languageScoreType =
+                resolveLanguageScoreType(module == null ? null : module.getLanguageScoreType());
         LanguageTrackingManualStatus languageTrackingManualStatus =
                 module == null ? null : module.getLanguageTrackingManualStatus();
-        IeltsTrackingStatus trackingStatus = deriveIeltsTrackingStatus(hasTakenIeltsAcademic, graduationYear, records);
+        IeltsTrackingStatus trackingStatus =
+                deriveIeltsTrackingStatus(hasTakenIeltsAcademic, languageScoreType, graduationYear, records);
         LanguageTrackingStatus languageTrackingStatus =
                 deriveLanguageTrackingStatus(trackingStatus, languageTrackingManualStatus);
 
@@ -329,6 +383,7 @@ public class IeltsTrackingService {
         return new StudentIeltsModuleStateDto(
                 student.getId(),
                 graduationYear,
+                languageScoreType.name(),
                 hasTakenIeltsAcademic,
                 module == null || module.getPreparationIntent() == null
                         ? IeltsPreparationIntent.UNSET.name()
@@ -336,10 +391,23 @@ public class IeltsTrackingService {
                 languageTrackingManualStatus == null ? null : languageTrackingManualStatus.name(),
                 trackingStatus.name(),
                 languageTrackingStatus.name(),
+                new IeltsSummarySnapshotDto(
+                        languageScoreType.name(),
+                        trackingStatus.name(),
+                        languageTrackingStatus.name()
+                ),
                 recordDtos,
                 languageRisk,
                 updatedAt
         );
+    }
+
+    private Integer resolveGraduationYear(List<StudentSchoolRecord> schoolRecords) {
+        StudentSchoolRecord primarySchool = findPrimarySchool(schoolRecords);
+        if (primarySchool == null || primarySchool.getEndTime() == null) {
+            return null;
+        }
+        return Integer.valueOf(primarySchool.getEndTime().getYear());
     }
 
     private StudentIeltsLanguageRiskDto buildLanguageRisk(StudentProfile profile,
@@ -526,6 +594,7 @@ public class IeltsTrackingService {
     }
 
     private IeltsTrackingStatus deriveIeltsTrackingStatus(boolean hasTakenIeltsAcademic,
+                                                          LanguageScoreType languageScoreType,
                                                           Integer graduationYear,
                                                           List<StudentIeltsRecord> records) {
         if (!hasTakenIeltsAcademic) {
@@ -535,23 +604,53 @@ public class IeltsTrackingService {
         if (latestValidRecord == null) {
             return IeltsTrackingStatus.YELLOW_NEEDS_PREPARATION;
         }
+        LanguageScoreType resolvedLanguageScoreType = resolveLanguageScoreType(languageScoreType);
+
+        if (resolvedLanguageScoreType == LanguageScoreType.TOEFL) {
+            if (matchesThreshold(
+                    latestValidRecord,
+                    resolvedLanguageScoreType,
+                    TOEFL_STRICT_MIN_OVERALL,
+                    TOEFL_STRICT_MIN_LISTENING,
+                    TOEFL_STRICT_MIN_READING,
+                    TOEFL_STRICT_MIN_WRITING,
+                    TOEFL_STRICT_MIN_SPEAKING
+            )) {
+                return IeltsTrackingStatus.GREEN_STRICT_PASS;
+            }
+            if (matchesThreshold(
+                    latestValidRecord,
+                    resolvedLanguageScoreType,
+                    TOEFL_COMMON_MIN_OVERALL,
+                    TOEFL_COMMON_MIN_LISTENING,
+                    TOEFL_COMMON_MIN_READING,
+                    TOEFL_COMMON_MIN_WRITING,
+                    TOEFL_COMMON_MIN_SPEAKING
+            )) {
+                return IeltsTrackingStatus.GREEN_COMMON_PASS_WITH_WARNING;
+            }
+            return IeltsTrackingStatus.YELLOW_NEEDS_PREPARATION;
+        }
+
         if (matchesThreshold(
                 latestValidRecord,
-                STRICT_MIN_OVERALL,
-                STRICT_MIN_LISTENING,
-                STRICT_MIN_READING,
-                STRICT_MIN_WRITING,
-                STRICT_MIN_SPEAKING
+                resolvedLanguageScoreType,
+                IELTS_STRICT_MIN_OVERALL,
+                IELTS_STRICT_MIN_LISTENING,
+                IELTS_STRICT_MIN_READING,
+                IELTS_STRICT_MIN_WRITING,
+                IELTS_STRICT_MIN_SPEAKING
         )) {
             return IeltsTrackingStatus.GREEN_STRICT_PASS;
         }
         if (matchesThreshold(
                 latestValidRecord,
-                COMMON_MIN_OVERALL,
-                COMMON_MIN_LISTENING,
-                COMMON_MIN_READING,
-                COMMON_MIN_WRITING,
-                COMMON_MIN_SPEAKING
+                resolvedLanguageScoreType,
+                IELTS_COMMON_MIN_OVERALL,
+                IELTS_COMMON_MIN_LISTENING,
+                IELTS_COMMON_MIN_READING,
+                IELTS_COMMON_MIN_WRITING,
+                IELTS_COMMON_MIN_SPEAKING
         )) {
             return IeltsTrackingStatus.GREEN_COMMON_PASS_WITH_WARNING;
         }
@@ -628,6 +727,7 @@ public class IeltsTrackingService {
     }
 
     private boolean matchesThreshold(StudentIeltsRecord record,
+                                     LanguageScoreType languageScoreType,
                                      double minimumOverall,
                                      double minimumListening,
                                      double minimumReading,
@@ -637,7 +737,7 @@ public class IeltsTrackingService {
             return false;
         }
 
-        Double overall = calculateOverallBandForTracking(record);
+        Double overall = calculateOverallBandForTracking(record, languageScoreType);
         if (overall == null || overall.doubleValue() < minimumOverall) {
             return false;
         }
@@ -648,11 +748,15 @@ public class IeltsTrackingService {
                 && record.getSpeaking() >= minimumSpeaking;
     }
 
-    private Double calculateOverallBandForTracking(StudentIeltsRecord record) {
+    private Double calculateOverallBandForTracking(StudentIeltsRecord record, LanguageScoreType languageScoreType) {
         if (record == null) {
             return null;
         }
+        LanguageScoreType resolvedLanguageScoreType = resolveLanguageScoreType(languageScoreType);
         double average = (record.getListening() + record.getReading() + record.getWriting() + record.getSpeaking()) / 4.0d;
+        if (resolvedLanguageScoreType == LanguageScoreType.TOEFL) {
+            return Math.round(average * 10.0d) / 10.0d;
+        }
         double roundedHalfStep = Math.round(average * 2.0d) / 2.0d;
         return Math.round(roundedHalfStep * 10.0d) / 10.0d;
     }
@@ -735,7 +839,8 @@ public class IeltsTrackingService {
         return Math.round(average * 10.0d) / 10.0d;
     }
 
-    private RecordsUpdate normalizeRecordsUpdateRequest(StudentIeltsRecordsUpdateRequestDto requestBody) {
+    private RecordsUpdate normalizeRecordsUpdateRequest(StudentIeltsRecordsUpdateRequestDto requestBody,
+                                                        LanguageScoreType existingLanguageScoreType) {
         if (requestBody == null) {
             throw validationFailed(Collections.singletonList("request body is required"));
         }
@@ -749,7 +854,25 @@ public class IeltsTrackingService {
             details.add("hasTakenIeltsAcademic is required");
         }
 
-        List<NormalizedRecord> records = normalizeRecords(requestBody.getRecords(), "records", details);
+        LanguageScoreType languageScoreType = resolveRequestedLanguageScoreType(
+                requestBody.getLanguageScoreType(),
+                existingLanguageScoreType,
+                requestBody.isToeflRecordsPresent(),
+                "languageScoreType",
+                details
+        );
+        List<StudentIeltsRecordDto> rawRecords = resolveRequestedRecords(
+                languageScoreType,
+                requestBody.getRecords(),
+                requestBody.getToeflRecords(),
+                requestBody.isToeflRecordsPresent()
+        );
+        List<NormalizedRecord> records = normalizeRecords(
+                rawRecords,
+                resolveRequestedRecordsFieldPath(languageScoreType, requestBody.isToeflRecordsPresent()),
+                languageScoreType,
+                details
+        );
         if (Boolean.FALSE.equals(hasTaken) && !records.isEmpty()) {
             details.add("records must be empty when hasTakenIeltsAcademic is false");
         }
@@ -757,11 +880,12 @@ public class IeltsTrackingService {
             throw validationFailed(details);
         }
 
-        return new RecordsUpdate(hasTaken.booleanValue(), IeltsPreparationIntent.UNSET, records);
+        return new RecordsUpdate(hasTaken.booleanValue(), IeltsPreparationIntent.UNSET, records, languageScoreType);
     }
 
     private PreparationIntentUpdate normalizePreparationIntentUpdateRequest(
-            StudentIeltsPreparationIntentUpdateRequestDto requestBody) {
+            StudentIeltsPreparationIntentUpdateRequestDto requestBody,
+            LanguageScoreType existingLanguageScoreType) {
         if (requestBody == null) {
             throw validationFailed(Collections.singletonList("request body is required"));
         }
@@ -774,6 +898,13 @@ public class IeltsTrackingService {
         if (hasTaken == null) {
             details.add("hasTakenIeltsAcademic is required");
         }
+        LanguageScoreType languageScoreType = resolveRequestedLanguageScoreType(
+                requestBody.getLanguageScoreType(),
+                existingLanguageScoreType,
+                false,
+                "languageScoreType",
+                details
+        );
         IeltsPreparationIntent preparationIntent =
                 parsePreparationIntent(requestBody.getPreparationIntent(), "preparationIntent", true, details);
 
@@ -787,10 +918,11 @@ public class IeltsTrackingService {
         IeltsPreparationIntent normalizedIntent = hasTaken.booleanValue()
                 ? IeltsPreparationIntent.UNSET
                 : preparationIntent;
-        return new PreparationIntentUpdate(hasTaken.booleanValue(), normalizedIntent);
+        return new PreparationIntentUpdate(hasTaken.booleanValue(), normalizedIntent, languageScoreType);
     }
 
-    private TeacherUpdate normalizeTeacherUpdateRequest(TeacherIeltsModuleUpdateRequestDto requestBody) {
+    private TeacherUpdate normalizeTeacherUpdateRequest(TeacherIeltsModuleUpdateRequestDto requestBody,
+                                                        LanguageScoreType existingLanguageScoreType) {
         if (requestBody == null) {
             throw validationFailed(Collections.singletonList("request body is required"));
         }
@@ -809,6 +941,13 @@ public class IeltsTrackingService {
         if (hasTaken == null) {
             details.add("hasTakenIeltsAcademic is required");
         }
+        LanguageScoreType languageScoreType = resolveRequestedLanguageScoreType(
+                requestBody.getLanguageScoreType(),
+                existingLanguageScoreType,
+                requestBody.isToeflRecordsPresent(),
+                "languageScoreType",
+                details
+        );
 
         if (hasTaken == null) {
             throw validationFailed(details);
@@ -821,9 +960,20 @@ public class IeltsTrackingService {
                 details.add("preparationIntent must be UNSET when hasTakenIeltsAcademic is true");
             }
 
-            List<NormalizedRecord> records = requestBody.getRecords() == null
+            List<StudentIeltsRecordDto> rawRecords = resolveRequestedRecords(
+                    languageScoreType,
+                    requestBody.getRecords(),
+                    requestBody.getToeflRecords(),
+                    requestBody.isToeflRecordsPresent()
+            );
+            List<NormalizedRecord> records = rawRecords == null
                     ? Collections.<NormalizedRecord>emptyList()
-                    : normalizeRecords(requestBody.getRecords(), "records", details);
+                    : normalizeRecords(
+                    rawRecords,
+                    resolveRequestedRecordsFieldPath(languageScoreType, requestBody.isToeflRecordsPresent()),
+                    languageScoreType,
+                    details
+            );
             if (!details.isEmpty()) {
                 throw validationFailed(details);
             }
@@ -831,13 +981,25 @@ public class IeltsTrackingService {
                     true,
                     IeltsPreparationIntent.UNSET,
                     records,
-                    requestBody.getRecords() != null,
+                    rawRecords != null,
                     languageTrackingManualStatus,
-                    overwriteLanguageTrackingManualStatus
+                    overwriteLanguageTrackingManualStatus,
+                    languageScoreType
             );
         }
 
-        List<NormalizedRecord> records = normalizeRecords(requestBody.getRecords(), "records", details);
+        List<StudentIeltsRecordDto> rawRecords = resolveRequestedRecords(
+                languageScoreType,
+                requestBody.getRecords(),
+                requestBody.getToeflRecords(),
+                requestBody.isToeflRecordsPresent()
+        );
+        List<NormalizedRecord> records = normalizeRecords(
+                rawRecords,
+                resolveRequestedRecordsFieldPath(languageScoreType, requestBody.isToeflRecordsPresent()),
+                languageScoreType,
+                details
+        );
         if (!records.isEmpty()) {
             details.add("records must be empty when hasTakenIeltsAcademic is false");
         }
@@ -852,15 +1014,61 @@ public class IeltsTrackingService {
                 Collections.<NormalizedRecord>emptyList(),
                 true,
                 languageTrackingManualStatus,
-                overwriteLanguageTrackingManualStatus
+                overwriteLanguageTrackingManualStatus,
+                languageScoreType
         );
+    }
+
+    private LanguageScoreType resolveRequestedLanguageScoreType(String rawLanguageScoreType,
+                                                                LanguageScoreType fallbackLanguageScoreType,
+                                                                boolean toeflRecordsPresent,
+                                                                String fieldPath,
+                                                                List<String> details) {
+        String normalizedRaw = trimToNull(rawLanguageScoreType);
+        if (normalizedRaw != null) {
+            try {
+                return LanguageScoreType.valueOf(normalizedRaw.toUpperCase(Locale.ROOT));
+            } catch (IllegalArgumentException ex) {
+                details.add(fieldPath + " invalid");
+                return resolveLanguageScoreType(fallbackLanguageScoreType);
+            }
+        }
+        if (toeflRecordsPresent) {
+            return LanguageScoreType.TOEFL;
+        }
+        return resolveLanguageScoreType(fallbackLanguageScoreType);
+    }
+
+    private LanguageScoreType resolveLanguageScoreType(LanguageScoreType languageScoreType) {
+        return languageScoreType == null ? LanguageScoreType.IELTS : languageScoreType;
+    }
+
+    private List<StudentIeltsRecordDto> resolveRequestedRecords(LanguageScoreType languageScoreType,
+                                                                List<StudentIeltsRecordDto> records,
+                                                                List<StudentIeltsRecordDto> toeflRecords,
+                                                                boolean toeflRecordsPresent) {
+        if (resolveLanguageScoreType(languageScoreType) == LanguageScoreType.TOEFL) {
+            if (toeflRecordsPresent) {
+                return toeflRecords;
+            }
+            return records;
+        }
+        return records;
+    }
+
+    private String resolveRequestedRecordsFieldPath(LanguageScoreType languageScoreType, boolean toeflRecordsPresent) {
+        if (resolveLanguageScoreType(languageScoreType) == LanguageScoreType.TOEFL && toeflRecordsPresent) {
+            return "toeflRecords";
+        }
+        return "records";
     }
 
     private List<NormalizedRecord> normalizeRecords(List<StudentIeltsRecordDto> rawRecords,
                                                     String fieldPath,
+                                                    LanguageScoreType languageScoreType,
                                                     List<String> details) {
         if (rawRecords == null || rawRecords.isEmpty()) {
-            return Collections.emptyList();
+            return Collections.<NormalizedRecord>emptyList();
         }
 
         List<NormalizedRecord> normalizedRecords = new ArrayList<NormalizedRecord>(rawRecords.size());
@@ -883,10 +1091,10 @@ public class IeltsTrackingService {
             }
 
             LocalDate testDate = parseDate(rawRecord.getTestDate(), itemPath + ".testDate", details);
-            Double listening = normalizeBand(rawRecord.getListening(), itemPath + ".listening", details);
-            Double reading = normalizeBand(rawRecord.getReading(), itemPath + ".reading", details);
-            Double writing = normalizeBand(rawRecord.getWriting(), itemPath + ".writing", details);
-            Double speaking = normalizeBand(rawRecord.getSpeaking(), itemPath + ".speaking", details);
+            Double listening = normalizeBand(rawRecord.getListening(), itemPath + ".listening", languageScoreType, details);
+            Double reading = normalizeBand(rawRecord.getReading(), itemPath + ".reading", languageScoreType, details);
+            Double writing = normalizeBand(rawRecord.getWriting(), itemPath + ".writing", languageScoreType, details);
+            Double speaking = normalizeBand(rawRecord.getSpeaking(), itemPath + ".speaking", languageScoreType, details);
 
             if (recordId == null || testDate == null || listening == null || reading == null || writing == null || speaking == null) {
                 continue;
@@ -956,14 +1164,20 @@ public class IeltsTrackingService {
         }
     }
 
-    private Double normalizeBand(Double rawBand, String fieldPath, List<String> details) {
+    private Double normalizeBand(Double rawBand,
+                                 String fieldPath,
+                                 LanguageScoreType languageScoreType,
+                                 List<String> details) {
         if (rawBand == null) {
             details.add(fieldPath + " is required");
             return null;
         }
         double value = rawBand.doubleValue();
-        if (value < 0.0d || value > 9.0d) {
-            details.add(fieldPath + " must be between 0.0 and 9.0");
+        LanguageScoreType resolvedLanguageScoreType = resolveLanguageScoreType(languageScoreType);
+        double min = resolvedLanguageScoreType == LanguageScoreType.TOEFL ? TOEFL_MIN_SCORE : IELTS_MIN_SCORE;
+        double max = resolvedLanguageScoreType == LanguageScoreType.TOEFL ? TOEFL_MAX_SCORE : IELTS_MAX_SCORE;
+        if (value < min || value > max) {
+            details.add(fieldPath + " must be between " + min + " and " + max);
             return null;
         }
         if (!isHalfStep(value)) {
@@ -1073,24 +1287,30 @@ public class IeltsTrackingService {
         private final boolean hasTakenIeltsAcademic;
         private final IeltsPreparationIntent preparationIntent;
         private final List<NormalizedRecord> records;
+        private final LanguageScoreType languageScoreType;
 
         private RecordsUpdate(boolean hasTakenIeltsAcademic,
                               IeltsPreparationIntent preparationIntent,
-                              List<NormalizedRecord> records) {
+                              List<NormalizedRecord> records,
+                              LanguageScoreType languageScoreType) {
             this.hasTakenIeltsAcademic = hasTakenIeltsAcademic;
             this.preparationIntent = preparationIntent;
             this.records = records;
+            this.languageScoreType = languageScoreType;
         }
     }
 
     private static class PreparationIntentUpdate {
         private final boolean hasTakenIeltsAcademic;
         private final IeltsPreparationIntent preparationIntent;
+        private final LanguageScoreType languageScoreType;
 
         private PreparationIntentUpdate(boolean hasTakenIeltsAcademic,
-                                        IeltsPreparationIntent preparationIntent) {
+                                        IeltsPreparationIntent preparationIntent,
+                                        LanguageScoreType languageScoreType) {
             this.hasTakenIeltsAcademic = hasTakenIeltsAcademic;
             this.preparationIntent = preparationIntent;
+            this.languageScoreType = languageScoreType;
         }
     }
 
@@ -1101,19 +1321,22 @@ public class IeltsTrackingService {
         private final boolean overwriteRecords;
         private final LanguageTrackingManualStatus languageTrackingManualStatus;
         private final boolean overwriteLanguageTrackingManualStatus;
+        private final LanguageScoreType languageScoreType;
 
         private TeacherUpdate(boolean hasTakenIeltsAcademic,
                               IeltsPreparationIntent preparationIntent,
                               List<NormalizedRecord> records,
                               boolean overwriteRecords,
                               LanguageTrackingManualStatus languageTrackingManualStatus,
-                              boolean overwriteLanguageTrackingManualStatus) {
+                              boolean overwriteLanguageTrackingManualStatus,
+                              LanguageScoreType languageScoreType) {
             this.hasTakenIeltsAcademic = hasTakenIeltsAcademic;
             this.preparationIntent = preparationIntent;
             this.records = records;
             this.overwriteRecords = overwriteRecords;
             this.languageTrackingManualStatus = languageTrackingManualStatus;
             this.overwriteLanguageTrackingManualStatus = overwriteLanguageTrackingManualStatus;
+            this.languageScoreType = languageScoreType;
         }
     }
 

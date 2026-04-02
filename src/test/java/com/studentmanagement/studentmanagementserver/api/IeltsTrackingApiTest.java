@@ -81,11 +81,15 @@ class IeltsTrackingApiTest {
                         .header("Authorization", bearerFor(student.getUser())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.studentId").value(student.getId()))
+                .andExpect(jsonPath("$.languageScoreType").value("IELTS"))
                 .andExpect(jsonPath("$.hasTakenIeltsAcademic").value(false))
                 .andExpect(jsonPath("$.preparationIntent").value("UNSET"))
                 .andExpect(jsonPath("$.languageTrackingManualStatus").value(nullValue()))
                 .andExpect(jsonPath("$.trackingStatus").value("YELLOW_NEEDS_PREPARATION"))
                 .andExpect(jsonPath("$.languageTrackingStatus").value("NEEDS_TRACKING"))
+                .andExpect(jsonPath("$.summary.languageScoreType").value("IELTS"))
+                .andExpect(jsonPath("$.summary.trackingStatus").value("YELLOW_NEEDS_PREPARATION"))
+                .andExpect(jsonPath("$.summary.languageTrackingStatus").value("NEEDS_TRACKING"))
                 .andExpect(jsonPath("$.records.length()").value(0))
                 .andExpect(jsonPath("$.languageRisk.shouldShowIeltsModule").value(true))
                 .andExpect(jsonPath("$.languageRisk.languageRiskFlag").value("RISK"));
@@ -103,6 +107,7 @@ class IeltsTrackingApiTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.studentId").value(student.getId()))
                 .andExpect(jsonPath("$.graduationYear").value(2027))
+                .andExpect(jsonPath("$.languageScoreType").value("IELTS"))
                 .andExpect(jsonPath("$.hasTakenIeltsAcademic").value(true))
                 .andExpect(jsonPath("$.preparationIntent").value("UNSET"))
                 .andExpect(jsonPath("$.records.length()").value(1))
@@ -112,6 +117,7 @@ class IeltsTrackingApiTest {
         mockMvc.perform(get("/api/student/ielts-module")
                         .header("Authorization", bearerFor(student.getUser())))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.languageScoreType").value("IELTS"))
                 .andExpect(jsonPath("$.hasTakenIeltsAcademic").value(true))
                 .andExpect(jsonPath("$.records.length()").value(1))
                 .andExpect(jsonPath("$.records[0].recordId").value("r-1"));
@@ -198,21 +204,25 @@ class IeltsTrackingApiTest {
                         .content(teacherModulePayload(false, "NOT_PREPARING")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.studentId").value(student.getId()))
+                .andExpect(jsonPath("$.languageScoreType").value("IELTS"))
                 .andExpect(jsonPath("$.preparationIntent").value("NOT_PREPARING"));
 
         mockMvc.perform(get("/api/teacher/students/{studentId}/ielts-module", student.getId())
                         .header("Authorization", bearerFor(teacher.getUser())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.studentId").value(student.getId()))
+                .andExpect(jsonPath("$.languageScoreType").value("IELTS"))
                 .andExpect(jsonPath("$.preparationIntent").value("NOT_PREPARING"));
 
         mockMvc.perform(get("/api/teacher/students/{studentId}/ielts-summary", student.getId())
                         .header("Authorization", bearerFor(teacher.getUser())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.studentId").value(student.getId()))
+                .andExpect(jsonPath("$.languageScoreType").value("IELTS"))
                 .andExpect(jsonPath("$.recordCount").value(0))
                 .andExpect(jsonPath("$.preparationIntent").value("NOT_PREPARING"))
                 .andExpect(jsonPath("$.languageTrackingStatus").value("NEEDS_TRACKING"))
+                .andExpect(jsonPath("$.summary.languageScoreType").value("IELTS"))
                 .andExpect(jsonPath("$.summary.languageTrackingStatus").value("NEEDS_TRACKING"));
     }
 
@@ -389,6 +399,232 @@ class IeltsTrackingApiTest {
                 .andExpect(jsonPath("$.languageTrackingStatus").value("AUTO_PASS_PARTIAL_SCHOOLS"));
     }
 
+    @Test
+    void studentUpdateToeflRecords_persistsLanguageScoreTypeAndUsesToeflRecordsFirst() throws Exception {
+        Teacher teacher = createTeacherAccount("ielts_teacher_toefl_priority", "IELTS Teacher TOEFL Priority");
+        Student student = createStudentAccount("ielts_student_toefl_priority", "TOEFL", "Priority", "Priority");
+        assignTeacherStudent(teacher, student, TeacherStudentStatus.ACTIVE);
+        saveProfileAndSchool(
+                student,
+                "Chinese",
+                "China",
+                LocalDate.of(2023, 9, 1),
+                LocalDate.of(2027, 6, 30),
+                "Canada"
+        );
+
+        Map<String, Object> invalidFallbackRecord = createRecord("ignored-record", "2025-10-12", 7.0d, 7.0d, 7.0d, 7.0d);
+        Map<String, Object> toeflRecord = createRecord("toefl-record", "2025-10-12", 5.0d, 5.0d, 5.0d, 5.0d);
+
+        Map<String, Object> payload = new LinkedHashMap<String, Object>();
+        payload.put("hasTakenIeltsAcademic", true);
+        payload.put("test_type", "TOEFL");
+        payload.put("records", Arrays.asList(invalidFallbackRecord));
+        payload.put("toeflRecords", Arrays.asList(toeflRecord));
+
+        mockMvc.perform(put("/api/student/ielts-module/records")
+                        .header("Authorization", bearerFor(student.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.languageScoreType").value("TOEFL"))
+                .andExpect(jsonPath("$.trackingStatus").value("GREEN_STRICT_PASS"))
+                .andExpect(jsonPath("$.records[0].recordId").value("toefl-record"));
+
+        mockMvc.perform(get("/api/student/ielts-module")
+                        .header("Authorization", bearerFor(student.getUser())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.languageScoreType").value("TOEFL"))
+                .andExpect(jsonPath("$.trackingStatus").value("GREEN_STRICT_PASS"))
+                .andExpect(jsonPath("$.summary.languageScoreType").value("TOEFL"))
+                .andExpect(jsonPath("$.summary.trackingStatus").value("GREEN_STRICT_PASS"));
+
+        mockMvc.perform(get("/api/teacher/students/{studentId}/ielts-module", student.getId())
+                        .header("Authorization", bearerFor(teacher.getUser())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.languageScoreType").value("TOEFL"))
+                .andExpect(jsonPath("$.trackingStatus").value("GREEN_STRICT_PASS"))
+                .andExpect(jsonPath("$.summary.languageScoreType").value("TOEFL"));
+
+        mockMvc.perform(get("/api/teacher/students/{studentId}/ielts-summary", student.getId())
+                        .header("Authorization", bearerFor(teacher.getUser())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.languageScoreType").value("TOEFL"))
+                .andExpect(jsonPath("$.trackingStatus").value("GREEN_STRICT_PASS"))
+                .andExpect(jsonPath("$.summary.languageScoreType").value("TOEFL"))
+                .andExpect(jsonPath("$.summary.languageTrackingStatus").value("AUTO_PASS_ALL_SCHOOLS"));
+    }
+
+    @Test
+    void teacherUpdateToeflRecords_thresholdsStrictCommonYellow() throws Exception {
+        Teacher teacher = createTeacherAccount("ielts_teacher_toefl_thresholds", "IELTS Teacher TOEFL Thresholds");
+        Student student = createStudentAccount("ielts_student_toefl_thresholds", "TOEFL", "Thresholds", "Thresholds");
+        assignTeacherStudent(teacher, student, TeacherStudentStatus.ACTIVE);
+        saveProfileAndSchool(
+                student,
+                "Chinese",
+                "China",
+                LocalDate.of(2023, 9, 1),
+                LocalDate.of(2027, 6, 30),
+                "Canada"
+        );
+
+        Map<String, Object> strictPayload = new LinkedHashMap<String, Object>();
+        strictPayload.put("hasTakenIeltsAcademic", true);
+        strictPayload.put("testType", "TOEFL");
+        strictPayload.put("records", Arrays.asList(createRecord("toefl-strict", "2025-10-12", 5.0d, 5.0d, 5.0d, 5.0d)));
+
+        mockMvc.perform(put("/api/teacher/students/{studentId}/ielts-module", student.getId())
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(strictPayload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.languageScoreType").value("TOEFL"))
+                .andExpect(jsonPath("$.trackingStatus").value("GREEN_STRICT_PASS"))
+                .andExpect(jsonPath("$.languageTrackingStatus").value("AUTO_PASS_ALL_SCHOOLS"));
+
+        Map<String, Object> commonPayload = new LinkedHashMap<String, Object>();
+        commonPayload.put("hasTakenIeltsAcademic", true);
+        commonPayload.put("languageScoreType", "TOEFL");
+        commonPayload.put("toeflRecords", Arrays.asList(createRecord("toefl-common", "2025-10-12", 4.5d, 4.5d, 4.5d, 4.5d)));
+
+        mockMvc.perform(put("/api/teacher/students/{studentId}/ielts-module", student.getId())
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(commonPayload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.languageScoreType").value("TOEFL"))
+                .andExpect(jsonPath("$.trackingStatus").value("GREEN_COMMON_PASS_WITH_WARNING"))
+                .andExpect(jsonPath("$.languageTrackingStatus").value("AUTO_PASS_PARTIAL_SCHOOLS"));
+
+        Map<String, Object> yellowPayload = new LinkedHashMap<String, Object>();
+        yellowPayload.put("hasTakenIeltsAcademic", true);
+        yellowPayload.put("languageScoreType", "TOEFL");
+        yellowPayload.put("toeflRecords", Arrays.asList(createRecord("toefl-yellow", "2025-10-12", 4.0d, 4.0d, 4.0d, 4.0d)));
+
+        mockMvc.perform(put("/api/teacher/students/{studentId}/ielts-module", student.getId())
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(yellowPayload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.languageScoreType").value("TOEFL"))
+                .andExpect(jsonPath("$.trackingStatus").value("YELLOW_NEEDS_PREPARATION"))
+                .andExpect(jsonPath("$.languageTrackingStatus").value("NEEDS_TRACKING"));
+    }
+
+    @Test
+    void teacherUpdateToeflRecords_outsideValidityWindow_resultsYellow() throws Exception {
+        Teacher teacher = createTeacherAccount("ielts_teacher_toefl_window", "IELTS Teacher TOEFL Window");
+        Student student = createStudentAccount("ielts_student_toefl_window", "TOEFL", "Window", "Window");
+        assignTeacherStudent(teacher, student, TeacherStudentStatus.ACTIVE);
+        saveProfileAndSchool(
+                student,
+                "Chinese",
+                "China",
+                LocalDate.of(2023, 9, 1),
+                LocalDate.of(2027, 6, 30),
+                "Canada"
+        );
+
+        Map<String, Object> payload = new LinkedHashMap<String, Object>();
+        payload.put("hasTakenIeltsAcademic", true);
+        payload.put("languageScoreType", "TOEFL");
+        payload.put("toeflRecords", Arrays.asList(createRecord("toefl-expired", "2025-05-30", 5.5d, 5.5d, 5.5d, 5.5d)));
+
+        mockMvc.perform(put("/api/teacher/students/{studentId}/ielts-module", student.getId())
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.languageScoreType").value("TOEFL"))
+                .andExpect(jsonPath("$.trackingStatus").value("YELLOW_NEEDS_PREPARATION"))
+                .andExpect(jsonPath("$.languageTrackingStatus").value("NEEDS_TRACKING"));
+    }
+
+    @Test
+    void studentUpdateToeflRecords_invalidRange_returns400() throws Exception {
+        Student student = createStudentAccount("ielts_student_toefl_invalid_range", "TOEFL", "Range", "Range");
+
+        Map<String, Object> payload = new LinkedHashMap<String, Object>();
+        payload.put("hasTakenIeltsAcademic", true);
+        payload.put("languageScoreType", "TOEFL");
+        payload.put("toeflRecords", Arrays.asList(createRecord("bad-range", "2025-10-12", 0.5d, 4.5d, 4.5d, 4.5d)));
+
+        mockMvc.perform(put("/api/student/ielts-module/records")
+                        .header("Authorization", bearerFor(student.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payload)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("BAD_REQUEST"))
+                .andExpect(jsonPath("$.details", hasItem("toeflRecords[0].listening must be between 1.0 and 6.0")));
+    }
+
+    @Test
+    void readEndpoints_returnConsistentTrackingFields() throws Exception {
+        Teacher teacher = createTeacherAccount("ielts_teacher_read_consistency", "IELTS Teacher Read Consistency");
+        Student student = createStudentAccount("ielts_student_read_consistency", "Read", "Consistency", "Consistency");
+        assignTeacherStudent(teacher, student, TeacherStudentStatus.ACTIVE);
+        saveProfileAndSchool(
+                student,
+                "Chinese",
+                "China",
+                LocalDate.of(2023, 9, 1),
+                LocalDate.of(2027, 6, 30),
+                "Canada"
+        );
+
+        Map<String, Object> payload = new LinkedHashMap<String, Object>();
+        payload.put("hasTakenIeltsAcademic", true);
+        payload.put("languageScoreType", "TOEFL");
+        payload.put("toeflRecords", Arrays.asList(createRecord("toefl-manual", "2025-10-12", 5.0d, 5.0d, 5.0d, 5.0d)));
+        payload.put("languageTrackingManualStatus", "NEEDS_TRACKING");
+
+        mockMvc.perform(put("/api/teacher/students/{studentId}/ielts-module", student.getId())
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.languageScoreType").value("TOEFL"))
+                .andExpect(jsonPath("$.trackingStatus").value("GREEN_STRICT_PASS"))
+                .andExpect(jsonPath("$.languageTrackingManualStatus").value("NEEDS_TRACKING"))
+                .andExpect(jsonPath("$.languageTrackingStatus").value("NEEDS_TRACKING"))
+                .andExpect(jsonPath("$.summary.languageScoreType").value("TOEFL"))
+                .andExpect(jsonPath("$.summary.trackingStatus").value("GREEN_STRICT_PASS"))
+                .andExpect(jsonPath("$.summary.languageTrackingStatus").value("NEEDS_TRACKING"));
+
+        mockMvc.perform(get("/api/student/ielts-module")
+                        .header("Authorization", bearerFor(student.getUser())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.languageScoreType").value("TOEFL"))
+                .andExpect(jsonPath("$.trackingStatus").value("GREEN_STRICT_PASS"))
+                .andExpect(jsonPath("$.languageTrackingManualStatus").value("NEEDS_TRACKING"))
+                .andExpect(jsonPath("$.languageTrackingStatus").value("NEEDS_TRACKING"))
+                .andExpect(jsonPath("$.summary.languageScoreType").value("TOEFL"))
+                .andExpect(jsonPath("$.summary.trackingStatus").value("GREEN_STRICT_PASS"))
+                .andExpect(jsonPath("$.summary.languageTrackingStatus").value("NEEDS_TRACKING"));
+
+        mockMvc.perform(get("/api/teacher/students/{studentId}/ielts-module", student.getId())
+                        .header("Authorization", bearerFor(teacher.getUser())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.languageScoreType").value("TOEFL"))
+                .andExpect(jsonPath("$.trackingStatus").value("GREEN_STRICT_PASS"))
+                .andExpect(jsonPath("$.languageTrackingManualStatus").value("NEEDS_TRACKING"))
+                .andExpect(jsonPath("$.languageTrackingStatus").value("NEEDS_TRACKING"))
+                .andExpect(jsonPath("$.summary.languageScoreType").value("TOEFL"))
+                .andExpect(jsonPath("$.summary.trackingStatus").value("GREEN_STRICT_PASS"))
+                .andExpect(jsonPath("$.summary.languageTrackingStatus").value("NEEDS_TRACKING"));
+
+        mockMvc.perform(get("/api/teacher/students/{studentId}/ielts-summary", student.getId())
+                        .header("Authorization", bearerFor(teacher.getUser())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.languageScoreType").value("TOEFL"))
+                .andExpect(jsonPath("$.trackingStatus").value("GREEN_STRICT_PASS"))
+                .andExpect(jsonPath("$.languageTrackingStatus").value("NEEDS_TRACKING"))
+                .andExpect(jsonPath("$.summary.languageScoreType").value("TOEFL"))
+                .andExpect(jsonPath("$.summary.trackingStatus").value("GREEN_STRICT_PASS"))
+                .andExpect(jsonPath("$.summary.languageTrackingStatus").value("NEEDS_TRACKING"));
+    }
+
     private String recordsPayload(boolean hasTaken, double listening, double reading, double writing, double speaking) throws Exception {
         Map<String, Object> record = new LinkedHashMap<String, Object>();
         record.put("recordId", "r-1");
@@ -439,6 +675,22 @@ class IeltsTrackingApiTest {
         payload.put("records", Arrays.asList(record));
         payload.put("languageTrackingManualStatus", languageTrackingManualStatus);
         return objectMapper.writeValueAsString(payload);
+    }
+
+    private Map<String, Object> createRecord(String recordId,
+                                             String testDate,
+                                             double listening,
+                                             double reading,
+                                             double writing,
+                                             double speaking) {
+        Map<String, Object> record = new LinkedHashMap<String, Object>();
+        record.put("recordId", recordId);
+        record.put("testDate", testDate);
+        record.put("listening", listening);
+        record.put("reading", reading);
+        record.put("writing", writing);
+        record.put("speaking", speaking);
+        return record;
     }
 
     private void saveProfileAndSchool(Student student,

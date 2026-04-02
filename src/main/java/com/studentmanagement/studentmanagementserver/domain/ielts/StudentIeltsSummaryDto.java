@@ -2,6 +2,7 @@ package com.studentmanagement.studentmanagementserver.domain.ielts;
 
 public class StudentIeltsSummaryDto {
     private Long studentId;
+    private String languageScoreType;
     private boolean shouldShowIeltsModule;
     private boolean hasTakenIeltsAcademic;
     private String preparationIntent;
@@ -16,6 +17,7 @@ public class StudentIeltsSummaryDto {
     private IeltsSummarySnapshotDto summary;
 
     public StudentIeltsSummaryDto(Long studentId,
+                                  String languageScoreType,
                                   boolean shouldShowIeltsModule,
                                   boolean hasTakenIeltsAcademic,
                                   String preparationIntent,
@@ -27,6 +29,7 @@ public class StudentIeltsSummaryDto {
                                   String languageTrackingStatus,
                                   IeltsSummarySnapshotDto summary) {
         this.studentId = studentId;
+        this.languageScoreType = languageScoreType;
         this.shouldShowIeltsModule = shouldShowIeltsModule;
         this.hasTakenIeltsAcademic = hasTakenIeltsAcademic;
         this.preparationIntent = preparationIntent;
@@ -41,6 +44,10 @@ public class StudentIeltsSummaryDto {
 
     public Long getStudentId() {
         return studentId;
+    }
+
+    public String getLanguageScoreType() {
+        return languageScoreType;
     }
 
     public boolean isShouldShowIeltsModule() {

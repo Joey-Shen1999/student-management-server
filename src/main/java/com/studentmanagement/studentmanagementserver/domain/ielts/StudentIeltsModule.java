@@ -39,8 +39,20 @@ public class StudentIeltsModule extends BaseEntity {
     private IeltsPreparationIntent preparationIntent;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "language_score_type", nullable = false, length = 20)
+    private LanguageScoreType languageScoreType;
+
+    @Enumerated(EnumType.STRING)
     @Column(name = "language_tracking_manual_status", length = 64)
     private LanguageTrackingManualStatus languageTrackingManualStatus;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tracking_status", nullable = false, length = 64)
+    private IeltsTrackingStatus trackingStatus;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "language_tracking_status", nullable = false, length = 64)
+    private LanguageTrackingStatus languageTrackingStatus;
 
     @Column(name = "language_tracking_manual_status_updated_by")
     private Long languageTrackingManualStatusUpdatedBy;
@@ -55,7 +67,10 @@ public class StudentIeltsModule extends BaseEntity {
         this.student = student;
         this.hasTakenIeltsAcademic = false;
         this.preparationIntent = IeltsPreparationIntent.UNSET;
+        this.languageScoreType = LanguageScoreType.IELTS;
         this.languageTrackingManualStatus = null;
+        this.trackingStatus = IeltsTrackingStatus.YELLOW_NEEDS_PREPARATION;
+        this.languageTrackingStatus = LanguageTrackingStatus.NEEDS_TRACKING;
     }
 
     public Student getStudent() {
@@ -70,8 +85,20 @@ public class StudentIeltsModule extends BaseEntity {
         return preparationIntent;
     }
 
+    public LanguageScoreType getLanguageScoreType() {
+        return languageScoreType;
+    }
+
     public LanguageTrackingManualStatus getLanguageTrackingManualStatus() {
         return languageTrackingManualStatus;
+    }
+
+    public IeltsTrackingStatus getTrackingStatus() {
+        return trackingStatus;
+    }
+
+    public LanguageTrackingStatus getLanguageTrackingStatus() {
+        return languageTrackingStatus;
     }
 
     public Long getLanguageTrackingManualStatusUpdatedBy() {
@@ -87,11 +114,25 @@ public class StudentIeltsModule extends BaseEntity {
         this.preparationIntent = preparationIntent == null ? IeltsPreparationIntent.UNSET : preparationIntent;
     }
 
+    public void updateLanguageScoreType(LanguageScoreType languageScoreType) {
+        this.languageScoreType = languageScoreType == null ? LanguageScoreType.IELTS : languageScoreType;
+    }
+
     public void updateLanguageTrackingManualStatus(LanguageTrackingManualStatus languageTrackingManualStatus,
                                                    Long updatedBy,
                                                    LocalDateTime updatedAt) {
         this.languageTrackingManualStatus = languageTrackingManualStatus;
         this.languageTrackingManualStatusUpdatedBy = updatedBy;
         this.languageTrackingManualStatusUpdatedAt = updatedAt;
+    }
+
+    public void updateDerivedStatuses(IeltsTrackingStatus trackingStatus,
+                                      LanguageTrackingStatus languageTrackingStatus) {
+        this.trackingStatus = trackingStatus == null
+                ? IeltsTrackingStatus.YELLOW_NEEDS_PREPARATION
+                : trackingStatus;
+        this.languageTrackingStatus = languageTrackingStatus == null
+                ? LanguageTrackingStatus.NEEDS_TRACKING
+                : languageTrackingStatus;
     }
 }

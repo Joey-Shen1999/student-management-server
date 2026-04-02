@@ -1,5 +1,6 @@
 package com.studentmanagement.studentmanagementserver.domain.ielts;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonSetter;
 
@@ -7,9 +8,13 @@ import java.util.List;
 
 public class StudentIeltsRecordsUpdateRequestDto {
     private Boolean hasTakenIeltsAcademic;
+    @JsonAlias({"testType", "test_type"})
+    private String languageScoreType;
     private String languageTrackingManualStatus;
     private List<StudentIeltsRecordDto> records;
+    private List<StudentIeltsRecordDto> toeflRecords;
     private boolean languageTrackingManualStatusPresent;
+    private boolean toeflRecordsPresent;
 
     public Boolean getHasTakenIeltsAcademic() {
         return hasTakenIeltsAcademic;
@@ -17,6 +22,14 @@ public class StudentIeltsRecordsUpdateRequestDto {
 
     public void setHasTakenIeltsAcademic(Boolean hasTakenIeltsAcademic) {
         this.hasTakenIeltsAcademic = hasTakenIeltsAcademic;
+    }
+
+    public String getLanguageScoreType() {
+        return languageScoreType;
+    }
+
+    public void setLanguageScoreType(String languageScoreType) {
+        this.languageScoreType = languageScoreType;
     }
 
     public String getLanguageTrackingManualStatus() {
@@ -37,8 +50,23 @@ public class StudentIeltsRecordsUpdateRequestDto {
         this.records = records;
     }
 
+    public List<StudentIeltsRecordDto> getToeflRecords() {
+        return toeflRecords;
+    }
+
+    @JsonSetter("toeflRecords")
+    public void setToeflRecords(List<StudentIeltsRecordDto> toeflRecords) {
+        this.toeflRecords = toeflRecords;
+        this.toeflRecordsPresent = true;
+    }
+
     @JsonIgnore
     public boolean isLanguageTrackingManualStatusPresent() {
         return languageTrackingManualStatusPresent;
+    }
+
+    @JsonIgnore
+    public boolean isToeflRecordsPresent() {
+        return toeflRecordsPresent;
     }
 }

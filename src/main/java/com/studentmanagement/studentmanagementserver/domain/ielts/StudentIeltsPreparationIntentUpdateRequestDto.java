@@ -1,10 +1,13 @@
 package com.studentmanagement.studentmanagementserver.domain.ielts;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonSetter;
 
 public class StudentIeltsPreparationIntentUpdateRequestDto {
     private Boolean hasTakenIeltsAcademic;
+    @JsonAlias({"testType", "test_type"})
+    private String languageScoreType;
     private String preparationIntent;
     private String languageTrackingManualStatus;
     private boolean languageTrackingManualStatusPresent;
@@ -15,6 +18,14 @@ public class StudentIeltsPreparationIntentUpdateRequestDto {
 
     public void setHasTakenIeltsAcademic(Boolean hasTakenIeltsAcademic) {
         this.hasTakenIeltsAcademic = hasTakenIeltsAcademic;
+    }
+
+    public String getLanguageScoreType() {
+        return languageScoreType;
+    }
+
+    public void setLanguageScoreType(String languageScoreType) {
+        this.languageScoreType = languageScoreType;
     }
 
     public String getPreparationIntent() {
