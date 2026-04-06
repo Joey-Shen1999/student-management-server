@@ -1,0 +1,8 @@
+{
+  "status": 400,
+  "message": "Validation failed.",
+  "code": "BAD_REQUEST",
+  "details": [
+    "ossltTrackingManualStatus must be one of: WAITING_UPDATE, NEEDS_TRACKING, PASSED"
+  ]
+}

@@ -280,6 +280,7 @@ public class IeltsTrackingService {
         if (overwriteLanguageTrackingManualStatus) {
             applyLanguageTrackingManualStatus(module, languageTrackingManualStatus, operator, manualStatusChangeSource);
         }
+        module.syncLanguageTrackingCompatibilityFields();
         module = studentIeltsModuleRepository.save(module);
 
         if (overwriteRecords) {
@@ -893,8 +894,8 @@ public class IeltsTrackingService {
         if (requestBody == null) {
             throw validationFailed(Collections.singletonList("request body is required"));
         }
-        if (requestBody.isLanguageTrackingManualStatusPresent()) {
-            throw fieldForbidden("languageTrackingManualStatus");
+        if (requestBody.isLanguageScoreTrackingManualStatusPresent()) {
+            throw fieldForbidden("languageScoreTrackingManualStatus");
         }
 
         List<String> details = new ArrayList<String>();
@@ -945,8 +946,8 @@ public class IeltsTrackingService {
         if (requestBody == null) {
             throw validationFailed(Collections.singletonList("request body is required"));
         }
-        if (requestBody.isLanguageTrackingManualStatusPresent()) {
-            throw fieldForbidden("languageTrackingManualStatus");
+        if (requestBody.isLanguageScoreTrackingManualStatusPresent()) {
+            throw fieldForbidden("languageScoreTrackingManualStatus");
         }
 
         List<String> details = new ArrayList<String>();
@@ -985,11 +986,11 @@ public class IeltsTrackingService {
         }
 
         List<String> details = new ArrayList<String>();
-        boolean overwriteLanguageTrackingManualStatus = requestBody.isLanguageTrackingManualStatusPresent();
+        boolean overwriteLanguageTrackingManualStatus = requestBody.isLanguageScoreTrackingManualStatusPresent();
         LanguageTrackingManualStatus languageTrackingManualStatus = overwriteLanguageTrackingManualStatus
                 ? parseLanguageTrackingManualStatus(
-                requestBody.getLanguageTrackingManualStatus(),
-                "languageTrackingManualStatus",
+                requestBody.getLanguageScoreTrackingManualStatus(),
+                "languageScoreTrackingManualStatus",
                 details
         )
                 : null;

@@ -1,0 +1,318 @@
+openapi: 3.0.3
+info:
+  title: Student Management - Language Tracking + OSSLT API
+  version: 1.0.0
+  description: |
+    Backend handoff spec for language score tracking namespace split and OSSLT teacher tracking v1.
+servers:
+  - url: /
+paths:
+  /api/teacher/students/{studentId}/ielts-module:
+    get:
+      summary: Get IELTS module state (teacher view)
+      parameters:
+        - $ref: '#/components/parameters/StudentIdPath'
+      responses:
+        '200':
+          description: IELTS module state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentIeltsModuleState'
+    put:
+      summary: Update IELTS module state (teacher view)
+      parameters:
+        - $ref: '#/components/parameters/StudentIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TeacherIeltsModuleUpdateRequest'
+      responses:
+        '200':
+          description: Updated IELTS module state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentIeltsModuleState'
+  /api/student/ielts-module:
+    get:
+      summary: Get IELTS module state (student self)
+      responses:
+        '200':
+          description: IELTS module state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentIeltsModuleState'
+  /api/teacher/students/{studentId}/ielts-summary:
+    get:
+      summary: Get IELTS summary snapshot (teacher view)
+      parameters:
+        - $ref: '#/components/parameters/StudentIdPath'
+      responses:
+        '200':
+          description: IELTS summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentIeltsSummary'
+  /api/teacher/students/{studentId}/osslt-module:
+    get:
+      summary: Get OSSLT module state (teacher/admin)
+      parameters:
+        - $ref: '#/components/parameters/StudentIdPath'
+      responses:
+        '200':
+          description: OSSLT module state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeacherStudentOssltModuleState'
+    put:
+      summary: Update OSSLT module state (teacher/admin)
+      parameters:
+        - $ref: '#/components/parameters/StudentIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TeacherOssltModuleUpdateRequest'
+      responses:
+        '200':
+          description: Updated OSSLT module state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeacherStudentOssltModuleState'
+  /api/student/osslt-module:
+    get:
+      summary: Get OSSLT module state (student self)
+      responses:
+        '200':
+          description: OSSLT module state (student-safe payload)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeacherStudentOssltModuleState'
+    put:
+      summary: Update OSSLT module state (student self)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StudentOssltModuleUpdateRequest'
+      responses:
+        '200':
+          description: Updated OSSLT module state (student-safe payload)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeacherStudentOssltModuleState'
+  /api/teacher/students/osslt-summary:
+    get:
+      summary: Batch OSSLT summary for student list
+      parameters:
+        - name: studentIds
+          in: query
+          required: false
+          schema:
+            type: string
+          example: "1001,1002,1003"
+      responses:
+        '200':
+          description: OSSLT summaries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TeacherStudentOssltSummary'
+components:
+  parameters:
+    StudentIdPath:
+      name: studentId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+  schemas:
+    TrackingStatus:
+      type: string
+      enum:
+        - GREEN_STRICT_PASS
+        - GREEN_COMMON_PASS_WITH_WARNING
+        - YELLOW_NEEDS_PREPARATION
+    LanguageScoreTrackingStatus:
+      type: string
+      enum:
+        - TEACHER_REVIEW_APPROVED
+        - AUTO_PASS_ALL_SCHOOLS
+        - AUTO_PASS_PARTIAL_SCHOOLS
+        - NEEDS_TRACKING
+    StudentIeltsModuleState:
+      type: object
+      properties:
+        studentId:
+          type: integer
+          format: int64
+        graduationYear:
+          type: integer
+          nullable: true
+        languageScoreType:
+          type: string
+          enum: [IELTS, TOEFL, DUOLINGO]
+        hasTakenIeltsAcademic:
+          type: boolean
+        preparationIntent:
+          type: string
+        languageScoreTrackingManualStatus:
+          allOf:
+            - $ref: '#/components/schemas/LanguageScoreTrackingStatus'
+          nullable: true
+          description: Canonical field name.
+        languageTrackingManualStatus:
+          allOf:
+            - $ref: '#/components/schemas/LanguageScoreTrackingStatus'
+          nullable: true
+          description: Legacy alias, kept during transition.
+        trackingStatus:
+          $ref: '#/components/schemas/TrackingStatus'
+        languageScoreTrackingStatus:
+          $ref: '#/components/schemas/LanguageScoreTrackingStatus'
+        languageTrackingStatus:
+          $ref: '#/components/schemas/LanguageScoreTrackingStatus'
+          description: Legacy alias, kept during transition.
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+    TeacherIeltsModuleUpdateRequest:
+      type: object
+      properties:
+        hasTakenIeltsAcademic:
+          type: boolean
+        languageScoreType:
+          type: string
+          enum: [IELTS, TOEFL, DUOLINGO]
+        preparationIntent:
+          type: string
+        languageScoreTrackingManualStatus:
+          allOf:
+            - $ref: '#/components/schemas/LanguageScoreTrackingStatus'
+          nullable: true
+          description: Canonical field name.
+        languageTrackingManualStatus:
+          allOf:
+            - $ref: '#/components/schemas/LanguageScoreTrackingStatus'
+          nullable: true
+          description: Legacy alias accepted for compatibility.
+    StudentIeltsSummary:
+      type: object
+      properties:
+        studentId:
+          type: integer
+          format: int64
+        languageScoreType:
+          type: string
+        trackingStatus:
+          $ref: '#/components/schemas/TrackingStatus'
+        languageScoreTrackingStatus:
+          $ref: '#/components/schemas/LanguageScoreTrackingStatus'
+        languageTrackingStatus:
+          $ref: '#/components/schemas/LanguageScoreTrackingStatus'
+          description: Legacy alias, kept during transition.
+    OssltLatestResult:
+      type: string
+      enum: [PASS, FAIL, UNKNOWN]
+    OssltTrackingStatus:
+      type: string
+      enum: [WAITING_UPDATE, NEEDS_TRACKING, PASSED]
+    TeacherOssltModuleUpdateRequest:
+      type: object
+      description: Unknown request fields are ignored for backward compatibility.
+      properties:
+        latestOssltResult:
+          $ref: '#/components/schemas/OssltLatestResult'
+        latestOssltDate:
+          type: string
+          format: date
+          nullable: true
+        hasOsslc:
+          type: boolean
+          nullable: true
+        ossltTrackingManualStatus:
+          allOf:
+            - $ref: '#/components/schemas/OssltTrackingStatus'
+          nullable: true
+          description: Empty string is normalized to null.
+    StudentOssltModuleUpdateRequest:
+      type: object
+      properties:
+        latestOssltResult:
+          type: string
+          enum: [PASS, FAIL]
+          description: Student endpoint only accepts PASS or FAIL.
+        hasOsslc:
+          type: boolean
+          description: Student endpoint requires true/false when provided.
+    TeacherStudentOssltModuleState:
+      type: object
+      properties:
+        studentId:
+          type: integer
+          format: int64
+        graduationYear:
+          type: integer
+          nullable: true
+        latestOssltResult:
+          $ref: '#/components/schemas/OssltLatestResult'
+        latestOssltDate:
+          type: string
+          format: date
+          nullable: true
+        hasOsslc:
+          type: boolean
+          nullable: true
+        ossltTrackingManualStatus:
+          allOf:
+            - $ref: '#/components/schemas/OssltTrackingStatus'
+          nullable: true
+        ossltTrackingStatus:
+          $ref: '#/components/schemas/OssltTrackingStatus'
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+    TeacherStudentOssltSummary:
+      type: object
+      properties:
+        studentId:
+          type: integer
+          format: int64
+        graduationYear:
+          type: integer
+          nullable: true
+        latestOssltResult:
+          $ref: '#/components/schemas/OssltLatestResult'
+        latestOssltDate:
+          type: string
+          format: date
+          nullable: true
+        hasOsslc:
+          type: boolean
+          nullable: true
+        ossltTrackingManualStatus:
+          allOf:
+            - $ref: '#/components/schemas/OssltTrackingStatus'
+          nullable: true
+        ossltTrackingStatus:
+          $ref: '#/components/schemas/OssltTrackingStatus'
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true

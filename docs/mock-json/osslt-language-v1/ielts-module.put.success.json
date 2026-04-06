@@ -1,0 +1,13 @@
+{
+  "studentId": 1001,
+  "graduationYear": 2028,
+  "languageScoreType": "IELTS",
+  "hasTakenIeltsAcademic": true,
+  "preparationIntent": "UNSET",
+  "trackingStatus": "YELLOW_NEEDS_PREPARATION",
+  "languageScoreTrackingStatus": "NEEDS_TRACKING",
+  "languageTrackingStatus": "NEEDS_TRACKING",
+  "languageScoreTrackingManualStatus": "NEEDS_TRACKING",
+  "languageTrackingManualStatus": "NEEDS_TRACKING",
+  "updatedAt": "2026-04-06T17:26:00Z"
+}

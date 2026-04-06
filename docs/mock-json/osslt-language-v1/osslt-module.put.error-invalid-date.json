@@ -1,0 +1,8 @@
+{
+  "status": 400,
+  "message": "Validation failed.",
+  "code": "BAD_REQUEST",
+  "details": [
+    "latestOssltDate must be yyyy-mm-dd"
+  ]
+}

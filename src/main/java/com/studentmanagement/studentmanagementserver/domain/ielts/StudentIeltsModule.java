@@ -47,12 +47,20 @@ public class StudentIeltsModule extends BaseEntity {
     private LanguageTrackingManualStatus languageTrackingManualStatus;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "language_score_tracking_manual_status", length = 64)
+    private LanguageTrackingManualStatus languageScoreTrackingManualStatus;
+
+    @Enumerated(EnumType.STRING)
     @Column(name = "tracking_status", nullable = false, length = 64)
     private IeltsTrackingStatus trackingStatus;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "language_tracking_status", nullable = false, length = 64)
     private LanguageTrackingStatus languageTrackingStatus;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "language_score_tracking_status", nullable = false, length = 64)
+    private LanguageTrackingStatus languageScoreTrackingStatus;
 
     @Column(name = "language_tracking_manual_status_updated_by")
     private Long languageTrackingManualStatusUpdatedBy;
@@ -69,8 +77,10 @@ public class StudentIeltsModule extends BaseEntity {
         this.preparationIntent = IeltsPreparationIntent.UNSET;
         this.languageScoreType = LanguageScoreType.IELTS;
         this.languageTrackingManualStatus = null;
+        this.languageScoreTrackingManualStatus = null;
         this.trackingStatus = IeltsTrackingStatus.YELLOW_NEEDS_PREPARATION;
         this.languageTrackingStatus = LanguageTrackingStatus.NEEDS_TRACKING;
+        this.languageScoreTrackingStatus = LanguageTrackingStatus.NEEDS_TRACKING;
     }
 
     public Student getStudent() {
@@ -90,7 +100,14 @@ public class StudentIeltsModule extends BaseEntity {
     }
 
     public LanguageTrackingManualStatus getLanguageTrackingManualStatus() {
+        if (languageScoreTrackingManualStatus != null) {
+            return languageScoreTrackingManualStatus;
+        }
         return languageTrackingManualStatus;
+    }
+
+    public LanguageTrackingManualStatus getLanguageScoreTrackingManualStatus() {
+        return getLanguageTrackingManualStatus();
     }
 
     public IeltsTrackingStatus getTrackingStatus() {
@@ -98,7 +115,14 @@ public class StudentIeltsModule extends BaseEntity {
     }
 
     public LanguageTrackingStatus getLanguageTrackingStatus() {
+        if (languageScoreTrackingStatus != null) {
+            return languageScoreTrackingStatus;
+        }
         return languageTrackingStatus;
+    }
+
+    public LanguageTrackingStatus getLanguageScoreTrackingStatus() {
+        return getLanguageTrackingStatus();
     }
 
     public Long getLanguageTrackingManualStatusUpdatedBy() {
@@ -122,6 +146,7 @@ public class StudentIeltsModule extends BaseEntity {
                                                    Long updatedBy,
                                                    LocalDateTime updatedAt) {
         this.languageTrackingManualStatus = languageTrackingManualStatus;
+        this.languageScoreTrackingManualStatus = languageTrackingManualStatus;
         this.languageTrackingManualStatusUpdatedBy = updatedBy;
         this.languageTrackingManualStatusUpdatedAt = updatedAt;
     }
@@ -134,5 +159,27 @@ public class StudentIeltsModule extends BaseEntity {
         this.languageTrackingStatus = languageTrackingStatus == null
                 ? LanguageTrackingStatus.NEEDS_TRACKING
                 : languageTrackingStatus;
+        this.languageScoreTrackingStatus = this.languageTrackingStatus;
+    }
+
+    public void syncLanguageTrackingCompatibilityFields() {
+        if (languageScoreTrackingManualStatus == null && languageTrackingManualStatus != null) {
+            languageScoreTrackingManualStatus = languageTrackingManualStatus;
+        } else if (languageTrackingManualStatus == null && languageScoreTrackingManualStatus != null) {
+            languageTrackingManualStatus = languageScoreTrackingManualStatus;
+        }
+
+        if (languageScoreTrackingStatus == null && languageTrackingStatus != null) {
+            languageScoreTrackingStatus = languageTrackingStatus;
+        } else if (languageTrackingStatus == null && languageScoreTrackingStatus != null) {
+            languageTrackingStatus = languageScoreTrackingStatus;
+        }
+
+        if (languageScoreTrackingStatus == null) {
+            languageScoreTrackingStatus = LanguageTrackingStatus.NEEDS_TRACKING;
+        }
+        if (languageTrackingStatus == null) {
+            languageTrackingStatus = languageScoreTrackingStatus;
+        }
     }
 }

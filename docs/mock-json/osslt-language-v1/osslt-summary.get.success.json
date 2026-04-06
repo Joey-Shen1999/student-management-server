@@ -1,0 +1,29 @@
+[
+  {
+    "studentId": 1001,
+    "graduationYear": 2028,
+    "latestOssltResult": "PASS",
+    "latestOssltDate": "2026-03-20",
+    "ossltTrackingManualStatus": null,
+    "ossltTrackingStatus": "PASSED",
+    "updatedAt": "2026-04-06T17:06:25Z"
+  },
+  {
+    "studentId": 1002,
+    "graduationYear": 2027,
+    "latestOssltResult": "FAIL",
+    "latestOssltDate": null,
+    "ossltTrackingManualStatus": "NEEDS_TRACKING",
+    "ossltTrackingStatus": "NEEDS_TRACKING",
+    "updatedAt": "2026-04-06T17:06:25Z"
+  },
+  {
+    "studentId": 1003,
+    "graduationYear": 2029,
+    "latestOssltResult": "UNKNOWN",
+    "latestOssltDate": null,
+    "ossltTrackingManualStatus": null,
+    "ossltTrackingStatus": "WAITING_UPDATE",
+    "updatedAt": "2026-04-06T17:06:25Z"
+  }
+]

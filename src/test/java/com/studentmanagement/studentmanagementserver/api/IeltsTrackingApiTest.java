@@ -163,6 +163,31 @@ class IeltsTrackingApiTest {
     }
 
     @Test
+    void studentUpdateRecords_withCanonicalManualStatusField_returns403FieldForbidden() throws Exception {
+        Student student = createStudentAccount("ielts_student_records_forbidden_new_key", "IELTS", "Forbidden", "NewKey");
+
+        Map<String, Object> record = new LinkedHashMap<String, Object>();
+        record.put("recordId", "r-1");
+        record.put("testDate", "2025-10-12");
+        record.put("listening", 6.5d);
+        record.put("reading", 6.5d);
+        record.put("writing", 6.0d);
+        record.put("speaking", 6.0d);
+
+        Map<String, Object> payload = new LinkedHashMap<String, Object>();
+        payload.put("hasTakenIeltsAcademic", true);
+        payload.put("languageScoreTrackingManualStatus", "TEACHER_REVIEW_APPROVED");
+        payload.put("records", Arrays.asList(record));
+
+        mockMvc.perform(put("/api/student/ielts-module/records")
+                        .header("Authorization", bearerFor(student.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payload)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FIELD_FORBIDDEN"));
+    }
+
+    @Test
     void studentUpdatePreparationIntent_withManualStatusField_returns403FieldForbidden() throws Exception {
         Student student = createStudentAccount("ielts_student_intent_forbidden", "IELTS", "IntentF", "IntentF");
 
@@ -842,6 +867,46 @@ class IeltsTrackingApiTest {
                 .andExpect(jsonPath("$.languageTrackingStatus").value("NEEDS_TRACKING"))
                 .andExpect(jsonPath("$.summary.languageScoreType").value("TOEFL"))
                 .andExpect(jsonPath("$.summary.trackingStatus").value("GREEN_STRICT_PASS"))
+                .andExpect(jsonPath("$.summary.languageTrackingStatus").value("NEEDS_TRACKING"));
+    }
+
+    @Test
+    void teacherUpdate_withLegacyManualStatusKey_writesCanonicalAndReturnsDualKeys() throws Exception {
+        Teacher teacher = createTeacherAccount("ielts_teacher_legacy_manual_alias", "IELTS Teacher Legacy Manual Alias");
+        Student student = createStudentAccount("ielts_student_legacy_manual_alias", "Legacy", "Manual", "Alias");
+        assignTeacherStudent(teacher, student, TeacherStudentStatus.ACTIVE);
+        saveProfileAndSchool(
+                student,
+                "Chinese",
+                "China",
+                LocalDate.of(2023, 9, 1),
+                LocalDate.of(2027, 6, 30),
+                "Canada"
+        );
+
+        Map<String, Object> payload = new LinkedHashMap<String, Object>();
+        payload.put("hasTakenIeltsAcademic", true);
+        payload.put("records", Arrays.asList(createRecord("legacy-key-record", "2025-10-12", 5.0d, 5.0d, 5.0d, 5.0d)));
+        payload.put("languageTrackingManualStatus", "NEEDS_TRACKING");
+
+        mockMvc.perform(put("/api/teacher/students/{studentId}/ielts-module", student.getId())
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.languageScoreTrackingManualStatus").value("NEEDS_TRACKING"))
+                .andExpect(jsonPath("$.languageTrackingManualStatus").value("NEEDS_TRACKING"))
+                .andExpect(jsonPath("$.languageScoreTrackingStatus").value("NEEDS_TRACKING"))
+                .andExpect(jsonPath("$.languageTrackingStatus").value("NEEDS_TRACKING"))
+                .andExpect(jsonPath("$.summary.languageScoreTrackingStatus").value("NEEDS_TRACKING"))
+                .andExpect(jsonPath("$.summary.languageTrackingStatus").value("NEEDS_TRACKING"));
+
+        mockMvc.perform(get("/api/teacher/students/{studentId}/ielts-summary", student.getId())
+                        .header("Authorization", bearerFor(teacher.getUser())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.languageScoreTrackingStatus").value("NEEDS_TRACKING"))
+                .andExpect(jsonPath("$.languageTrackingStatus").value("NEEDS_TRACKING"))
+                .andExpect(jsonPath("$.summary.languageScoreTrackingStatus").value("NEEDS_TRACKING"))
                 .andExpect(jsonPath("$.summary.languageTrackingStatus").value("NEEDS_TRACKING"));
     }
 

@@ -1,0 +1,282 @@
+{
+  "info": {
+    "name": "OSSLT + Language Tracking V1",
+    "_postman_id": "c1df76f8-20d2-4ee8-bd8d-17b12f5e9111",
+    "description": "Integration collection for teacher/admin/student role scenarios.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "studentId", "value": "1001" },
+    { "key": "studentIds", "value": "1001,1002,1003" },
+    { "key": "teacherToken", "value": "" },
+    { "key": "adminToken", "value": "" },
+    { "key": "studentToken", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Teacher - GET OSSLT module (200)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{teacherToken}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/teacher/students/{{studentId}}/osslt-module",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "teacher", "students", "{{studentId}}", "osslt-module"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 200', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Teacher - PUT OSSLT module valid (200)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{teacherToken}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"ossltTrackingManualStatus\": \"NEEDS_TRACKING\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/teacher/students/{{studentId}}/osslt-module",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "teacher", "students", "{{studentId}}", "osslt-module"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('tracking status exists', function () {",
+              "  var json = pm.response.json();",
+              "  pm.expect(json).to.have.property('ossltTrackingStatus');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Teacher - PUT OSSLT invalid enum (400)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{teacherToken}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"ossltTrackingManualStatus\": \"PENDING\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/teacher/students/{{studentId}}/osslt-module",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "teacher", "students", "{{studentId}}", "osslt-module"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 400', function () { pm.response.to.have.status(400); });",
+              "pm.test('code is BAD_REQUEST', function () {",
+              "  var json = pm.response.json();",
+              "  pm.expect(json.code).to.eql('BAD_REQUEST');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Teacher - PUT OSSLT invalid date (400)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{teacherToken}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"latestOssltDate\": \"2026/03/20\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/teacher/students/{{studentId}}/osslt-module",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "teacher", "students", "{{studentId}}", "osslt-module"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 400', function () { pm.response.to.have.status(400); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Teacher - GET OSSLT summary batch (200)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{teacherToken}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/teacher/students/osslt-summary?studentIds={{studentIds}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "teacher", "students", "osslt-summary"],
+          "query": [
+            { "key": "studentIds", "value": "{{studentIds}}" }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('response is array', function () {",
+              "  var json = pm.response.json();",
+              "  pm.expect(Array.isArray(json)).to.eql(true);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin - GET OSSLT module (200)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/teacher/students/{{studentId}}/osslt-module",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "teacher", "students", "{{studentId}}", "osslt-module"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 200', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Student - GET OSSLT module forbidden (403)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{studentToken}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/teacher/students/{{studentId}}/osslt-module",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "teacher", "students", "{{studentId}}", "osslt-module"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 403', function () { pm.response.to.have.status(403); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Teacher - GET IELTS module (200)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{teacherToken}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/teacher/students/{{studentId}}/ielts-module",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "teacher", "students", "{{studentId}}", "ielts-module"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 200', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Teacher - PUT IELTS canonical field (200)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{teacherToken}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"languageScoreTrackingManualStatus\": \"NEEDS_TRACKING\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/teacher/students/{{studentId}}/ielts-module",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "teacher", "students", "{{studentId}}", "ielts-module"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('canonical field exists', function () {",
+              "  var json = pm.response.json();",
+              "  pm.expect(json).to.have.property('languageScoreTrackingManualStatus');",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

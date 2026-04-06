@@ -13,7 +13,7 @@ public class StudentIeltsSummaryDto {
     // Deprecated compatibility fields; target removal date: 2026-05-31.
     private String trackingStatus;
     // Deprecated compatibility fields; target removal date: 2026-05-31.
-    private String languageTrackingStatus;
+    private String languageScoreTrackingStatus;
     private IeltsSummarySnapshotDto summary;
 
     public StudentIeltsSummaryDto(Long studentId,
@@ -26,7 +26,7 @@ public class StudentIeltsSummaryDto {
                                   Double bestOverallBand,
                                   String updatedAt,
                                   String trackingStatus,
-                                  String languageTrackingStatus,
+                                  String languageScoreTrackingStatus,
                                   IeltsSummarySnapshotDto summary) {
         this.studentId = studentId;
         this.languageScoreType = languageScoreType;
@@ -38,7 +38,7 @@ public class StudentIeltsSummaryDto {
         this.bestOverallBand = bestOverallBand;
         this.updatedAt = updatedAt;
         this.trackingStatus = trackingStatus;
-        this.languageTrackingStatus = languageTrackingStatus;
+        this.languageScoreTrackingStatus = languageScoreTrackingStatus;
         this.summary = summary;
     }
 
@@ -82,8 +82,12 @@ public class StudentIeltsSummaryDto {
         return trackingStatus;
     }
 
+    public String getLanguageScoreTrackingStatus() {
+        return languageScoreTrackingStatus;
+    }
+
     public String getLanguageTrackingStatus() {
-        return languageTrackingStatus;
+        return languageScoreTrackingStatus;
     }
 
     public IeltsSummarySnapshotDto getSummary() {

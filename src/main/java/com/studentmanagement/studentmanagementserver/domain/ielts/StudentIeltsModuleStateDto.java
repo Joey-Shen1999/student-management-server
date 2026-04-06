@@ -8,9 +8,9 @@ public class StudentIeltsModuleStateDto {
     private String languageScoreType;
     private boolean hasTakenIeltsAcademic;
     private String preparationIntent;
-    private String languageTrackingManualStatus;
+    private String languageScoreTrackingManualStatus;
     private String trackingStatus;
-    private String languageTrackingStatus;
+    private String languageScoreTrackingStatus;
     private IeltsSummarySnapshotDto summary;
     private List<StudentIeltsRecordDto> records;
     private StudentIeltsLanguageRiskDto languageRisk;
@@ -21,9 +21,9 @@ public class StudentIeltsModuleStateDto {
                                       String languageScoreType,
                                       boolean hasTakenIeltsAcademic,
                                       String preparationIntent,
-                                      String languageTrackingManualStatus,
+                                      String languageScoreTrackingManualStatus,
                                       String trackingStatus,
-                                      String languageTrackingStatus,
+                                      String languageScoreTrackingStatus,
                                       IeltsSummarySnapshotDto summary,
                                       List<StudentIeltsRecordDto> records,
                                       StudentIeltsLanguageRiskDto languageRisk,
@@ -33,9 +33,9 @@ public class StudentIeltsModuleStateDto {
         this.languageScoreType = languageScoreType;
         this.hasTakenIeltsAcademic = hasTakenIeltsAcademic;
         this.preparationIntent = preparationIntent;
-        this.languageTrackingManualStatus = languageTrackingManualStatus;
+        this.languageScoreTrackingManualStatus = languageScoreTrackingManualStatus;
         this.trackingStatus = trackingStatus;
-        this.languageTrackingStatus = languageTrackingStatus;
+        this.languageScoreTrackingStatus = languageScoreTrackingStatus;
         this.summary = summary;
         this.records = records;
         this.languageRisk = languageRisk;
@@ -62,16 +62,24 @@ public class StudentIeltsModuleStateDto {
         return preparationIntent;
     }
 
+    public String getLanguageScoreTrackingManualStatus() {
+        return languageScoreTrackingManualStatus;
+    }
+
     public String getLanguageTrackingManualStatus() {
-        return languageTrackingManualStatus;
+        return languageScoreTrackingManualStatus;
     }
 
     public String getTrackingStatus() {
         return trackingStatus;
     }
 
+    public String getLanguageScoreTrackingStatus() {
+        return languageScoreTrackingStatus;
+    }
+
     public String getLanguageTrackingStatus() {
-        return languageTrackingStatus;
+        return languageScoreTrackingStatus;
     }
 
     public IeltsSummarySnapshotDto getSummary() {
