@@ -194,6 +194,87 @@ class TaskCenterAssignableStudentApiTest {
         assertNull(findByStudentId(items, studentB.getId()));
     }
 
+    @Test
+    void listAssignableStudents_filtersByUnifiedParams_work() throws Exception {
+        Teacher teacher = createTeacherAccount("assignable_teacher_filter_unified", "Filter Teacher");
+        Student studentA = createStudentAccount("assignable_filter_student_a", "Alpha", "One", "A1");
+        Student studentB = createStudentAccount("assignable_filter_student_b", "Beta", "Two", "B2");
+        assignTeacherStudent(teacher, studentA, TeacherStudentStatus.ACTIVE);
+        assignTeacherStudent(teacher, studentB, TeacherStudentStatus.ACTIVE);
+
+        StudentProfile profileA = new StudentProfile(studentA);
+        profileA.setEmail("alpha@example.com");
+        profileA.setPhone("+1-111-111");
+        profileA.setTeacherNote("alpha-note");
+        studentProfileRepository.save(profileA);
+        studentSchoolRecordRepository.save(new StudentSchoolRecord(
+                studentA,
+                SchoolType.MAIN,
+                "Alpha School",
+                "TDSB",
+                "Street A",
+                "Toronto",
+                "Ontario",
+                "Canada",
+                "M1M1M1",
+                LocalDate.of(2024, 9, 1),
+                LocalDate.of(2027, 6, 30)
+        ));
+
+        StudentProfile profileB = new StudentProfile(studentB);
+        profileB.setEmail("beta@example.com");
+        profileB.setPhone("+1-222-222");
+        profileB.setTeacherNote("beta-note");
+        studentProfileRepository.save(profileB);
+        studentSchoolRecordRepository.save(new StudentSchoolRecord(
+                studentB,
+                SchoolType.MAIN,
+                "Beta School",
+                "VSB",
+                "Street B",
+                "Vancouver",
+                "British Columbia",
+                "Canada",
+                "V1V1V1",
+                LocalDate.of(2024, 9, 1),
+                LocalDate.of(2028, 6, 30)
+        ));
+
+        MvcResult result = mockMvc.perform(get("/api/teacher/tasks/assignable-students")
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .param("country", "canada")
+                        .param("province", "ontario")
+                        .param("city", "toronto")
+                        .param("schoolBoard", "tdsb")
+                        .param("graduationSeason", "2027-06")
+                        .param("keyword", "alpha"))
+                .andExpect(status().isOk())
+                .andReturn();
+        JsonNode items = objectMapper.readTree(result.getResponse().getContentAsString());
+
+        assertEquals(1, items.size());
+        assertEquals(studentA.getId().longValue(), items.get(0).path("studentId").asLong());
+    }
+
+    @Test
+    void listAssignableStudents_archivedAccount_isArchivedAndNotSelectable() throws Exception {
+        Teacher teacher = createTeacherAccount("assignable_teacher_archived_selector", "Archived Selector Teacher");
+        Student student = createStudentAccount("assignable_archived_selector_student", "Archived", "Selector", "ARS");
+        assignTeacherStudent(teacher, student, TeacherStudentStatus.ACTIVE);
+        student.getUser().updateStatus(UserAccountStatus.ARCHIVED, teacher.getUser().getId());
+        userRepository.save(student.getUser());
+
+        MvcResult result = mockMvc.perform(get("/api/teacher/tasks/assignable-students")
+                        .header("Authorization", bearerFor(teacher.getUser())))
+                .andExpect(status().isOk())
+                .andReturn();
+        JsonNode items = objectMapper.readTree(result.getResponse().getContentAsString());
+        JsonNode row = findByStudentId(items, student.getId());
+        assertNotNull(row);
+        assertEquals("ARCHIVED", row.path("status").asText());
+        assertEquals(false, row.path("selectable").asBoolean());
+    }
+
     private JsonNode findByStudentId(JsonNode items, Long studentId) {
         if (items == null || !items.isArray() || studentId == null) {
             return null;

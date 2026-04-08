@@ -2,11 +2,18 @@ package com.studentmanagement.studentmanagementserver.api;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.studentmanagement.studentmanagementserver.domain.enums.SchoolType;
 import com.studentmanagement.studentmanagementserver.domain.enums.UserAccountStatus;
 import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
 import com.studentmanagement.studentmanagementserver.domain.student.Student;
+import com.studentmanagement.studentmanagementserver.domain.student.StudentProfile;
+import com.studentmanagement.studentmanagementserver.domain.student.StudentSchoolRecord;
 import com.studentmanagement.studentmanagementserver.domain.user.User;
+import com.studentmanagement.studentmanagementserver.domain.volunteer.StudentVolunteerTracking;
+import com.studentmanagement.studentmanagementserver.repo.StudentProfileRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentRepository;
+import com.studentmanagement.studentmanagementserver.repo.StudentSchoolRecordRepository;
+import com.studentmanagement.studentmanagementserver.repo.StudentVolunteerTrackingRepository;
 import com.studentmanagement.studentmanagementserver.repo.UserRepository;
 import com.studentmanagement.studentmanagementserver.service.AuthSessionService;
 import com.studentmanagement.studentmanagementserver.service.PasswordPolicyValidator;
@@ -20,8 +27,12 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
+
 import static org.hamcrest.Matchers.hasItem;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -42,6 +53,15 @@ class StudentAccountsApiTest {
 
     @Autowired
     private StudentRepository studentRepository;
+
+    @Autowired
+    private StudentProfileRepository studentProfileRepository;
+
+    @Autowired
+    private StudentSchoolRecordRepository studentSchoolRecordRepository;
+
+    @Autowired
+    private StudentVolunteerTrackingRepository studentVolunteerTrackingRepository;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -77,6 +97,113 @@ class StudentAccountsApiTest {
                         .header("Authorization", bearerFor(admin)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[*].status", hasItem("ARCHIVED")));
+    }
+
+    @Test
+    void listStudentAccounts_returnsUnifiedLocationFieldsAndVolunteerSummary() throws Exception {
+        User teacherOperator = createTeacherUser("student_list_unified_teacher");
+        Student student = createStudentAccount("student_list_unified_target", "Unified", "Target", "UT", UserAccountStatus.ACTIVE);
+
+        StudentProfile profile = new StudentProfile(student);
+        profile.setEmail("unified.target@example.com");
+        profile.setPhone("+1-437-000-0001");
+        profile.setStatusInCanada("Study Permit");
+        profile.setTeacherNote("student-note");
+        profile.setCountry("Canada");
+        profile.setState("Ontario");
+        profile.setCity("Toronto");
+        studentProfileRepository.save(profile);
+
+        studentSchoolRecordRepository.save(new StudentSchoolRecord(
+                student,
+                SchoolType.MAIN,
+                "Unified High School",
+                "TDSB",
+                "123 Street",
+                "Toronto",
+                "Ontario",
+                "Canada",
+                "M1M1M1",
+                LocalDate.of(2024, 9, 1),
+                LocalDate.of(2027, 6, 30)
+        ));
+
+        studentVolunteerTrackingRepository.save(new StudentVolunteerTracking(
+                student,
+                new BigDecimal("40.10"),
+                "hours summary",
+                null
+        ));
+
+        MvcResult result = mockMvc.perform(get("/api/teacher/student-accounts")
+                        .header("Authorization", bearerFor(teacherOperator)))
+                .andExpect(status().isOk())
+                .andReturn();
+        JsonNode data = objectMapper.readTree(result.getResponse().getContentAsString()).path("data");
+        JsonNode row = findByUsername(data, "student_list_unified_target");
+        assertNotNull(row);
+        assertEquals("UT", row.path("studentName").asText());
+        assertEquals("unified.target@example.com", row.path("email").asText());
+        assertEquals("+1-437-000-0001", row.path("phone").asText());
+        assertEquals("2027-06", row.path("graduation").asText());
+        assertEquals("Unified High School", row.path("schoolName").asText());
+        assertEquals("Study Permit", row.path("canadaIdentity").asText());
+        assertEquals("TDSB", row.path("schoolBoard").asText());
+        assertEquals("Canada", row.path("country").asText());
+        assertEquals("Ontario", row.path("province").asText());
+        assertEquals("Toronto", row.path("city").asText());
+        assertEquals("student-note", row.path("teacherNote").asText());
+        assertEquals("ACTIVE", row.path("status").asText());
+        assertTrue(row.path("selectable").asBoolean());
+        assertEquals(40.1, row.path("totalVolunteerHours").asDouble(), 0.0001d);
+        assertTrue(row.path("volunteerCompleted").asBoolean());
+    }
+
+    @Test
+    void listStudentAccounts_volunteerCompletedThreshold_works() throws Exception {
+        User teacherOperator = createTeacherUser("student_list_threshold_teacher");
+        Student s399 = createStudentAccount("student_list_threshold_399", "T", "399", "T399", UserAccountStatus.ACTIVE);
+        Student s400 = createStudentAccount("student_list_threshold_400", "T", "400", "T400", UserAccountStatus.ACTIVE);
+        Student s401 = createStudentAccount("student_list_threshold_401", "T", "401", "T401", UserAccountStatus.ACTIVE);
+
+        studentVolunteerTrackingRepository.save(new StudentVolunteerTracking(
+                s399,
+                new BigDecimal("39.90"),
+                "below",
+                null
+        ));
+        studentVolunteerTrackingRepository.save(new StudentVolunteerTracking(
+                s400,
+                new BigDecimal("40.00"),
+                "equal",
+                null
+        ));
+        studentVolunteerTrackingRepository.save(new StudentVolunteerTracking(
+                s401,
+                new BigDecimal("40.10"),
+                "above",
+                null
+        ));
+
+        MvcResult result = mockMvc.perform(get("/api/teacher/student-accounts")
+                        .header("Authorization", bearerFor(teacherOperator)))
+                .andExpect(status().isOk())
+                .andReturn();
+        JsonNode data = objectMapper.readTree(result.getResponse().getContentAsString()).path("data");
+
+        JsonNode row399 = findByUsername(data, "student_list_threshold_399");
+        JsonNode row400 = findByUsername(data, "student_list_threshold_400");
+        JsonNode row401 = findByUsername(data, "student_list_threshold_401");
+        assertNotNull(row399);
+        assertNotNull(row400);
+        assertNotNull(row401);
+
+        assertEquals(39.9, row399.path("totalVolunteerHours").asDouble(), 0.0001d);
+        assertEquals(false, row399.path("volunteerCompleted").asBoolean());
+        assertEquals(40.0, row400.path("totalVolunteerHours").asDouble(), 0.0001d);
+        assertTrue(row400.path("volunteerCompleted").asBoolean());
+        assertEquals(40.1, row401.path("totalVolunteerHours").asDouble(), 0.0001d);
+        assertTrue(row401.path("volunteerCompleted").asBoolean());
     }
 
     @Test
@@ -270,6 +397,18 @@ class StudentAccountsApiTest {
         user.updateStatus(status, null);
         user = userRepository.save(user);
         return studentRepository.save(new Student(user, firstName, lastName, nickName));
+    }
+
+    private JsonNode findByUsername(JsonNode items, String username) {
+        if (items == null || !items.isArray() || username == null) {
+            return null;
+        }
+        for (JsonNode item : items) {
+            if (username.equals(item.path("username").asText())) {
+                return item;
+            }
+        }
+        return null;
     }
 
     private String bearerFor(User user) {

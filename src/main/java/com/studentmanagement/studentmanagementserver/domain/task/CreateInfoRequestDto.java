@@ -10,6 +10,7 @@ public class CreateInfoRequestDto {
     private List<Long> studentIds;
     private String taskGroupId;
     private Long goalId;
+    private CreateInfoVolunteerDto volunteer;
 
     public String getTitle() {
         return title;
@@ -65,5 +66,13 @@ public class CreateInfoRequestDto {
 
     public void setGoalId(Long goalId) {
         this.goalId = goalId;
+    }
+
+    public CreateInfoVolunteerDto getVolunteer() {
+        return volunteer;
+    }
+
+    public void setVolunteer(CreateInfoVolunteerDto volunteer) {
+        this.volunteer = volunteer;
     }
 }

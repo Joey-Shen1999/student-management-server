@@ -157,8 +157,25 @@ public class TaskCenterController {
     }
 
     @GetMapping("/api/teacher/tasks/assignable-students")
-    public ResponseEntity<List<AssignableStudentDto>> listAssignableStudents(HttpServletRequest request) {
-        return ResponseEntity.ok(goalTaskCenterService.listAssignableStudents(request));
+    public ResponseEntity<List<AssignableStudentDto>> listAssignableStudents(
+            @RequestParam(value = "country", required = false) String country,
+            @RequestParam(value = "province", required = false) String province,
+            @RequestParam(value = "city", required = false) String city,
+            @RequestParam(value = "schoolBoard", required = false) String schoolBoard,
+            @RequestParam(value = "graduationSeason", required = false) String graduationSeason,
+            @RequestParam(value = "keyword", required = false) String keyword,
+            HttpServletRequest request) {
+        return ResponseEntity.ok(
+                goalTaskCenterService.listAssignableStudents(
+                        country,
+                        province,
+                        city,
+                        schoolBoard,
+                        graduationSeason,
+                        keyword,
+                        request
+                )
+        );
     }
 
     private ApiRequestException badRequest(String message) {

@@ -9,6 +9,7 @@ import com.studentmanagement.studentmanagementserver.domain.teacher.TeacherStude
 import com.studentmanagement.studentmanagementserver.domain.user.User;
 import com.studentmanagement.studentmanagementserver.repo.InfoTaskRecipientRepository;
 import com.studentmanagement.studentmanagementserver.repo.InfoTaskRepository;
+import com.studentmanagement.studentmanagementserver.repo.InfoVolunteerTaskItemRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentRepository;
 import com.studentmanagement.studentmanagementserver.repo.TeacherRepository;
 import com.studentmanagement.studentmanagementserver.repo.TeacherStudentRepository;
@@ -23,6 +24,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import javax.servlet.http.HttpServletRequest;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -44,12 +48,16 @@ public class InfoTaskCenterService {
     private static final int CONTENT_MAX_LENGTH = 4000;
     private static final int TAG_MAX_LENGTH = 50;
     private static final int TASK_GROUP_ID_MAX_LENGTH = 64;
+    private static final int VOLUNTEER_TASK_NAME_MAX_LENGTH = 200;
+    private static final int VOLUNTEER_TASK_DESCRIPTION_MAX_LENGTH = 2000;
+    private static final int VOLUNTEER_VERIFIER_CONTACT_MAX_LENGTH = 255;
     private static final String STUDENT_NOT_ASSIGNABLE_CODE = "STUDENT_NOT_ASSIGNABLE";
     private static final String STUDENT_ARCHIVED_CODE = "STUDENT_ARCHIVED";
 
     private final AuthSessionService authSessionService;
     private final InfoTaskRepository infoTaskRepository;
     private final InfoTaskRecipientRepository infoTaskRecipientRepository;
+    private final InfoVolunteerTaskItemRepository infoVolunteerTaskItemRepository;
     private final StudentRepository studentRepository;
     private final TeacherRepository teacherRepository;
     private final TeacherStudentRepository teacherStudentRepository;
@@ -57,12 +65,14 @@ public class InfoTaskCenterService {
     public InfoTaskCenterService(AuthSessionService authSessionService,
                                  InfoTaskRepository infoTaskRepository,
                                  InfoTaskRecipientRepository infoTaskRecipientRepository,
+                                 InfoVolunteerTaskItemRepository infoVolunteerTaskItemRepository,
                                  StudentRepository studentRepository,
                                  TeacherRepository teacherRepository,
                                  TeacherStudentRepository teacherStudentRepository) {
         this.authSessionService = authSessionService;
         this.infoTaskRepository = infoTaskRepository;
         this.infoTaskRecipientRepository = infoTaskRecipientRepository;
+        this.infoVolunteerTaskItemRepository = infoVolunteerTaskItemRepository;
         this.studentRepository = studentRepository;
         this.teacherRepository = teacherRepository;
         this.teacherStudentRepository = teacherStudentRepository;
@@ -100,8 +110,11 @@ public class InfoTaskCenterService {
         );
 
         List<InfoTaskRecipient> studentRecipients = infoPage.getContent();
+        List<Long> infoTaskIds = collectInfoTaskIdsFromRecipients(studentRecipients);
         Map<Long, List<Long>> recipientStudentIdsByInfoTaskId =
-                loadRecipientStudentIdsByInfoTaskIds(collectInfoTaskIdsFromRecipients(studentRecipients));
+                loadRecipientStudentIdsByInfoTaskIds(infoTaskIds);
+        Map<Long, InfoTaskVolunteerDto> volunteerByInfoTaskId =
+                loadVolunteerByInfoTaskIds(infoTaskIds);
 
         List<InfoTaskDto> items = new ArrayList<InfoTaskDto>(studentRecipients.size());
         for (InfoTaskRecipient recipient : studentRecipients) {
@@ -110,7 +123,8 @@ public class InfoTaskCenterService {
                     infoTask,
                     recipient.isRead(),
                     recipient.getReadAt(),
-                    recipientStudentIdsByInfoTaskId.get(infoTask.getId())
+                    recipientStudentIdsByInfoTaskId.get(infoTask.getId()),
+                    volunteerByInfoTaskId.get(infoTask.getId())
             ));
         }
         return new InfoListResponseDto(items, infoPage.getTotalElements(), page, size);
@@ -148,8 +162,11 @@ public class InfoTaskCenterService {
         );
 
         List<InfoTask> infoTasks = infoPage.getContent();
+        List<Long> infoTaskIds = collectInfoTaskIdsFromInfos(infoTasks);
         Map<Long, List<Long>> recipientStudentIdsByInfoTaskId =
-                loadRecipientStudentIdsByInfoTaskIds(collectInfoTaskIdsFromInfos(infoTasks));
+                loadRecipientStudentIdsByInfoTaskIds(infoTaskIds);
+        Map<Long, InfoTaskVolunteerDto> volunteerByInfoTaskId =
+                loadVolunteerByInfoTaskIds(infoTaskIds);
 
         List<InfoTaskDto> items = new ArrayList<InfoTaskDto>(infoTasks.size());
         for (InfoTask infoTask : infoTasks) {
@@ -157,7 +174,8 @@ public class InfoTaskCenterService {
                     infoTask,
                     false,
                     null,
-                    recipientStudentIdsByInfoTaskId.get(infoTask.getId())
+                    recipientStudentIdsByInfoTaskId.get(infoTask.getId()),
+                    volunteerByInfoTaskId.get(infoTask.getId())
             ));
         }
         return new InfoListResponseDto(items, infoPage.getTotalElements(), page, size);
@@ -181,6 +199,7 @@ public class InfoTaskCenterService {
         List<Long> studentIds = normalizeStudentIds(requestBody.getStudentIds());
         String taskGroupId = normalizeOptionalTaskGroupId(requestBody.getTaskGroupId());
         Long goalId = normalizeOptionalGoalId(requestBody.getGoalId());
+        NormalizedVolunteerPayload volunteerPayload = normalizeVolunteerPayload(requestBody.getVolunteer(), category);
 
         Teacher publisher = resolveTeacherForWrite(operator);
         List<Student> targetStudents = resolveTargetStudentsForInfo(operator, publisher, studentIds);
@@ -203,7 +222,14 @@ public class InfoTaskCenterService {
             infoTask.overwrite(title, content, category, tagsText, targetCount, goalId, taskGroupId);
             infoTask = infoTaskRepository.save(infoTask);
             overwriteRecipients(infoTask, targetStudents);
-            return toInfoTaskDto(infoTask, false, null, findRecipientStudentIdsByInfoTaskId(infoTask.getId()));
+            overwriteVolunteerItems(infoTask, volunteerPayload);
+            return toInfoTaskDto(
+                    infoTask,
+                    false,
+                    null,
+                    findRecipientStudentIdsByInfoTaskId(infoTask.getId()),
+                    findVolunteerByInfoTaskId(infoTask.getId())
+            );
         }
 
         infoTask = new InfoTask(
@@ -218,7 +244,14 @@ public class InfoTaskCenterService {
         );
         infoTask = infoTaskRepository.save(infoTask);
         saveRecipients(infoTask, targetStudents);
-        return toInfoTaskDto(infoTask, false, null, findRecipientStudentIdsByInfoTaskId(infoTask.getId()));
+        overwriteVolunteerItems(infoTask, volunteerPayload);
+        return toInfoTaskDto(
+                infoTask,
+                false,
+                null,
+                findRecipientStudentIdsByInfoTaskId(infoTask.getId()),
+                findVolunteerByInfoTaskId(infoTask.getId())
+        );
     }
 
     @Transactional
@@ -240,7 +273,8 @@ public class InfoTaskCenterService {
                 saved.getInfoTask(),
                 saved.isRead(),
                 saved.getReadAt(),
-                findRecipientStudentIdsByInfoTaskId(saved.getInfoTask().getId())
+                findRecipientStudentIdsByInfoTaskId(saved.getInfoTask().getId()),
+                findVolunteerByInfoTaskId(saved.getInfoTask().getId())
         );
     }
 
@@ -278,6 +312,102 @@ public class InfoTaskCenterService {
             throw badRequest("taskGroupId too long");
         }
         return normalized;
+    }
+
+    private NormalizedVolunteerPayload normalizeVolunteerPayload(CreateInfoVolunteerDto volunteer,
+                                                                 InfoTaskCategory category) {
+        if (category != InfoTaskCategory.VOLUNTEER || volunteer == null) {
+            return null;
+        }
+
+        List<CreateInfoVolunteerTaskItemDto> rawTasks = volunteer.getTasks();
+        if (rawTasks == null || rawTasks.isEmpty()) {
+            throw badRequest("volunteer.tasks must contain at least one item");
+        }
+
+        List<NormalizedVolunteerTaskItem> normalizedTasks =
+                new ArrayList<NormalizedVolunteerTaskItem>(rawTasks.size());
+        BigDecimal totalHours = BigDecimal.ZERO;
+        for (int i = 0; i < rawTasks.size(); i++) {
+            CreateInfoVolunteerTaskItemDto rawTask = rawTasks.get(i);
+            String pathPrefix = "volunteer.tasks[" + i + "]";
+            if (rawTask == null) {
+                throw badRequest(pathPrefix + " is required");
+            }
+
+            String taskName = requireNonBlank(
+                    rawTask.getTaskName(),
+                    pathPrefix + ".taskName",
+                    VOLUNTEER_TASK_NAME_MAX_LENGTH
+            );
+            String description = requireNonBlank(
+                    rawTask.getDescription(),
+                    pathPrefix + ".description",
+                    VOLUNTEER_TASK_DESCRIPTION_MAX_LENGTH
+            );
+            String verifierContact = requireNonBlank(
+                    rawTask.getVerifierContact(),
+                    pathPrefix + ".verifierContact",
+                    VOLUNTEER_VERIFIER_CONTACT_MAX_LENGTH
+            );
+
+            BigDecimal durationHours = rawTask.getDurationHours();
+            if (durationHours == null) {
+                throw badRequest(pathPrefix + ".durationHours is required");
+            }
+            if (durationHours.compareTo(BigDecimal.ZERO) <= 0) {
+                throw badRequest(pathPrefix + ".durationHours must be greater than 0");
+            }
+
+            LocalDate startDate = rawTask.getStartDate();
+            if (startDate == null) {
+                throw badRequest(pathPrefix + ".startDate is required");
+            }
+            LocalDate endDate = rawTask.getEndDate();
+            if (endDate == null) {
+                throw badRequest(pathPrefix + ".endDate is required");
+            }
+            if (endDate.isBefore(startDate)) {
+                throw badRequest(pathPrefix + ".endDate must be on or after startDate");
+            }
+
+            normalizedTasks.add(new NormalizedVolunteerTaskItem(
+                    taskName,
+                    description,
+                    durationHours,
+                    startDate,
+                    endDate,
+                    verifierContact
+            ));
+            totalHours = totalHours.add(durationHours);
+        }
+        return new NormalizedVolunteerPayload(totalHours, normalizedTasks);
+    }
+
+    private void overwriteVolunteerItems(InfoTask infoTask, NormalizedVolunteerPayload volunteerPayload) {
+        if (infoTask == null || infoTask.getId() == null) {
+            return;
+        }
+
+        infoVolunteerTaskItemRepository.deleteByInfoTask_Id(infoTask.getId());
+        if (volunteerPayload == null || volunteerPayload.getTasks().isEmpty()) {
+            return;
+        }
+
+        List<InfoVolunteerTaskItem> entities =
+                new ArrayList<InfoVolunteerTaskItem>(volunteerPayload.getTasks().size());
+        for (NormalizedVolunteerTaskItem taskItem : volunteerPayload.getTasks()) {
+            entities.add(new InfoVolunteerTaskItem(
+                    infoTask,
+                    taskItem.getTaskName(),
+                    taskItem.getDescription(),
+                    taskItem.getDurationHours(),
+                    taskItem.getStartDate(),
+                    taskItem.getEndDate(),
+                    taskItem.getVerifierContact()
+            ));
+        }
+        infoVolunteerTaskItemRepository.saveAll(entities);
     }
 
     private void saveRecipients(InfoTask infoTask, List<Student> targetStudents) {
@@ -369,6 +499,57 @@ public class InfoTaskCenterService {
         return recipientStudentIdsByInfoTaskId;
     }
 
+    private Map<Long, InfoTaskVolunteerDto> loadVolunteerByInfoTaskIds(List<Long> infoTaskIds) {
+        if (infoTaskIds == null || infoTaskIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        LinkedHashSet<Long> deduplicatedInfoTaskIds = new LinkedHashSet<Long>();
+        for (Long infoTaskId : infoTaskIds) {
+            if (infoTaskId != null) {
+                deduplicatedInfoTaskIds.add(infoTaskId);
+            }
+        }
+        if (deduplicatedInfoTaskIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        List<InfoVolunteerTaskItem> volunteerTaskItems =
+                infoVolunteerTaskItemRepository.findByInfoTask_IdInOrderByInfoTask_IdAscIdAsc(
+                        new ArrayList<Long>(deduplicatedInfoTaskIds)
+                );
+        if (volunteerTaskItems == null || volunteerTaskItems.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        Map<Long, List<InfoVolunteerTaskItem>> volunteerItemsByInfoTaskId =
+                new LinkedHashMap<Long, List<InfoVolunteerTaskItem>>();
+        for (InfoVolunteerTaskItem volunteerTaskItem : volunteerTaskItems) {
+            if (volunteerTaskItem == null
+                    || volunteerTaskItem.getInfoTask() == null
+                    || volunteerTaskItem.getInfoTask().getId() == null) {
+                continue;
+            }
+            Long infoTaskId = volunteerTaskItem.getInfoTask().getId();
+            List<InfoVolunteerTaskItem> taskItems = volunteerItemsByInfoTaskId.get(infoTaskId);
+            if (taskItems == null) {
+                taskItems = new ArrayList<InfoVolunteerTaskItem>();
+                volunteerItemsByInfoTaskId.put(infoTaskId, taskItems);
+            }
+            taskItems.add(volunteerTaskItem);
+        }
+
+        Map<Long, InfoTaskVolunteerDto> volunteerByInfoTaskId =
+                new LinkedHashMap<Long, InfoTaskVolunteerDto>(volunteerItemsByInfoTaskId.size());
+        for (Map.Entry<Long, List<InfoVolunteerTaskItem>> entry : volunteerItemsByInfoTaskId.entrySet()) {
+            InfoTaskVolunteerDto volunteer = toVolunteerDto(entry.getValue());
+            if (volunteer != null) {
+                volunteerByInfoTaskId.put(entry.getKey(), volunteer);
+            }
+        }
+        return volunteerByInfoTaskId;
+    }
+
     private List<Long> collectInfoTaskIdsFromRecipients(List<InfoTaskRecipient> infoTaskRecipients) {
         if (infoTaskRecipients == null || infoTaskRecipients.isEmpty()) {
             return Collections.emptyList();
@@ -406,6 +587,13 @@ public class InfoTaskCenterService {
             return Collections.emptyList();
         }
         return recipientStudentIds;
+    }
+
+    private InfoTaskVolunteerDto findVolunteerByInfoTaskId(Long infoTaskId) {
+        if (infoTaskId == null) {
+            return null;
+        }
+        return toVolunteerDto(infoVolunteerTaskItemRepository.findByInfoTask_IdOrderByIdAsc(infoTaskId));
     }
 
     private List<Student> resolveTargetStudentsForInfo(User operator,
@@ -489,8 +677,9 @@ public class InfoTaskCenterService {
 
     private InfoTaskDto toInfoTaskDto(InfoTask infoTask,
                                       boolean read,
-                                      java.time.LocalDateTime readAt,
-                                      List<Long> recipientStudentIds) {
+                                      LocalDateTime readAt,
+                                      List<Long> recipientStudentIds,
+                                      InfoTaskVolunteerDto volunteer) {
         Teacher publisher = infoTask.getPublishedByTeacher();
         return new InfoTaskDto(
                 infoTask.getId(),
@@ -501,6 +690,7 @@ public class InfoTaskCenterService {
                 parseTags(infoTask.getTagsText()),
                 infoTask.getGoalId(),
                 infoTask.getTaskGroupId(),
+                volunteer,
                 recipientStudentIds == null ? Collections.<Long>emptyList() : recipientStudentIds,
                 infoTask.getTargetStudentCount(),
                 publisher.getId(),
@@ -510,6 +700,37 @@ public class InfoTaskCenterService {
                 read,
                 readAt == null ? null : readAt.toString()
         );
+    }
+
+    private InfoTaskVolunteerDto toVolunteerDto(List<InfoVolunteerTaskItem> volunteerTaskItems) {
+        if (volunteerTaskItems == null || volunteerTaskItems.isEmpty()) {
+            return null;
+        }
+
+        List<InfoTaskVolunteerTaskItemDto> tasks =
+                new ArrayList<InfoTaskVolunteerTaskItemDto>(volunteerTaskItems.size());
+        BigDecimal totalHours = BigDecimal.ZERO;
+        for (InfoVolunteerTaskItem volunteerTaskItem : volunteerTaskItems) {
+            if (volunteerTaskItem == null) {
+                continue;
+            }
+            BigDecimal durationHours = volunteerTaskItem.getDurationHours();
+            if (durationHours != null) {
+                totalHours = totalHours.add(durationHours);
+            }
+            tasks.add(new InfoTaskVolunteerTaskItemDto(
+                    volunteerTaskItem.getTaskName(),
+                    volunteerTaskItem.getDescription(),
+                    durationHours,
+                    volunteerTaskItem.getStartDate(),
+                    volunteerTaskItem.getEndDate(),
+                    volunteerTaskItem.getVerifierContact()
+            ));
+        }
+        if (tasks.isEmpty()) {
+            return null;
+        }
+        return new InfoTaskVolunteerDto(totalHours, tasks);
     }
 
     private String buildTeacherDisplayName(Teacher teacher) {
@@ -660,6 +881,71 @@ public class InfoTaskCenterService {
         }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private static class NormalizedVolunteerPayload {
+        private final BigDecimal totalHours;
+        private final List<NormalizedVolunteerTaskItem> tasks;
+
+        private NormalizedVolunteerPayload(BigDecimal totalHours, List<NormalizedVolunteerTaskItem> tasks) {
+            this.totalHours = totalHours;
+            this.tasks = tasks;
+        }
+
+        public BigDecimal getTotalHours() {
+            return totalHours;
+        }
+
+        public List<NormalizedVolunteerTaskItem> getTasks() {
+            return tasks;
+        }
+    }
+
+    private static class NormalizedVolunteerTaskItem {
+        private final String taskName;
+        private final String description;
+        private final BigDecimal durationHours;
+        private final LocalDate startDate;
+        private final LocalDate endDate;
+        private final String verifierContact;
+
+        private NormalizedVolunteerTaskItem(String taskName,
+                                            String description,
+                                            BigDecimal durationHours,
+                                            LocalDate startDate,
+                                            LocalDate endDate,
+                                            String verifierContact) {
+            this.taskName = taskName;
+            this.description = description;
+            this.durationHours = durationHours;
+            this.startDate = startDate;
+            this.endDate = endDate;
+            this.verifierContact = verifierContact;
+        }
+
+        public String getTaskName() {
+            return taskName;
+        }
+
+        public String getDescription() {
+            return description;
+        }
+
+        public BigDecimal getDurationHours() {
+            return durationHours;
+        }
+
+        public LocalDate getStartDate() {
+            return startDate;
+        }
+
+        public LocalDate getEndDate() {
+            return endDate;
+        }
+
+        public String getVerifierContact() {
+            return verifierContact;
+        }
     }
 
     private ApiRequestException badRequest(String message) {

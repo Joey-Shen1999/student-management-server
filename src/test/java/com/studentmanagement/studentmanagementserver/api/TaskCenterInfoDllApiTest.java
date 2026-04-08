@@ -9,6 +9,7 @@ import com.studentmanagement.studentmanagementserver.domain.student.Student;
 import com.studentmanagement.studentmanagementserver.domain.teacher.Teacher;
 import com.studentmanagement.studentmanagementserver.domain.teacher.TeacherStudent;
 import com.studentmanagement.studentmanagementserver.domain.user.User;
+import com.studentmanagement.studentmanagementserver.repo.InfoVolunteerTaskItemRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentRepository;
 import com.studentmanagement.studentmanagementserver.repo.TeacherRepository;
 import com.studentmanagement.studentmanagementserver.repo.TeacherStudentRepository;
@@ -24,6 +25,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -58,6 +60,9 @@ class TaskCenterInfoDllApiTest {
 
     @Autowired
     private TeacherStudentRepository teacherStudentRepository;
+
+    @Autowired
+    private InfoVolunteerTaskItemRepository infoVolunteerTaskItemRepository;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -257,6 +262,241 @@ class TaskCenterInfoDllApiTest {
                         .param("size", "20"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items[*].id", hasItem((int) firstInfoId)));
+    }
+
+    @Test
+    void createVolunteerInfoStructured_andQueryReturnsVolunteerPayload() throws Exception {
+        Teacher teacher = createTeacherAccount("info_teacher_vol_struct", "Volunteer Struct Teacher");
+        Student student = createStudentAccount("info_vol_struct_student", "Vol", "Student", "VolStu");
+        assignTeacherStudent(teacher, student, TeacherStudentStatus.ACTIVE);
+
+        Map<String, Object> volunteer = buildVolunteerPayload(Arrays.asList(
+                buildVolunteerTask("校园导览", "新生校园导览", new BigDecimal("2.50"), "2026-03-01", "2026-03-01", "123-456-7890"),
+                buildVolunteerTask("社区活动", "社区募捐活动", new BigDecimal("1.50"), "2026-03-05", "2026-03-06", "contact@example.com")
+        ));
+
+        MvcResult createResult = mockMvc.perform(post("/api/teacher/tasks/infos")
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createInfoPayload(
+                                "Volunteer structured info",
+                                "legacy content remains",
+                                "VOLUNTEER",
+                                Arrays.asList("Volunteer"),
+                                Arrays.asList(student.getId()),
+                                null,
+                                null,
+                                volunteer
+                        )))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.category").value("VOLUNTEER"))
+                .andExpect(jsonPath("$.content").value("legacy content remains"))
+                .andExpect(jsonPath("$.volunteer.totalHours").value(4.0))
+                .andExpect(jsonPath("$.volunteer.tasks.length()").value(2))
+                .andExpect(jsonPath("$.volunteer.tasks[0].taskName").value("校园导览"))
+                .andExpect(jsonPath("$.volunteer.tasks[0].durationHours").value(2.5))
+                .andReturn();
+        long infoId = objectMapper.readTree(createResult.getResponse().getContentAsString()).path("id").asLong();
+
+        mockMvc.perform(get("/api/teacher/tasks")
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .param("type", "INFO")
+                        .param("category", "VOLUNTEER")
+                        .param("page", "1")
+                        .param("size", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].id").value(infoId))
+                .andExpect(jsonPath("$.items[0].volunteer.totalHours").value(4.0))
+                .andExpect(jsonPath("$.items[0].volunteer.tasks.length()").value(2));
+
+        mockMvc.perform(get("/api/student/tasks")
+                        .header("Authorization", bearerFor(student.getUser()))
+                        .param("type", "INFO")
+                        .param("category", "VOLUNTEER")
+                        .param("page", "1")
+                        .param("size", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].id").value(infoId))
+                .andExpect(jsonPath("$.items[0].volunteer.totalHours").value(4.0))
+                .andExpect(jsonPath("$.items[0].volunteer.tasks.length()").value(2));
+    }
+
+    @Test
+    void createVolunteerInfoWithEmptyTasks_returns400() throws Exception {
+        Teacher teacher = createTeacherAccount("info_teacher_vol_empty", "Volunteer Empty Teacher");
+        Student student = createStudentAccount("info_vol_empty_student", "Vol", "Empty", "VolEmpty");
+        assignTeacherStudent(teacher, student, TeacherStudentStatus.ACTIVE);
+
+        mockMvc.perform(post("/api/teacher/tasks/infos")
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createInfoPayload(
+                                "Volunteer invalid",
+                                "invalid payload",
+                                "VOLUNTEER",
+                                Arrays.asList("Volunteer"),
+                                Arrays.asList(student.getId()),
+                                null,
+                                null,
+                                buildVolunteerPayload(Arrays.<Map<String, Object>>asList())
+                        )))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("volunteer.tasks must contain at least one item"));
+    }
+
+    @Test
+    void createVolunteerInfoWithNegativeDuration_returns400() throws Exception {
+        Teacher teacher = createTeacherAccount("info_teacher_vol_negative", "Volunteer Negative Teacher");
+        Student student = createStudentAccount("info_vol_negative_student", "Vol", "Negative", "VolNegative");
+        assignTeacherStudent(teacher, student, TeacherStudentStatus.ACTIVE);
+
+        Map<String, Object> volunteer = buildVolunteerPayload(Arrays.asList(
+                buildVolunteerTask("Task A", "Desc A", new BigDecimal("-1.00"), "2026-03-01", "2026-03-01", "A-Contact")
+        ));
+
+        mockMvc.perform(post("/api/teacher/tasks/infos")
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createInfoPayload(
+                                "Volunteer invalid duration",
+                                "invalid payload",
+                                "VOLUNTEER",
+                                Arrays.asList("Volunteer"),
+                                Arrays.asList(student.getId()),
+                                null,
+                                null,
+                                volunteer
+                        )))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("volunteer.tasks[0].durationHours must be greater than 0"));
+    }
+
+    @Test
+    void createVolunteerInfoWithEndDateBeforeStartDate_returns400() throws Exception {
+        Teacher teacher = createTeacherAccount("info_teacher_vol_date", "Volunteer Date Teacher");
+        Student student = createStudentAccount("info_vol_date_student", "Vol", "Date", "VolDate");
+        assignTeacherStudent(teacher, student, TeacherStudentStatus.ACTIVE);
+
+        Map<String, Object> volunteer = buildVolunteerPayload(Arrays.asList(
+                buildVolunteerTask("Task A", "Desc A", new BigDecimal("1.00"), "2026-03-02", "2026-03-01", "A-Contact")
+        ));
+
+        mockMvc.perform(post("/api/teacher/tasks/infos")
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createInfoPayload(
+                                "Volunteer invalid date",
+                                "invalid payload",
+                                "VOLUNTEER",
+                                Arrays.asList("Volunteer"),
+                                Arrays.asList(student.getId()),
+                                null,
+                                null,
+                                volunteer
+                        )))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("volunteer.tasks[0].endDate must be on or after startDate"));
+    }
+
+    @Test
+    void createVolunteerInfoWithTaskGroupId_overwriteReplacesVolunteerDetails() throws Exception {
+        Teacher teacher = createTeacherAccount("info_teacher_vol_overwrite", "Volunteer Overwrite Teacher");
+        Student student = createStudentAccount("info_vol_overwrite_student", "Vol", "Overwrite", "VolOverwrite");
+        assignTeacherStudent(teacher, student, TeacherStudentStatus.ACTIVE);
+
+        String taskGroupId = "vol-tg-20260408-001";
+        Map<String, Object> volunteerV1 = buildVolunteerPayload(Arrays.asList(
+                buildVolunteerTask("Task V1-A", "Desc V1-A", new BigDecimal("1.25"), "2026-03-01", "2026-03-01", "c1"),
+                buildVolunteerTask("Task V1-B", "Desc V1-B", new BigDecimal("2.00"), "2026-03-02", "2026-03-02", "c2")
+        ));
+        MvcResult firstCreateResult = mockMvc.perform(post("/api/teacher/tasks/infos")
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createInfoPayload(
+                                "Volunteer overwrite v1",
+                                "content v1",
+                                "VOLUNTEER",
+                                Arrays.asList("Volunteer"),
+                                Arrays.asList(student.getId()),
+                                taskGroupId,
+                                null,
+                                volunteerV1
+                        )))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.volunteer.tasks.length()").value(2))
+                .andReturn();
+        long infoId = objectMapper.readTree(firstCreateResult.getResponse().getContentAsString()).path("id").asLong();
+        assertEquals(2, infoVolunteerTaskItemRepository.findByInfoTask_IdOrderByIdAsc(infoId).size());
+
+        Map<String, Object> volunteerV2 = buildVolunteerPayload(Arrays.asList(
+                buildVolunteerTask("Task V2-Only", "Desc V2", new BigDecimal("3.50"), "2026-03-03", "2026-03-03", "c3")
+        ));
+        MvcResult secondCreateResult = mockMvc.perform(post("/api/teacher/tasks/infos")
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createInfoPayload(
+                                "Volunteer overwrite v2",
+                                "content v2",
+                                "VOLUNTEER",
+                                Arrays.asList("Volunteer"),
+                                Arrays.asList(student.getId()),
+                                taskGroupId,
+                                null,
+                                volunteerV2
+                        )))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(infoId))
+                .andExpect(jsonPath("$.volunteer.totalHours").value(3.5))
+                .andExpect(jsonPath("$.volunteer.tasks.length()").value(1))
+                .andExpect(jsonPath("$.volunteer.tasks[0].taskName").value("Task V2-Only"))
+                .andReturn();
+        long overwrittenInfoId = objectMapper.readTree(secondCreateResult.getResponse().getContentAsString()).path("id").asLong();
+        assertEquals(infoId, overwrittenInfoId);
+
+        assertEquals(1, infoVolunteerTaskItemRepository.findByInfoTask_IdOrderByIdAsc(infoId).size());
+        assertEquals(
+                "Task V2-Only",
+                infoVolunteerTaskItemRepository.findByInfoTask_IdOrderByIdAsc(infoId).get(0).getTaskName()
+        );
+    }
+
+    @Test
+    void createVolunteerInfoWithoutStructuredData_remainsBackwardCompatible() throws Exception {
+        Teacher teacher = createTeacherAccount("info_teacher_vol_legacy", "Volunteer Legacy Teacher");
+        Student student = createStudentAccount("info_vol_legacy_student", "Vol", "Legacy", "VolLegacy");
+        assignTeacherStudent(teacher, student, TeacherStudentStatus.ACTIVE);
+
+        String legacyContent = "义工总时长：3 小时\n义工任务明细：\n任务名称：历史任务";
+        long infoId = createInfoAsTeacher(
+                teacher.getUser(),
+                "Volunteer legacy content only",
+                legacyContent,
+                "VOLUNTEER",
+                Arrays.asList("Volunteer"),
+                Arrays.asList(student.getId())
+        );
+
+        mockMvc.perform(get("/api/teacher/tasks")
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .param("type", "INFO")
+                        .param("category", "VOLUNTEER")
+                        .param("page", "1")
+                        .param("size", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].id").value(infoId))
+                .andExpect(jsonPath("$.items[0].content").value(legacyContent))
+                .andExpect(jsonPath("$.items[0].volunteer").isEmpty());
+
+        mockMvc.perform(get("/api/student/tasks")
+                        .header("Authorization", bearerFor(student.getUser()))
+                        .param("type", "INFO")
+                        .param("category", "VOLUNTEER")
+                        .param("page", "1")
+                        .param("size", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].id").value(infoId))
+                .andExpect(jsonPath("$.items[0].content").value(legacyContent))
+                .andExpect(jsonPath("$.items[0].volunteer").isEmpty());
     }
 
     @Test
@@ -681,7 +921,7 @@ class TaskCenterInfoDllApiTest {
                                      String category,
                                      List<String> tags,
                                      List<Long> studentIds) throws Exception {
-        return createInfoPayload(title, content, category, tags, studentIds, null, null);
+        return createInfoPayload(title, content, category, tags, studentIds, null, null, null);
     }
 
     private String createInfoPayload(String title,
@@ -690,7 +930,7 @@ class TaskCenterInfoDllApiTest {
                                      List<String> tags,
                                      List<Long> studentIds,
                                      Long goalId) throws Exception {
-        return createInfoPayload(title, content, category, tags, studentIds, null, goalId);
+        return createInfoPayload(title, content, category, tags, studentIds, null, goalId, null);
     }
 
     private String createInfoPayload(String title,
@@ -700,6 +940,17 @@ class TaskCenterInfoDllApiTest {
                                      List<Long> studentIds,
                                      String taskGroupId,
                                      Long goalId) throws Exception {
+        return createInfoPayload(title, content, category, tags, studentIds, taskGroupId, goalId, null);
+    }
+
+    private String createInfoPayload(String title,
+                                     String content,
+                                     String category,
+                                     List<String> tags,
+                                     List<Long> studentIds,
+                                     String taskGroupId,
+                                     Long goalId,
+                                     Map<String, Object> volunteer) throws Exception {
         Map<String, Object> payload = new LinkedHashMap<String, Object>();
         payload.put("title", title);
         payload.put("content", content);
@@ -712,7 +963,32 @@ class TaskCenterInfoDllApiTest {
         if (goalId != null) {
             payload.put("goalId", goalId);
         }
+        if (volunteer != null) {
+            payload.put("volunteer", volunteer);
+        }
         return objectMapper.writeValueAsString(payload);
+    }
+
+    private Map<String, Object> buildVolunteerPayload(List<Map<String, Object>> tasks) {
+        Map<String, Object> volunteer = new LinkedHashMap<String, Object>();
+        volunteer.put("tasks", tasks);
+        return volunteer;
+    }
+
+    private Map<String, Object> buildVolunteerTask(String taskName,
+                                                   String description,
+                                                   BigDecimal durationHours,
+                                                   String startDate,
+                                                   String endDate,
+                                                   String verifierContact) {
+        Map<String, Object> task = new LinkedHashMap<String, Object>();
+        task.put("taskName", taskName);
+        task.put("description", description);
+        task.put("durationHours", durationHours);
+        task.put("startDate", startDate);
+        task.put("endDate", endDate);
+        task.put("verifierContact", verifierContact);
+        return task;
     }
 
     private long createDllTaskAsTeacher(User teacherUser, long templateId, long studentId) throws Exception {

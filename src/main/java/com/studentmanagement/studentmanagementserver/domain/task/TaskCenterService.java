@@ -408,7 +408,20 @@ public class TaskCenterService {
     }
 
     @Transactional(readOnly = true)
-    public List<AssignableStudentDto> listAssignableStudents(HttpServletRequest request) {
+    public List<AssignableStudentDto> listAssignableStudents(String countryRaw,
+                                                             String provinceRaw,
+                                                             String cityRaw,
+                                                             String schoolBoardRaw,
+                                                             String graduationSeasonRaw,
+                                                             String keywordRaw,
+                                                             HttpServletRequest request) {
+        String country = normalizeKeyword(countryRaw);
+        String province = normalizeKeyword(provinceRaw);
+        String city = normalizeKeyword(cityRaw);
+        String schoolBoard = normalizeKeyword(schoolBoardRaw);
+        String graduationSeason = normalizeKeyword(graduationSeasonRaw);
+        String keyword = normalizeKeyword(keywordRaw);
+
         User operator = authSessionService.requireAuthenticatedUser(request);
         if (operator.getRole() != UserRole.TEACHER && operator.getRole() != UserRole.ADMIN) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: teacher/admin role required.");
@@ -474,24 +487,57 @@ public class TaskCenterService {
                     primarySchool == null ? null : primarySchool.getCity(),
                     profile == null ? null : profile.getCity()
             );
+            String studentName = buildStudentDisplayName(student);
+            String username = student.getUser() == null ? null : trimToNull(student.getUser().getUsername());
+            String email = profile == null ? null : trimToNull(profile.getEmail());
+            String phone = profile == null ? null : trimToNull(profile.getPhone());
+            String graduation = formatGraduation(primarySchool == null ? null : primarySchool.getEndTime());
+            String schoolName = primarySchool == null ? null : trimToNull(primarySchool.getSchoolName());
+            String canadaIdentity = profile == null ? null : trimToNull(profile.getStatusInCanada());
+            String teacherNote = profile == null ? null : trimToNull(profile.getTeacherNote());
+            String schoolBoardValue = primarySchool == null ? null : trimToNull(primarySchool.getSchoolBoard());
 
-            result.add(new AssignableStudentDto(
+            if (!matchesSelectorFilters(
+                    country,
+                    province,
+                    city,
+                    schoolBoard,
+                    graduationSeason,
+                    keyword,
                     studentId,
-                    buildStudentDisplayName(student),
-                    student.getUser() == null ? null : trimToNull(student.getUser().getUsername()),
-                    profile == null ? null : trimToNull(profile.getEmail()),
-                    profile == null ? null : trimToNull(profile.getPhone()),
-                    formatGraduation(primarySchool == null ? null : primarySchool.getEndTime()),
-                    primarySchool == null ? null : trimToNull(primarySchool.getSchoolName()),
-                    profile == null ? null : trimToNull(profile.getStatusInCanada()),
-                    summarizeGender(profile),
-                    profile == null ? null : trimToNull(profile.getCitizenship()),
-                    profile == null ? null : trimToNull(profile.getFirstLanguage()),
-                    primarySchool == null ? null : trimToNull(primarySchool.getSchoolBoard()),
+                    studentName,
+                    username,
+                    email,
+                    phone,
+                    graduation,
+                    schoolName,
+                    canadaIdentity,
+                    schoolBoardValue,
                     summaryCountry,
                     summaryProvince,
                     summaryCity,
-                    profile == null ? null : trimToNull(profile.getTeacherNote()),
+                    teacherNote
+            )) {
+                continue;
+            }
+
+            result.add(new AssignableStudentDto(
+                    studentId,
+                    studentName,
+                    username,
+                    email,
+                    phone,
+                    graduation,
+                    schoolName,
+                    canadaIdentity,
+                    summarizeGender(profile),
+                    profile == null ? null : trimToNull(profile.getCitizenship()),
+                    profile == null ? null : trimToNull(profile.getFirstLanguage()),
+                    schoolBoardValue,
+                    summaryCountry,
+                    summaryProvince,
+                    summaryCity,
+                    teacherNote,
                     status,
                     selectable
             ));
@@ -805,6 +851,71 @@ public class TaskCenterService {
             return firstValue;
         }
         return trimToNull(second);
+    }
+
+    private boolean matchesSelectorFilters(String country,
+                                           String province,
+                                           String city,
+                                           String schoolBoard,
+                                           String graduationSeason,
+                                           String keyword,
+                                           Long studentId,
+                                           String studentName,
+                                           String username,
+                                           String email,
+                                           String phone,
+                                           String graduation,
+                                           String schoolName,
+                                           String canadaIdentity,
+                                           String schoolBoardValue,
+                                           String summaryCountry,
+                                           String summaryProvince,
+                                           String summaryCity,
+                                           String teacherNote) {
+        if (!containsNormalized(summaryCountry, country)) {
+            return false;
+        }
+        if (!containsNormalized(summaryProvince, province)) {
+            return false;
+        }
+        if (!containsNormalized(summaryCity, city)) {
+            return false;
+        }
+        if (!containsNormalized(schoolBoardValue, schoolBoard)) {
+            return false;
+        }
+        if (!containsNormalized(graduation, graduationSeason)) {
+            return false;
+        }
+        if (keyword == null) {
+            return true;
+        }
+
+        String studentIdText = studentId == null ? null : String.valueOf(studentId);
+        return containsNormalized(studentIdText, keyword)
+                || containsNormalized(studentName, keyword)
+                || containsNormalized(username, keyword)
+                || containsNormalized(email, keyword)
+                || containsNormalized(phone, keyword)
+                || containsNormalized(graduation, keyword)
+                || containsNormalized(schoolName, keyword)
+                || containsNormalized(canadaIdentity, keyword)
+                || containsNormalized(schoolBoardValue, keyword)
+                || containsNormalized(summaryCountry, keyword)
+                || containsNormalized(summaryProvince, keyword)
+                || containsNormalized(summaryCity, keyword)
+                || containsNormalized(teacherNote, keyword);
+    }
+
+    private boolean containsNormalized(String source, String filter) {
+        if (filter == null) {
+            return true;
+        }
+        String normalizedSource = trimToNull(source);
+        if (normalizedSource == null) {
+            return false;
+        }
+        return normalizedSource.toLowerCase(Locale.ROOT).contains(filter);
     }
 
     private Teacher resolveTeacherForWrite(User operator) {
