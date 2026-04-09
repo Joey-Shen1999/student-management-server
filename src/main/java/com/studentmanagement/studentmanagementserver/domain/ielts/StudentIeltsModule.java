@@ -51,6 +51,10 @@ public class StudentIeltsModule extends BaseEntity {
     private LanguageTrackingManualStatus languageScoreTrackingManualStatus;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "language_course_status", length = 64)
+    private LanguageCourseStatus languageCourseStatus;
+
+    @Enumerated(EnumType.STRING)
     @Column(name = "tracking_status", nullable = false, length = 64)
     private IeltsTrackingStatus trackingStatus;
 
@@ -78,6 +82,7 @@ public class StudentIeltsModule extends BaseEntity {
         this.languageScoreType = LanguageScoreType.IELTS;
         this.languageTrackingManualStatus = null;
         this.languageScoreTrackingManualStatus = null;
+        this.languageCourseStatus = null;
         this.trackingStatus = IeltsTrackingStatus.YELLOW_NEEDS_PREPARATION;
         this.languageTrackingStatus = LanguageTrackingStatus.NEEDS_TRACKING;
         this.languageScoreTrackingStatus = LanguageTrackingStatus.NEEDS_TRACKING;
@@ -112,6 +117,10 @@ public class StudentIeltsModule extends BaseEntity {
 
     public IeltsTrackingStatus getTrackingStatus() {
         return trackingStatus;
+    }
+
+    public LanguageCourseStatus getLanguageCourseStatus() {
+        return languageCourseStatus;
     }
 
     public LanguageTrackingStatus getLanguageTrackingStatus() {
@@ -149,6 +158,10 @@ public class StudentIeltsModule extends BaseEntity {
         this.languageScoreTrackingManualStatus = languageTrackingManualStatus;
         this.languageTrackingManualStatusUpdatedBy = updatedBy;
         this.languageTrackingManualStatusUpdatedAt = updatedAt;
+    }
+
+    public void updateLanguageCourseStatus(LanguageCourseStatus languageCourseStatus) {
+        this.languageCourseStatus = languageCourseStatus;
     }
 
     public void updateDerivedStatuses(IeltsTrackingStatus trackingStatus,

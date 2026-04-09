@@ -85,6 +85,7 @@ class IeltsTrackingApiTest {
                 .andExpect(jsonPath("$.hasTakenIeltsAcademic").value(false))
                 .andExpect(jsonPath("$.preparationIntent").value("UNSET"))
                 .andExpect(jsonPath("$.languageTrackingManualStatus").value(nullValue()))
+                .andExpect(jsonPath("$.languageCourseStatus").value(nullValue()))
                 .andExpect(jsonPath("$.trackingStatus").value("YELLOW_NEEDS_PREPARATION"))
                 .andExpect(jsonPath("$.languageTrackingStatus").value("NEEDS_TRACKING"))
                 .andExpect(jsonPath("$.summary.languageScoreType").value("IELTS"))
@@ -205,6 +206,31 @@ class IeltsTrackingApiTest {
     }
 
     @Test
+    void studentUpdateRecords_withLanguageCourseStatusField_returns403FieldForbidden() throws Exception {
+        Student student = createStudentAccount("ielts_student_records_course_status_forbidden", "IELTS", "Course", "Forbidden");
+
+        Map<String, Object> record = new LinkedHashMap<String, Object>();
+        record.put("recordId", "r-1");
+        record.put("testDate", "2025-10-12");
+        record.put("listening", 6.5d);
+        record.put("reading", 6.5d);
+        record.put("writing", 6.0d);
+        record.put("speaking", 6.0d);
+
+        Map<String, Object> payload = new LinkedHashMap<String, Object>();
+        payload.put("hasTakenIeltsAcademic", true);
+        payload.put("languageCourseStatus", "ENROLLED_GLOBAL_IELTS");
+        payload.put("records", Arrays.asList(record));
+
+        mockMvc.perform(put("/api/student/ielts-module/records")
+                        .header("Authorization", bearerFor(student.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payload)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FIELD_FORBIDDEN"));
+    }
+
+    @Test
     void studentUpdateRecords_invalidBandStep_returns400() throws Exception {
         Student student = createStudentAccount("ielts_student_bad_band", "IELTS", "Band", "Band");
 
@@ -249,6 +275,82 @@ class IeltsTrackingApiTest {
                 .andExpect(jsonPath("$.languageTrackingStatus").value("NEEDS_TRACKING"))
                 .andExpect(jsonPath("$.summary.languageScoreType").value("IELTS"))
                 .andExpect(jsonPath("$.summary.languageTrackingStatus").value("NEEDS_TRACKING"));
+    }
+
+    @Test
+    void teacherUpdateLanguageCourseStatus_thenGetEcho_success() throws Exception {
+        Teacher teacher = createTeacherAccount("ielts_teacher_course_status", "IELTS Teacher Course Status");
+        Student student = createStudentAccount("ielts_student_course_status", "IELTS", "Course", "Status");
+        assignTeacherStudent(teacher, student, TeacherStudentStatus.ACTIVE);
+
+        Map<String, Object> payload = new LinkedHashMap<String, Object>();
+        payload.put("hasTakenIeltsAcademic", false);
+        payload.put("preparationIntent", "NOT_PREPARING");
+        payload.put("languageCourseStatus", "ENROLLED_GLOBAL_IELTS");
+        payload.put("records", Arrays.asList());
+
+        mockMvc.perform(put("/api/teacher/students/{studentId}/ielts-module", student.getId())
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.languageCourseStatus").value("ENROLLED_GLOBAL_IELTS"));
+
+        mockMvc.perform(get("/api/teacher/students/{studentId}/ielts-module", student.getId())
+                        .header("Authorization", bearerFor(teacher.getUser())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.languageCourseStatus").value("ENROLLED_GLOBAL_IELTS"));
+
+        mockMvc.perform(get("/api/student/ielts-module")
+                        .header("Authorization", bearerFor(student.getUser())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.languageCourseStatus").value("ENROLLED_GLOBAL_IELTS"));
+    }
+
+    @Test
+    void teacherUpdateLanguageCourseStatus_withAlias_success() throws Exception {
+        Teacher teacher = createTeacherAccount("ielts_teacher_course_status_alias", "IELTS Teacher Course Status Alias");
+        Student student = createStudentAccount("ielts_student_course_status_alias", "IELTS", "Course", "Alias");
+        assignTeacherStudent(teacher, student, TeacherStudentStatus.ACTIVE);
+
+        Map<String, Object> payload = new LinkedHashMap<String, Object>();
+        payload.put("hasTakenIeltsAcademic", false);
+        payload.put("preparationIntent", "NOT_PREPARING");
+        payload.put("languageCourseEnrollmentStatus", "EXAM_REGISTERED");
+        payload.put("records", Arrays.asList());
+
+        mockMvc.perform(put("/api/teacher/students/{studentId}/ielts-module", student.getId())
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.languageCourseStatus").value("EXAM_REGISTERED"));
+
+        mockMvc.perform(get("/api/teacher/students/{studentId}/ielts-module", student.getId())
+                        .header("Authorization", bearerFor(teacher.getUser())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.languageCourseStatus").value("EXAM_REGISTERED"));
+    }
+
+    @Test
+    void teacherUpdateLanguageCourseStatus_invalidValue_returns400() throws Exception {
+        Teacher teacher = createTeacherAccount("ielts_teacher_course_status_invalid", "IELTS Teacher Course Status Invalid");
+        Student student = createStudentAccount("ielts_student_course_status_invalid", "IELTS", "Course", "Invalid");
+        assignTeacherStudent(teacher, student, TeacherStudentStatus.ACTIVE);
+
+        Map<String, Object> payload = new LinkedHashMap<String, Object>();
+        payload.put("hasTakenIeltsAcademic", false);
+        payload.put("preparationIntent", "NOT_PREPARING");
+        payload.put("languageCourseStatus", "INVALID_STATUS");
+        payload.put("records", Arrays.asList());
+
+        mockMvc.perform(put("/api/teacher/students/{studentId}/ielts-module", student.getId())
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payload)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("BAD_REQUEST"))
+                .andExpect(jsonPath("$.details", hasItem("languageCourseStatus invalid")));
     }
 
     @Test

@@ -10,7 +10,9 @@ public class StudentIeltsPreparationIntentUpdateRequestDto {
     private String languageScoreType;
     private String preparationIntent;
     private String languageScoreTrackingManualStatus;
+    private String languageCourseStatus;
     private boolean languageScoreTrackingManualStatusPresent;
+    private boolean languageCourseStatusPresent;
 
     public Boolean getHasTakenIeltsAcademic() {
         return hasTakenIeltsAcademic;
@@ -44,6 +46,14 @@ public class StudentIeltsPreparationIntentUpdateRequestDto {
         return languageScoreTrackingManualStatus;
     }
 
+    public String getLanguageCourseStatus() {
+        return languageCourseStatus;
+    }
+
+    public String getLanguageCourseEnrollmentStatus() {
+        return languageCourseStatus;
+    }
+
     @JsonSetter("languageScoreTrackingManualStatus")
     public void setLanguageScoreTrackingManualStatus(String languageScoreTrackingManualStatus) {
         this.languageScoreTrackingManualStatus = languageScoreTrackingManualStatus;
@@ -55,9 +65,25 @@ public class StudentIeltsPreparationIntentUpdateRequestDto {
         setLanguageScoreTrackingManualStatus(languageTrackingManualStatus);
     }
 
+    @JsonSetter("languageCourseStatus")
+    public void setLanguageCourseStatus(String languageCourseStatus) {
+        this.languageCourseStatus = languageCourseStatus;
+        this.languageCourseStatusPresent = true;
+    }
+
+    @JsonSetter("languageCourseEnrollmentStatus")
+    public void setLanguageCourseEnrollmentStatus(String languageCourseEnrollmentStatus) {
+        setLanguageCourseStatus(languageCourseEnrollmentStatus);
+    }
+
     @JsonIgnore
     public boolean isLanguageScoreTrackingManualStatusPresent() {
         return languageScoreTrackingManualStatusPresent;
+    }
+
+    @JsonIgnore
+    public boolean isLanguageCourseStatusPresent() {
+        return languageCourseStatusPresent;
     }
 
     @JsonIgnore

@@ -11,10 +11,12 @@ public class StudentIeltsRecordsUpdateRequestDto {
     @JsonAlias({"testType", "test_type"})
     private String languageScoreType;
     private String languageScoreTrackingManualStatus;
+    private String languageCourseStatus;
     private List<StudentIeltsRecordDto> records;
     private List<StudentIeltsRecordDto> toeflRecords;
     private List<StudentIeltsRecordDto> duolingoRecords;
     private boolean languageScoreTrackingManualStatusPresent;
+    private boolean languageCourseStatusPresent;
     private boolean toeflRecordsPresent;
     private boolean duolingoRecordsPresent;
 
@@ -42,6 +44,14 @@ public class StudentIeltsRecordsUpdateRequestDto {
         return languageScoreTrackingManualStatus;
     }
 
+    public String getLanguageCourseStatus() {
+        return languageCourseStatus;
+    }
+
+    public String getLanguageCourseEnrollmentStatus() {
+        return languageCourseStatus;
+    }
+
     @JsonSetter("languageScoreTrackingManualStatus")
     public void setLanguageScoreTrackingManualStatus(String languageScoreTrackingManualStatus) {
         this.languageScoreTrackingManualStatus = languageScoreTrackingManualStatus;
@@ -51,6 +61,17 @@ public class StudentIeltsRecordsUpdateRequestDto {
     @JsonSetter("languageTrackingManualStatus")
     public void setLanguageTrackingManualStatus(String languageTrackingManualStatus) {
         setLanguageScoreTrackingManualStatus(languageTrackingManualStatus);
+    }
+
+    @JsonSetter("languageCourseStatus")
+    public void setLanguageCourseStatus(String languageCourseStatus) {
+        this.languageCourseStatus = languageCourseStatus;
+        this.languageCourseStatusPresent = true;
+    }
+
+    @JsonSetter("languageCourseEnrollmentStatus")
+    public void setLanguageCourseEnrollmentStatus(String languageCourseEnrollmentStatus) {
+        setLanguageCourseStatus(languageCourseEnrollmentStatus);
     }
 
     public List<StudentIeltsRecordDto> getRecords() {
@@ -89,6 +110,11 @@ public class StudentIeltsRecordsUpdateRequestDto {
     @JsonIgnore
     public boolean isLanguageTrackingManualStatusPresent() {
         return languageScoreTrackingManualStatusPresent;
+    }
+
+    @JsonIgnore
+    public boolean isLanguageCourseStatusPresent() {
+        return languageCourseStatusPresent;
     }
 
     @JsonIgnore

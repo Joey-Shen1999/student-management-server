@@ -9,6 +9,7 @@ public class StudentIeltsModuleStateDto {
     private boolean hasTakenIeltsAcademic;
     private String preparationIntent;
     private String languageScoreTrackingManualStatus;
+    private String languageCourseStatus;
     private String trackingStatus;
     private String languageScoreTrackingStatus;
     private IeltsSummarySnapshotDto summary;
@@ -22,6 +23,7 @@ public class StudentIeltsModuleStateDto {
                                       boolean hasTakenIeltsAcademic,
                                       String preparationIntent,
                                       String languageScoreTrackingManualStatus,
+                                      String languageCourseStatus,
                                       String trackingStatus,
                                       String languageScoreTrackingStatus,
                                       IeltsSummarySnapshotDto summary,
@@ -34,6 +36,7 @@ public class StudentIeltsModuleStateDto {
         this.hasTakenIeltsAcademic = hasTakenIeltsAcademic;
         this.preparationIntent = preparationIntent;
         this.languageScoreTrackingManualStatus = languageScoreTrackingManualStatus;
+        this.languageCourseStatus = languageCourseStatus;
         this.trackingStatus = trackingStatus;
         this.languageScoreTrackingStatus = languageScoreTrackingStatus;
         this.summary = summary;
@@ -68,6 +71,10 @@ public class StudentIeltsModuleStateDto {
 
     public String getLanguageTrackingManualStatus() {
         return languageScoreTrackingManualStatus;
+    }
+
+    public String getLanguageCourseStatus() {
+        return languageCourseStatus;
     }
 
     public String getTrackingStatus() {

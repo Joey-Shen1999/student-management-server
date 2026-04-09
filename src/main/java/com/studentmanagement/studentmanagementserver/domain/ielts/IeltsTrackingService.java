@@ -151,6 +151,8 @@ public class IeltsTrackingService {
                 normalized.languageScoreType,
                 true,
                 null,
+                false,
+                null,
                 true,
                 context.operator,
                 MANUAL_STATUS_SOURCE_STUDENT_DATA_UPDATE
@@ -174,6 +176,8 @@ public class IeltsTrackingService {
                 Collections.<NormalizedRecord>emptyList(),
                 normalized.languageScoreType,
                 !normalized.hasTakenIeltsAcademic,
+                null,
+                false,
                 null,
                 true,
                 context.operator,
@@ -205,6 +209,8 @@ public class IeltsTrackingService {
                 normalized.records,
                 normalized.languageScoreType,
                 normalized.overwriteRecords,
+                normalized.languageCourseStatus,
+                normalized.overwriteLanguageCourseStatus,
                 normalized.languageTrackingManualStatus,
                 normalized.overwriteLanguageTrackingManualStatus,
                 context.operator,
@@ -268,6 +274,8 @@ public class IeltsTrackingService {
                                                        List<NormalizedRecord> records,
                                                        LanguageScoreType languageScoreType,
                                                        boolean overwriteRecords,
+                                                       LanguageCourseStatus languageCourseStatus,
+                                                       boolean overwriteLanguageCourseStatus,
                                                        LanguageTrackingManualStatus languageTrackingManualStatus,
                                                        boolean overwriteLanguageTrackingManualStatus,
                                                        User operator,
@@ -277,6 +285,9 @@ public class IeltsTrackingService {
 
         module.updateState(hasTakenIeltsAcademic, preparationIntent);
         module.updateLanguageScoreType(resolveLanguageScoreType(languageScoreType));
+        if (overwriteLanguageCourseStatus) {
+            module.updateLanguageCourseStatus(languageCourseStatus);
+        }
         if (overwriteLanguageTrackingManualStatus) {
             applyLanguageTrackingManualStatus(module, languageTrackingManualStatus, operator, manualStatusChangeSource);
         }
@@ -387,6 +398,8 @@ public class IeltsTrackingService {
         boolean hasTakenIeltsAcademic = module != null && module.isHasTakenIeltsAcademic();
         LanguageScoreType languageScoreType =
                 resolveLanguageScoreType(module == null ? null : module.getLanguageScoreType());
+        LanguageCourseStatus languageCourseStatus =
+                module == null ? null : module.getLanguageCourseStatus();
         LanguageTrackingManualStatus languageTrackingManualStatus =
                 module == null ? null : module.getLanguageTrackingManualStatus();
         IeltsTrackingStatus trackingStatus =
@@ -404,6 +417,7 @@ public class IeltsTrackingService {
                         ? IeltsPreparationIntent.UNSET.name()
                         : module.getPreparationIntent().name(),
                 languageTrackingManualStatus == null ? null : languageTrackingManualStatus.name(),
+                languageCourseStatus == null ? null : languageCourseStatus.name(),
                 trackingStatus.name(),
                 languageTrackingStatus.name(),
                 new IeltsSummarySnapshotDto(
@@ -897,6 +911,9 @@ public class IeltsTrackingService {
         if (requestBody.isLanguageScoreTrackingManualStatusPresent()) {
             throw fieldForbidden("languageScoreTrackingManualStatus");
         }
+        if (requestBody.isLanguageCourseStatusPresent()) {
+            throw fieldForbidden("languageCourseStatus");
+        }
 
         List<String> details = new ArrayList<String>();
         Boolean hasTaken = requestBody.getHasTakenIeltsAcademic();
@@ -949,6 +966,9 @@ public class IeltsTrackingService {
         if (requestBody.isLanguageScoreTrackingManualStatusPresent()) {
             throw fieldForbidden("languageScoreTrackingManualStatus");
         }
+        if (requestBody.isLanguageCourseStatusPresent()) {
+            throw fieldForbidden("languageCourseStatus");
+        }
 
         List<String> details = new ArrayList<String>();
         Boolean hasTaken = requestBody.getHasTakenIeltsAcademic();
@@ -991,6 +1011,14 @@ public class IeltsTrackingService {
                 ? parseLanguageTrackingManualStatus(
                 requestBody.getLanguageScoreTrackingManualStatus(),
                 "languageScoreTrackingManualStatus",
+                details
+        )
+                : null;
+        boolean overwriteLanguageCourseStatus = requestBody.isLanguageCourseStatusPresent();
+        LanguageCourseStatus languageCourseStatus = overwriteLanguageCourseStatus
+                ? parseLanguageCourseStatus(
+                requestBody.getLanguageCourseStatus(),
+                "languageCourseStatus",
                 details
         )
                 : null;
@@ -1047,6 +1075,8 @@ public class IeltsTrackingService {
                     IeltsPreparationIntent.UNSET,
                     records,
                     rawRecords != null,
+                    languageCourseStatus,
+                    overwriteLanguageCourseStatus,
                     languageTrackingManualStatus,
                     overwriteLanguageTrackingManualStatus,
                     languageScoreType
@@ -1084,6 +1114,8 @@ public class IeltsTrackingService {
                 intent,
                 Collections.<NormalizedRecord>emptyList(),
                 true,
+                languageCourseStatus,
+                overwriteLanguageCourseStatus,
                 languageTrackingManualStatus,
                 overwriteLanguageTrackingManualStatus,
                 languageScoreType
@@ -1242,6 +1274,21 @@ public class IeltsTrackingService {
         }
         try {
             return LanguageTrackingManualStatus.valueOf(normalized.toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            details.add(fieldPath + " invalid");
+            return null;
+        }
+    }
+
+    private LanguageCourseStatus parseLanguageCourseStatus(String rawLanguageCourseStatus,
+                                                           String fieldPath,
+                                                           List<String> details) {
+        String normalized = trimToNull(rawLanguageCourseStatus);
+        if (normalized == null) {
+            return null;
+        }
+        try {
+            return LanguageCourseStatus.valueOf(normalized.toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException ex) {
             details.add(fieldPath + " invalid");
             return null;
@@ -1444,6 +1491,8 @@ public class IeltsTrackingService {
         private final IeltsPreparationIntent preparationIntent;
         private final List<NormalizedRecord> records;
         private final boolean overwriteRecords;
+        private final LanguageCourseStatus languageCourseStatus;
+        private final boolean overwriteLanguageCourseStatus;
         private final LanguageTrackingManualStatus languageTrackingManualStatus;
         private final boolean overwriteLanguageTrackingManualStatus;
         private final LanguageScoreType languageScoreType;
@@ -1452,6 +1501,8 @@ public class IeltsTrackingService {
                               IeltsPreparationIntent preparationIntent,
                               List<NormalizedRecord> records,
                               boolean overwriteRecords,
+                              LanguageCourseStatus languageCourseStatus,
+                              boolean overwriteLanguageCourseStatus,
                               LanguageTrackingManualStatus languageTrackingManualStatus,
                               boolean overwriteLanguageTrackingManualStatus,
                               LanguageScoreType languageScoreType) {
@@ -1459,6 +1510,8 @@ public class IeltsTrackingService {
             this.preparationIntent = preparationIntent;
             this.records = records;
             this.overwriteRecords = overwriteRecords;
+            this.languageCourseStatus = languageCourseStatus;
+            this.overwriteLanguageCourseStatus = overwriteLanguageCourseStatus;
             this.languageTrackingManualStatus = languageTrackingManualStatus;
             this.overwriteLanguageTrackingManualStatus = overwriteLanguageTrackingManualStatus;
             this.languageScoreType = languageScoreType;
