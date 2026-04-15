@@ -110,6 +110,9 @@ public class StudentAccountService {
             boolean volunteerCompleted = totalVolunteerHours.compareTo(VOLUNTEER_COMPLETED_THRESHOLD) >= 0;
             UserAccountStatus accountStatus = user.getStatus();
             boolean selectable = accountStatus == UserAccountStatus.ACTIVE;
+            List<String> serviceItems = StudentServiceItemNormalizer.normalizeStored(
+                    profile == null ? null : profile.getServiceItems()
+            );
 
             result.add(new StudentAccountItem(
                     studentId,
@@ -129,6 +132,7 @@ public class StudentAccountService {
                     country,
                     province,
                     city,
+                    serviceItems,
                     profile == null ? null : trimToNull(profile.getTeacherNote()),
                     selectable,
                     totalVolunteerHours,
@@ -380,6 +384,7 @@ public class StudentAccountService {
         private String country;
         private String province;
         private String city;
+        private List<String> serviceItems;
         private String teacherNote;
         private boolean selectable;
         private BigDecimal totalVolunteerHours;
@@ -402,6 +407,7 @@ public class StudentAccountService {
                                   String country,
                                   String province,
                                   String city,
+                                  List<String> serviceItems,
                                   String teacherNote,
                                   boolean selectable,
                                   BigDecimal totalVolunteerHours,
@@ -423,6 +429,9 @@ public class StudentAccountService {
             this.country = country;
             this.province = province;
             this.city = city;
+            this.serviceItems = serviceItems == null
+                    ? new ArrayList<String>()
+                    : new ArrayList<String>(serviceItems);
             this.teacherNote = teacherNote;
             this.selectable = selectable;
             this.totalVolunteerHours = totalVolunteerHours;
@@ -495,6 +504,10 @@ public class StudentAccountService {
 
         public String getCity() {
             return city;
+        }
+
+        public List<String> getServiceItems() {
+            return serviceItems;
         }
 
         public String getTeacherNote() {

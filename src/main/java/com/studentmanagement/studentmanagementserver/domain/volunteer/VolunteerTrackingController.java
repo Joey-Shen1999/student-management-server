@@ -49,4 +49,11 @@ public class VolunteerTrackingController {
     public ResponseEntity<VolunteerTrackingDto> getCurrentStudentVolunteerTracking(HttpServletRequest request) {
         return ResponseEntity.ok(volunteerTrackingService.getCurrentStudentVolunteerTracking(request));
     }
+
+    @PutMapping("/api/student/volunteer-tracking")
+    public ResponseEntity<VolunteerTrackingDto> upsertCurrentStudentVolunteerTracking(
+            @RequestBody(required = false) VolunteerTrackingUpsertRequestDto requestBody,
+            HttpServletRequest request) {
+        return ResponseEntity.ok(volunteerTrackingService.upsertCurrentStudentVolunteerTracking(requestBody, request));
+    }
 }

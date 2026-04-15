@@ -13,8 +13,9 @@ public interface StudentProfileRepository extends JpaRepository<StudentProfile, 
 
     boolean existsByStudent_Id(Long studentId);
 
-    @Query("select sp from StudentProfile sp " +
+    @Query("select distinct sp from StudentProfile sp " +
             "join fetch sp.student s " +
+            "left join fetch sp.serviceItems " +
             "where s.id in :studentIds")
     List<StudentProfile> findByStudentIdsWithStudent(@Param("studentIds") List<Long> studentIds);
 }

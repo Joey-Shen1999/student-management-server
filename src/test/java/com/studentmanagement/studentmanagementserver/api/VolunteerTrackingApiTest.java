@@ -101,7 +101,14 @@ class VolunteerTrackingApiTest {
                 .andExpect(jsonPath("$.studentId").value(student.getId()))
                 .andExpect(jsonPath("$.totalHours").value(4.0))
                 .andExpect(jsonPath("$.tasks.length()").value(2))
-                .andExpect(jsonPath("$.updatedByTeacherId").value(teacher.getId()));
+                .andExpect(jsonPath("$.updatedByTeacherId").value(teacher.getId()))
+                .andExpect(jsonPath("$.updatedByTeacherName").value("Volunteer RW Teacher"))
+                .andExpect(jsonPath("$.records.length()").value(1))
+                .andExpect(jsonPath("$.records[0].id").isNumber())
+                .andExpect(jsonPath("$.records[0].title").value("Volunteer Tracking"))
+                .andExpect(jsonPath("$.records[0].totalHours").value(4.0))
+                .andExpect(jsonPath("$.records[0].updatedByTeacherId").value(teacher.getId()))
+                .andExpect(jsonPath("$.records[0].updatedByTeacherName").value("Volunteer RW Teacher"));
 
         mockMvc.perform(get("/api/student/volunteer-tracking")
                         .header("Authorization", bearerFor(student.getUser())))
@@ -109,7 +116,44 @@ class VolunteerTrackingApiTest {
                 .andExpect(jsonPath("$.studentId").value(student.getId()))
                 .andExpect(jsonPath("$.totalHours").value(4.0))
                 .andExpect(jsonPath("$.tasks.length()").value(2))
-                .andExpect(jsonPath("$.tasks[0].taskName").value("Library"));
+                .andExpect(jsonPath("$.tasks[0].taskName").value("Library"))
+                .andExpect(jsonPath("$.records.length()").value(1))
+                .andExpect(jsonPath("$.records[0].title").value("Volunteer Tracking"))
+                .andExpect(jsonPath("$.records[0].tasks.length()").value(2));
+    }
+
+    @Test
+    void studentPutVolunteerTracking_successAndNoteNotRequired() throws Exception {
+        Student student = createStudentAccount("vol_student_put_self", "Vol", "Self", "VSE");
+
+        Map<String, Object> payload = buildVolunteerPayload(
+                new BigDecimal("2.50"),
+                "",
+                Arrays.asList(
+                        buildTask("Campus", "Event support", new BigDecimal("2.50"), "2026-04-03", "2026-04-03", "campus@example.com")
+                )
+        );
+
+        MvcResult result = mockMvc.perform(put("/api/student/volunteer-tracking")
+                        .header("Authorization", bearerFor(student.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.studentId").value(student.getId()))
+                .andExpect(jsonPath("$.totalHours").value(2.5))
+                .andExpect(jsonPath("$.tasks.length()").value(1))
+                .andExpect(jsonPath("$.records.length()").value(1))
+                .andExpect(jsonPath("$.records[0].title").value("Volunteer Tracking"))
+                .andReturn();
+
+        JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
+        assertTrue(body.path("note").isNull() || body.path("note").asText().isEmpty());
+        assertTrue(body.path("updatedByTeacherId").isNull());
+        assertTrue(body.path("updatedByTeacherName").isNull());
+        assertTrue(body.path("records").path(0).path("note").isNull()
+                || body.path("records").path(0).path("note").asText().isEmpty());
+        assertTrue(body.path("records").path(0).path("updatedByTeacherId").isNull());
+        assertTrue(body.path("records").path(0).path("updatedByTeacherName").isNull());
     }
 
     @Test
@@ -300,11 +344,14 @@ class VolunteerTrackingApiTest {
                 .andExpect(jsonPath("$.studentId").value(student.getId()))
                 .andExpect(jsonPath("$.totalHours").value(0))
                 .andExpect(jsonPath("$.tasks.length()").value(0))
+                .andExpect(jsonPath("$.records.length()").value(0))
                 .andReturn();
 
         JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
+        assertTrue(body.path("createdAt").isNull());
         assertTrue(body.path("updatedAt").isNull());
         assertTrue(body.path("updatedByTeacherId").isNull());
+        assertTrue(body.path("updatedByTeacherName").isNull());
     }
 
     @Test

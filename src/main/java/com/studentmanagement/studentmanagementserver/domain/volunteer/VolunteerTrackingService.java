@@ -39,6 +39,7 @@ public class VolunteerTrackingService {
     private static final int BATCH_SUMMARY_MAX_STUDENT_IDS = 100;
     private static final BigDecimal HOURS_EQUALITY_TOLERANCE = new BigDecimal("0.01");
     private static final BigDecimal VOLUNTEER_COMPLETED_THRESHOLD = new BigDecimal("40");
+    private static final String DEFAULT_TRACKING_TITLE = "Volunteer Tracking";
 
     private final AuthSessionService authSessionService;
     private final ManagementAccessService managementAccessService;
@@ -81,12 +82,28 @@ public class VolunteerTrackingService {
         TeacherStudentContext context = requireTeacherAccessibleStudentContext(studentId, request);
         NormalizedVolunteerTracking normalized = normalizeRequestBody(requestBody);
         Teacher updatedByTeacher = resolveTeacherForWrite(context.operator);
+        return upsertVolunteerTracking(context.student, normalized, updatedByTeacher);
+    }
 
-        StudentVolunteerTracking tracking = studentVolunteerTrackingRepository.findByStudent_Id(context.student.getId())
+    @Transactional
+    public VolunteerTrackingDto upsertCurrentStudentVolunteerTracking(VolunteerTrackingUpsertRequestDto requestBody,
+                                                                      HttpServletRequest request) {
+        if (requestBody == null) {
+            throw badRequest("request body is required");
+        }
+        CurrentStudentContext context = requireCurrentStudentContext(request);
+        NormalizedVolunteerTracking normalized = normalizeRequestBody(requestBody);
+        return upsertVolunteerTracking(context.student, normalized, null);
+    }
+
+    private VolunteerTrackingDto upsertVolunteerTracking(Student student,
+                                                         NormalizedVolunteerTracking normalized,
+                                                         Teacher updatedByTeacher) {
+        StudentVolunteerTracking tracking = studentVolunteerTrackingRepository.findByStudent_Id(student.getId())
                 .orElse(null);
         if (tracking == null) {
             tracking = new StudentVolunteerTracking(
-                    context.student,
+                    student,
                     normalized.totalHours,
                     normalized.note,
                     updatedByTeacher
@@ -114,7 +131,7 @@ public class VolunteerTrackingService {
             studentVolunteerTrackingTaskRepository.saveAll(toSave);
         }
 
-        return buildVolunteerTrackingDto(context.student);
+        return buildVolunteerTrackingDto(student);
     }
 
     @Transactional(readOnly = true)
@@ -171,19 +188,41 @@ public class VolunteerTrackingService {
                     null,
                     Collections.<VolunteerTrackingTaskDto>emptyList(),
                     null,
-                    null
+                    null,
+                    null,
+                    null,
+                    Collections.<VolunteerTrackingDto.VolunteerTrackingRecordDto>emptyList()
             );
         }
 
         List<StudentVolunteerTrackingTask> tasks =
                 studentVolunteerTrackingTaskRepository.findByTracking_IdOrderByIdAsc(tracking.getId());
+        String createdAt = tracking.getCreatedAt() == null ? null : tracking.getCreatedAt().toString();
+        String updatedAt = tracking.getUpdatedAt() == null ? null : tracking.getUpdatedAt().toString();
+        Long updatedByTeacherId = tracking.getUpdatedByTeacher() == null ? null : tracking.getUpdatedByTeacher().getId();
+        String updatedByTeacherName = tracking.getUpdatedByTeacher() == null ? null : tracking.getUpdatedByTeacher().getName();
+        List<VolunteerTrackingTaskDto> taskDtos = toTaskDtos(tasks);
+        VolunteerTrackingDto.VolunteerTrackingRecordDto record = new VolunteerTrackingDto.VolunteerTrackingRecordDto(
+                tracking.getId(),
+                DEFAULT_TRACKING_TITLE,
+                tracking.getNote(),
+                tracking.getTotalHours(),
+                taskDtos,
+                createdAt,
+                updatedAt,
+                updatedByTeacherId,
+                updatedByTeacherName
+        );
         return new VolunteerTrackingDto(
                 studentId,
                 tracking.getTotalHours(),
                 tracking.getNote(),
-                toTaskDtos(tasks),
-                tracking.getUpdatedAt() == null ? null : tracking.getUpdatedAt().toString(),
-                tracking.getUpdatedByTeacher() == null ? null : tracking.getUpdatedByTeacher().getId()
+                taskDtos,
+                createdAt,
+                updatedAt,
+                updatedByTeacherId,
+                updatedByTeacherName,
+                Collections.singletonList(record)
         );
     }
 

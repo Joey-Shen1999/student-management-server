@@ -27,6 +27,8 @@ public class StudentProfileDto {
     private String oenNumber;
     private String ib;
     private Boolean ap = Boolean.FALSE;
+    private List<String> serviceItems;
+    private List<String> serviceProjects;
     private List<IdentityFileDto> identityFiles;
 
     // Preferred field for school history.
@@ -194,6 +196,22 @@ public class StudentProfileDto {
         this.ap = ap;
     }
 
+    public List<String> getServiceItems() {
+        return serviceItems;
+    }
+
+    public void setServiceItems(List<String> serviceItems) {
+        this.serviceItems = serviceItems;
+    }
+
+    public List<String> getServiceProjects() {
+        return serviceProjects;
+    }
+
+    public void setServiceProjects(List<String> serviceProjects) {
+        this.serviceProjects = serviceProjects;
+    }
+
     public List<IdentityFileDto> getIdentityFiles() {
         return identityFiles;
     }
@@ -252,6 +270,14 @@ public class StudentProfileDto {
 
     public List<IdentityFileDto> getIdentityFilesOrEmpty() {
         return identityFiles == null ? new ArrayList<IdentityFileDto>() : identityFiles;
+    }
+
+    public List<String> getServiceItemsOrEmpty() {
+        return serviceItems == null ? new ArrayList<String>() : serviceItems;
+    }
+
+    public List<String> getServiceProjectsOrEmpty() {
+        return serviceProjects == null ? new ArrayList<String>() : serviceProjects;
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)

@@ -2,15 +2,20 @@ package com.studentmanagement.studentmanagementserver.domain.student;
 
 import com.studentmanagement.studentmanagementserver.domain.common.BaseEntity;
 
+import javax.persistence.CollectionTable;
 import javax.persistence.Column;
+import javax.persistence.ElementCollection;
 import javax.persistence.Entity;
 import javax.persistence.FetchType;
 import javax.persistence.Index;
 import javax.persistence.JoinColumn;
 import javax.persistence.OneToOne;
+import javax.persistence.OrderColumn;
 import javax.persistence.Table;
 import javax.persistence.UniqueConstraint;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(
@@ -58,6 +63,12 @@ public class StudentProfile extends BaseEntity {
 
     @Column(nullable = false)
     private boolean ap;
+
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(name = "student_profile_service_item", joinColumns = @JoinColumn(name = "student_profile_id"))
+    @OrderColumn(name = "item_order")
+    @Column(name = "service_item", nullable = false, length = 120)
+    private List<String> serviceItems = new ArrayList<String>();
 
     @Column(name = "identity_file_note", length = 500)
     private String identityFileNote;
@@ -192,6 +203,21 @@ public class StudentProfile extends BaseEntity {
 
     public void setAp(boolean ap) {
         this.ap = ap;
+    }
+
+    public List<String> getServiceItems() {
+        if (serviceItems == null) {
+            serviceItems = new ArrayList<String>();
+        }
+        return serviceItems;
+    }
+
+    public void setServiceItems(List<String> serviceItems) {
+        if (serviceItems == null) {
+            this.serviceItems = new ArrayList<String>();
+            return;
+        }
+        this.serviceItems = new ArrayList<String>(serviceItems);
     }
 
     public String getIdentityFileNote() {

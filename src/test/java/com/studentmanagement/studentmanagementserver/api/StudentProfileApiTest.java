@@ -107,6 +107,10 @@ class StudentProfileApiTest {
                 .andExpect(jsonPath("$.identityFiles").isEmpty())
                 .andExpect(jsonPath("$.otherCourses").isArray())
                 .andExpect(jsonPath("$.otherCourses").isEmpty())
+                .andExpect(jsonPath("$.serviceItems").isArray())
+                .andExpect(jsonPath("$.serviceItems").isEmpty())
+                .andExpect(jsonPath("$.serviceProjects").isArray())
+                .andExpect(jsonPath("$.serviceProjects").isEmpty())
                 .andExpect(jsonPath("$.schoolRecords").isArray())
                 .andExpect(jsonPath("$.externalCourses").isArray());
     }
@@ -1198,6 +1202,56 @@ class StudentProfileApiTest {
                         .header("Authorization", bearer))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.teacherNote").doesNotExist());
+    }
+
+    @Test
+    void studentProfile_serviceItemsAndServiceProjects_areBothSupportedAndNormalized() throws Exception {
+        Student student = createStudentAccount("profile_service_items_student", "Amy", "Chen", "Amy");
+        String bearer = bearerFor(student.getUser());
+
+        Map<String, Object> payload = buildProfilePayload(
+                "Amy",
+                "Chen",
+                "Amy",
+                false,
+                Arrays.asList(
+                        buildSchool("MAIN", "A High School", "2023-09-01", null)
+                ),
+                Arrays.asList(
+                        buildCourse("ABC Private School", "MHF4U", 93, 12, "2025-02-01", "2025-06-30")
+                )
+        );
+        payload.put("serviceItems", Arrays.asList(
+                "A: 面试辅导",
+                "雅思A类全科班",
+                "B: 雅思A类全科班"
+        ));
+        payload.put("serviceProjects", Arrays.asList(
+                "C: SAT全科班",
+                "一对一辅导"
+        ));
+
+        mockMvc.perform(put("/api/student/profile")
+                        .header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(payload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.serviceItems[0]").value("面试辅导"))
+                .andExpect(jsonPath("$.serviceItems[1]").value("雅思A类全科班"))
+                .andExpect(jsonPath("$.serviceItems[2]").value("SAT全科班"))
+                .andExpect(jsonPath("$.serviceItems[3]").value("一对一辅导"))
+                .andExpect(jsonPath("$.serviceProjects[0]").value("面试辅导"))
+                .andExpect(jsonPath("$.serviceProjects[1]").value("雅思A类全科班"))
+                .andExpect(jsonPath("$.serviceProjects[2]").value("SAT全科班"))
+                .andExpect(jsonPath("$.serviceProjects[3]").value("一对一辅导"));
+
+        mockMvc.perform(get("/api/student/profile")
+                        .header("Authorization", bearer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.serviceItems.length()").value(4))
+                .andExpect(jsonPath("$.serviceItems[0]").value("面试辅导"))
+                .andExpect(jsonPath("$.serviceProjects.length()").value(4))
+                .andExpect(jsonPath("$.serviceProjects[0]").value("面试辅导"));
     }
 
     private Student createStudentAccount(String username, String firstName, String lastName, String nickName) {

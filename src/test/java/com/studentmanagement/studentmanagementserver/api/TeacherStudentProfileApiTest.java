@@ -122,6 +122,7 @@ class TeacherStudentProfileApiTest {
         payload.put("gender", "Other");
         payload.put("genderOther", "Non-binary");
         payload.put("teacherNote", "  Follow up transcript in April  ");
+        payload.put("serviceProjects", Arrays.asList("A: 面试辅导", "B: 雅思A类全科班"));
 
         mockMvc.perform(put("/api/teacher/students/{studentId}/profile", student.getId())
                         .header("Authorization", bearerFor(teacher.getUser()))
@@ -133,6 +134,10 @@ class TeacherStudentProfileApiTest {
                 .andExpect(jsonPath("$.gender").value("Other"))
                 .andExpect(jsonPath("$.genderOther").value("Non-binary"))
                 .andExpect(jsonPath("$.teacherNote").value("Follow up transcript in April"))
+                .andExpect(jsonPath("$.serviceItems[0]").value("面试辅导"))
+                .andExpect(jsonPath("$.serviceItems[1]").value("雅思A类全科班"))
+                .andExpect(jsonPath("$.serviceProjects[0]").value("面试辅导"))
+                .andExpect(jsonPath("$.serviceProjects[1]").value("雅思A类全科班"))
                 .andExpect(jsonPath("$.otherCourses[0].courseCode").value("MHF4U"))
                 .andExpect(jsonPath("$.externalCourses[0].courseCode").value("MHF4U"))
                 .andExpect(jsonPath("$.schoolRecords[0].schoolType").value("MAIN"));
@@ -140,7 +145,9 @@ class TeacherStudentProfileApiTest {
         mockMvc.perform(get("/api/teacher/students/{studentId}/profile", student.getId())
                         .header("Authorization", bearerFor(teacher.getUser())))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.teacherNote").value("Follow up transcript in April"));
+                .andExpect(jsonPath("$.teacherNote").value("Follow up transcript in April"))
+                .andExpect(jsonPath("$.serviceItems[0]").value("面试辅导"))
+                .andExpect(jsonPath("$.serviceProjects[0]").value("面试辅导"));
     }
 
     @Test

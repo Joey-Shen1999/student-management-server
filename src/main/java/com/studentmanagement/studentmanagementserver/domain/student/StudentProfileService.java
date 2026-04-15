@@ -392,6 +392,9 @@ public class StudentProfileService {
         profile.setState(normalized.address.state);
         profile.setCountry(normalized.address.country);
         profile.setPostal(normalized.address.postal);
+        if (normalized.serviceItems != null) {
+            profile.setServiceItems(normalized.serviceItems);
+        }
         profile.setUpdatedBy(operatorUserId);
     }
 
@@ -636,6 +639,11 @@ public class StudentProfileService {
             address.setPostal(profile.getPostal());
             dto.setAddress(address);
         }
+        List<String> serviceItems = StudentServiceItemNormalizer.normalizeStored(
+                profile == null ? null : profile.getServiceItems()
+        );
+        dto.setServiceItems(serviceItems);
+        dto.setServiceProjects(new ArrayList<String>(serviceItems));
         if (includeTeacherNote && dto instanceof TeacherStudentProfileDto) {
             String note = profile == null ? null : profile.getTeacherNote();
             ((TeacherStudentProfileDto) dto).setTeacherNote(note);
@@ -1613,6 +1621,10 @@ public class StudentProfileService {
         LocalDate firstBoardingDate = parseDateOrNull(requestBody.getFirstBoardingDate(), "firstBoardingDate");
         String oenNumber = trimToNull(requestBody.getOenNumber());
         String ib = trimToNull(requestBody.getIb());
+        List<String> serviceItems = StudentServiceItemNormalizer.normalizeIncoming(
+                requestBody.getServiceItems(),
+                requestBody.getServiceProjects()
+        );
 
         Boolean apRaw = requestBody.getAp();
         if (apRaw == null) {
@@ -1825,6 +1837,7 @@ public class StudentProfileService {
                 firstBoardingDate,
                 oenNumber,
                 ib,
+                serviceItems,
                 apRaw.booleanValue(),
                 address,
                 schools,
@@ -2187,6 +2200,7 @@ public class StudentProfileService {
         private final LocalDate firstBoardingDate;
         private final String oenNumber;
         private final String ib;
+        private final List<String> serviceItems;
         private final boolean ap;
         private final NormalizedAddress address;
         private final List<NormalizedSchool> schools;
@@ -2207,6 +2221,7 @@ public class StudentProfileService {
                                   LocalDate firstBoardingDate,
                                   String oenNumber,
                                   String ib,
+                                  List<String> serviceItems,
                                   boolean ap,
                                   NormalizedAddress address,
                                   List<NormalizedSchool> schools,
@@ -2226,6 +2241,7 @@ public class StudentProfileService {
             this.firstBoardingDate = firstBoardingDate;
             this.oenNumber = oenNumber;
             this.ib = ib;
+            this.serviceItems = serviceItems;
             this.ap = ap;
             this.address = address;
             this.schools = schools;

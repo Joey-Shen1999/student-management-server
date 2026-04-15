@@ -29,6 +29,7 @@ import org.springframework.test.web.servlet.MvcResult;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Arrays;
 
 import static org.hamcrest.Matchers.hasItem;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -112,6 +113,7 @@ class StudentAccountsApiTest {
         profile.setCountry("Canada");
         profile.setState("Ontario");
         profile.setCity("Toronto");
+        profile.setServiceItems(Arrays.asList("A: 面试辅导", "SAT全科班"));
         studentProfileRepository.save(profile);
 
         studentSchoolRecordRepository.save(new StudentSchoolRecord(
@@ -152,6 +154,10 @@ class StudentAccountsApiTest {
         assertEquals("Canada", row.path("country").asText());
         assertEquals("Ontario", row.path("province").asText());
         assertEquals("Toronto", row.path("city").asText());
+        assertEquals(2, row.path("serviceItems").size());
+        assertTrue(!row.path("serviceItems").path(0).asText().startsWith("A:"));
+        assertTrue(row.path("serviceItems").path(0).asText().length() > 0);
+        assertTrue(row.path("serviceItems").path(1).asText().contains("SAT"));
         assertEquals("student-note", row.path("teacherNote").asText());
         assertEquals("ACTIVE", row.path("status").asText());
         assertTrue(row.path("selectable").asBoolean());
