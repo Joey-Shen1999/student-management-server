@@ -1,5 +1,6 @@
 package com.studentmanagement.studentmanagementserver.domain.student;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import java.util.ArrayList;
@@ -252,30 +253,37 @@ public class StudentProfileDto {
         this.externalCourses = externalCourses;
     }
 
+    @JsonIgnore
     public List<SchoolDto> getSchoolsOrEmpty() {
         return schools == null ? new ArrayList<SchoolDto>() : schools;
     }
 
+    @JsonIgnore
     public List<SchoolDto> getSchoolRecordsOrEmpty() {
         return schoolRecords == null ? new ArrayList<SchoolDto>() : schoolRecords;
     }
 
+    @JsonIgnore
     public List<CourseDto> getOtherCoursesOrEmpty() {
         return otherCourses == null ? new ArrayList<CourseDto>() : otherCourses;
     }
 
+    @JsonIgnore
     public List<CourseDto> getExternalCoursesOrEmpty() {
         return externalCourses == null ? new ArrayList<CourseDto>() : externalCourses;
     }
 
+    @JsonIgnore
     public List<IdentityFileDto> getIdentityFilesOrEmpty() {
         return identityFiles == null ? new ArrayList<IdentityFileDto>() : identityFiles;
     }
 
+    @JsonIgnore
     public List<String> getServiceItemsOrEmpty() {
         return serviceItems == null ? new ArrayList<String>() : serviceItems;
     }
 
+    @JsonIgnore
     public List<String> getServiceProjectsOrEmpty() {
         return serviceProjects == null ? new ArrayList<String>() : serviceProjects;
     }
@@ -515,6 +523,7 @@ public class StudentProfileDto {
             this.transcripts = transcripts;
         }
 
+        @JsonIgnore
         public List<TranscriptDto> getTranscriptsOrEmpty() {
             return transcripts == null ? new ArrayList<TranscriptDto>() : transcripts;
         }

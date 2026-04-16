@@ -151,6 +151,61 @@ class TeacherStudentProfileApiTest {
     }
 
     @Test
+    void teacherProfile_serviceItemsQuickUpdate_omittingChildCollections_persistsAndPreservesRows() throws Exception {
+        Teacher teacher = createTeacherAccount("phase2_teacher_service_quick", "Teacher Service Quick");
+        Student student = createStudentAccount("phase2_student_service_quick", "Amy", "Chen", "Amy");
+        assignTeacherStudent(teacher, student, TeacherStudentStatus.ACTIVE);
+        String bearer = bearerFor(teacher.getUser());
+
+        Map<String, Object> initialPayload = buildProfilePayload();
+        initialPayload.put("serviceItems", Arrays.asList("面试辅导"));
+        mockMvc.perform(put("/api/teacher/students/{studentId}/profile", student.getId())
+                        .header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(initialPayload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.serviceItems[0]").value("面试辅导"))
+                .andExpect(jsonPath("$.schools[0].schoolName").value("A High School"))
+                .andExpect(jsonPath("$.otherCourses[0].courseCode").value("MHF4U"));
+
+        MvcResult getResult = mockMvc.perform(get("/api/teacher/students/{studentId}/profile", student.getId())
+                        .header("Authorization", bearer))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> quickPayload = objectMapper.readValue(
+                getResult.getResponse().getContentAsString(),
+                Map.class
+        );
+        quickPayload.remove("schools");
+        quickPayload.remove("schoolRecords");
+        quickPayload.remove("identityFiles");
+        quickPayload.put("serviceItems", Arrays.asList("面试辅导", "一对一辅导"));
+        quickPayload.put("serviceProjects", Arrays.asList("面试辅导", "一对一辅导"));
+
+        mockMvc.perform(put("/api/teacher/students/{studentId}/profile", student.getId())
+                        .header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(quickPayload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.serviceItems.length()").value(2))
+                .andExpect(jsonPath("$.serviceItems[1]").value("一对一辅导"))
+                .andExpect(jsonPath("$.serviceProjects[1]").value("一对一辅导"))
+                .andExpect(jsonPath("$.schools[0].schoolName").value("A High School"))
+                .andExpect(jsonPath("$.otherCourses[0].courseCode").value("MHF4U"));
+
+        mockMvc.perform(get("/api/teacher/students/{studentId}/profile", student.getId())
+                        .header("Authorization", bearer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.serviceItems.length()").value(2))
+                .andExpect(jsonPath("$.serviceItems[1]").value("一对一辅导"))
+                .andExpect(jsonPath("$.serviceProjects[1]").value("一对一辅导"))
+                .andExpect(jsonPath("$.schools[0].schoolName").value("A High School"))
+                .andExpect(jsonPath("$.otherCourses[0].courseCode").value("MHF4U"));
+    }
+
+    @Test
     void teacherProfile_schoolBoardAliasesAndPreserveWithoutField() throws Exception {
         Teacher teacher = createTeacherAccount("phase2_teacher_school_board", "Teacher SchoolBoard");
         Student student = createStudentAccount("phase2_student_school_board", "Amy", "Chen", "Amy");

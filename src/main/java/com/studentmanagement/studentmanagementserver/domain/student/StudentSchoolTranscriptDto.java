@@ -1,5 +1,7 @@
 package com.studentmanagement.studentmanagementserver.domain.student;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -69,6 +71,7 @@ public class StudentSchoolTranscriptDto {
         this.transcripts = transcripts;
     }
 
+    @JsonIgnore
     public List<TranscriptItemDto> getTranscriptsOrEmpty() {
         return transcripts == null ? new ArrayList<TranscriptItemDto>() : transcripts;
     }
