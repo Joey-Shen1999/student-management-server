@@ -6,6 +6,8 @@ public class TeacherStudentOssltModuleStateDto {
     private String latestOssltResult;
     private String latestOssltDate;
     private Boolean hasOsslc;
+    private String osslcCourseStatus;
+    private String osslcCourseLocation;
     private String ossltTrackingManualStatus;
     private String ossltTrackingStatus;
     private String updatedAt;
@@ -15,6 +17,8 @@ public class TeacherStudentOssltModuleStateDto {
                                              String latestOssltResult,
                                              String latestOssltDate,
                                              Boolean hasOsslc,
+                                             String osslcCourseStatus,
+                                             String osslcCourseLocation,
                                              String ossltTrackingManualStatus,
                                              String ossltTrackingStatus,
                                              String updatedAt) {
@@ -23,6 +27,8 @@ public class TeacherStudentOssltModuleStateDto {
         this.latestOssltResult = latestOssltResult;
         this.latestOssltDate = latestOssltDate;
         this.hasOsslc = hasOsslc;
+        this.osslcCourseStatus = osslcCourseStatus;
+        this.osslcCourseLocation = osslcCourseLocation;
         this.ossltTrackingManualStatus = ossltTrackingManualStatus;
         this.ossltTrackingStatus = ossltTrackingStatus;
         this.updatedAt = updatedAt;
@@ -46,6 +52,14 @@ public class TeacherStudentOssltModuleStateDto {
 
     public Boolean getHasOsslc() {
         return hasOsslc;
+    }
+
+    public String getOsslcCourseStatus() {
+        return osslcCourseStatus;
+    }
+
+    public String getOsslcCourseLocation() {
+        return osslcCourseLocation;
     }
 
     public String getOssltTrackingManualStatus() {

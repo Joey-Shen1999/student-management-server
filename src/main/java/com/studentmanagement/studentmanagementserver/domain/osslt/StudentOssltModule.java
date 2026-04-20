@@ -44,6 +44,13 @@ public class StudentOssltModule extends BaseEntity {
     private Boolean hasOsslc;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "osslc_course_status", length = 32)
+    private OsslcCourseStatus osslcCourseStatus;
+
+    @Column(name = "osslc_course_location", length = 255)
+    private String osslcCourseLocation;
+
+    @Enumerated(EnumType.STRING)
     @Column(name = "osslt_tracking_manual_status", length = 32)
     private OssltTrackingManualStatus ossltTrackingManualStatus;
 
@@ -62,6 +69,8 @@ public class StudentOssltModule extends BaseEntity {
         this.latestOssltResult = OssltLatestResult.UNKNOWN;
         this.latestOssltDate = null;
         this.hasOsslc = null;
+        this.osslcCourseStatus = null;
+        this.osslcCourseLocation = null;
         this.ossltTrackingManualStatus = null;
         this.ossltTrackingStatus = OssltTrackingStatus.WAITING_UPDATE;
         this.ossltUpdatedAt = LocalDateTime.now();
@@ -81,6 +90,14 @@ public class StudentOssltModule extends BaseEntity {
 
     public Boolean getHasOsslc() {
         return hasOsslc;
+    }
+
+    public OsslcCourseStatus getOsslcCourseStatus() {
+        return osslcCourseStatus;
+    }
+
+    public String getOsslcCourseLocation() {
+        return osslcCourseLocation;
     }
 
     public OssltTrackingManualStatus getOssltTrackingManualStatus() {
@@ -105,6 +122,14 @@ public class StudentOssltModule extends BaseEntity {
 
     public void updateHasOsslc(Boolean hasOsslc) {
         this.hasOsslc = hasOsslc;
+    }
+
+    public void updateOsslcCourseStatus(OsslcCourseStatus osslcCourseStatus) {
+        this.osslcCourseStatus = osslcCourseStatus;
+    }
+
+    public void updateOsslcCourseLocation(String osslcCourseLocation) {
+        this.osslcCourseLocation = osslcCourseLocation;
     }
 
     public void updateOssltTrackingManualStatus(OssltTrackingManualStatus ossltTrackingManualStatus) {

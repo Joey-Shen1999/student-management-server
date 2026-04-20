@@ -10,10 +10,14 @@ public class TeacherOssltModuleUpdateRequestDto {
     private String latestOssltDate;
     private Boolean hasOsslc;
     private String ossltTrackingManualStatus;
+    private String osslcCourseStatus;
+    private String osslcCourseLocation;
     private boolean latestOssltResultPresent;
     private boolean latestOssltDatePresent;
     private boolean hasOsslcPresent;
     private boolean ossltTrackingManualStatusPresent;
+    private boolean osslcCourseStatusPresent;
+    private boolean osslcCourseLocationPresent;
 
     public String getLatestOssltResult() {
         return latestOssltResult;
@@ -55,6 +59,26 @@ public class TeacherOssltModuleUpdateRequestDto {
         this.ossltTrackingManualStatusPresent = true;
     }
 
+    public String getOsslcCourseStatus() {
+        return osslcCourseStatus;
+    }
+
+    @JsonSetter("osslcCourseStatus")
+    public void setOsslcCourseStatus(String osslcCourseStatus) {
+        this.osslcCourseStatus = osslcCourseStatus;
+        this.osslcCourseStatusPresent = true;
+    }
+
+    public String getOsslcCourseLocation() {
+        return osslcCourseLocation;
+    }
+
+    @JsonSetter("osslcCourseLocation")
+    public void setOsslcCourseLocation(String osslcCourseLocation) {
+        this.osslcCourseLocation = osslcCourseLocation;
+        this.osslcCourseLocationPresent = true;
+    }
+
     public boolean isLatestOssltResultPresent() {
         return latestOssltResultPresent;
     }
@@ -72,5 +96,15 @@ public class TeacherOssltModuleUpdateRequestDto {
     @JsonIgnore
     public boolean isOssltTrackingManualStatusPresent() {
         return ossltTrackingManualStatusPresent;
+    }
+
+    @JsonIgnore
+    public boolean isOsslcCourseStatusPresent() {
+        return osslcCourseStatusPresent;
+    }
+
+    @JsonIgnore
+    public boolean isOsslcCourseLocationPresent() {
+        return osslcCourseLocationPresent;
     }
 }

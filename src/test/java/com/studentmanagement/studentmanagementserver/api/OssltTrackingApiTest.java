@@ -74,6 +74,8 @@ class OssltTrackingApiTest {
                 .andExpect(jsonPath("$.latestOssltResult").value("UNKNOWN"))
                 .andExpect(jsonPath("$.latestOssltDate").value(nullValue()))
                 .andExpect(jsonPath("$.hasOsslc").value(nullValue()))
+                .andExpect(jsonPath("$.osslcCourseStatus").value(nullValue()))
+                .andExpect(jsonPath("$.osslcCourseLocation").value(nullValue()))
                 .andExpect(jsonPath("$.ossltTrackingManualStatus").value(nullValue()))
                 .andExpect(jsonPath("$.ossltTrackingStatus").value("WAITING_UPDATE"));
     }
@@ -88,6 +90,8 @@ class OssltTrackingApiTest {
         updateWithManual.put("latestOssltResult", "PASS");
         updateWithManual.put("latestOssltDate", "2026-03-20");
         updateWithManual.put("ossltTrackingManualStatus", "NEEDS_TRACKING");
+        updateWithManual.put("osslcCourseStatus", "IN_PROGRESS");
+        updateWithManual.put("osslcCourseLocation", "Upper Canada DSB");
         updateWithManual.put("teacherNote", "Need counselor confirmation");
 
         mockMvc.perform(put("/api/teacher/students/{studentId}/osslt-module", student.getId())
@@ -98,11 +102,22 @@ class OssltTrackingApiTest {
                 .andExpect(jsonPath("$.latestOssltResult").value("PASS"))
                 .andExpect(jsonPath("$.latestOssltDate").value("2026-03-20"))
                 .andExpect(jsonPath("$.ossltTrackingManualStatus").value("NEEDS_TRACKING"))
+                .andExpect(jsonPath("$.osslcCourseStatus").value("IN_PROGRESS"))
+                .andExpect(jsonPath("$.osslcCourseLocation").value("Upper Canada DSB"))
                 .andExpect(jsonPath("$.ossltTrackingStatus").value("NEEDS_TRACKING"))
                 .andExpect(jsonPath("$.teacherNote").doesNotExist());
 
+        mockMvc.perform(get("/api/teacher/students/{studentId}/osslt-module", student.getId())
+                        .header("Authorization", bearerFor(teacher.getUser())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.ossltTrackingManualStatus").value("NEEDS_TRACKING"))
+                .andExpect(jsonPath("$.osslcCourseStatus").value("IN_PROGRESS"))
+                .andExpect(jsonPath("$.osslcCourseLocation").value("Upper Canada DSB"));
+
         Map<String, Object> clearManual = new LinkedHashMap<String, Object>();
         clearManual.put("ossltTrackingManualStatus", "");
+        clearManual.put("osslcCourseStatus", null);
+        clearManual.put("osslcCourseLocation", null);
 
         mockMvc.perform(put("/api/teacher/students/{studentId}/osslt-module", student.getId())
                         .header("Authorization", bearerFor(teacher.getUser()))
@@ -111,6 +126,8 @@ class OssltTrackingApiTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.latestOssltResult").value("PASS"))
                 .andExpect(jsonPath("$.ossltTrackingManualStatus").value(nullValue()))
+                .andExpect(jsonPath("$.osslcCourseStatus").value(nullValue()))
+                .andExpect(jsonPath("$.osslcCourseLocation").value(nullValue()))
                 .andExpect(jsonPath("$.ossltTrackingStatus").value("PASSED"));
     }
 
@@ -140,14 +157,14 @@ class OssltTrackingApiTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"latestOssltResult\":\"FAIL\",\"hasOsslc\":true}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.ossltTrackingStatus").value("WAITING_UPDATE"));
+                .andExpect(jsonPath("$.ossltTrackingStatus").value("PASSED"));
 
         mockMvc.perform(put("/api/teacher/students/{studentId}/osslt-module", student.getId())
                         .header("Authorization", bearerFor(teacher.getUser()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"latestOssltResult\":\"UNKNOWN\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.ossltTrackingStatus").value("WAITING_UPDATE"));
+                .andExpect(jsonPath("$.ossltTrackingStatus").value("PASSED"));
     }
 
     @Test
@@ -181,6 +198,8 @@ class OssltTrackingApiTest {
                 .andExpect(jsonPath("$.studentId").value(student.getId()))
                 .andExpect(jsonPath("$.latestOssltResult").value("UNKNOWN"))
                 .andExpect(jsonPath("$.hasOsslc").value(nullValue()))
+                .andExpect(jsonPath("$.osslcCourseStatus").value(nullValue()))
+                .andExpect(jsonPath("$.osslcCourseLocation").value(nullValue()))
                 .andExpect(jsonPath("$.ossltTrackingStatus").value("WAITING_UPDATE"))
                 .andExpect(jsonPath("$.teacherNote").doesNotExist());
 
@@ -192,6 +211,8 @@ class OssltTrackingApiTest {
                 .andExpect(jsonPath("$.studentId").value(student.getId()))
                 .andExpect(jsonPath("$.latestOssltResult").value("FAIL"))
                 .andExpect(jsonPath("$.hasOsslc").value(false))
+                .andExpect(jsonPath("$.osslcCourseStatus").value(nullValue()))
+                .andExpect(jsonPath("$.osslcCourseLocation").value(nullValue()))
                 .andExpect(jsonPath("$.ossltTrackingStatus").value("NEEDS_TRACKING"))
                 .andExpect(jsonPath("$.teacherNote").doesNotExist());
 
@@ -210,6 +231,8 @@ class OssltTrackingApiTest {
         payload.put("latestOssltResult", "PASS");
         payload.put("hasOsslc", true);
         payload.put("ossltTrackingManualStatus", "PASSED");
+        payload.put("osslcCourseStatus", "IN_PROGRESS");
+        payload.put("osslcCourseLocation", "Downtown Campus");
         payload.put("teacherNote", "legacy field should be ignored");
 
         mockMvc.perform(put("/api/student/osslt-module")
@@ -218,7 +241,9 @@ class OssltTrackingApiTest {
                         .content(objectMapper.writeValueAsString(payload)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("BAD_REQUEST"))
-                .andExpect(jsonPath("$.details", hasItem("ossltTrackingManualStatus is not allowed for student APIs")));
+                .andExpect(jsonPath("$.details", hasItem("ossltTrackingManualStatus is not allowed for student APIs")))
+                .andExpect(jsonPath("$.details", hasItem("osslcCourseStatus is not allowed for student APIs")))
+                .andExpect(jsonPath("$.details", hasItem("osslcCourseLocation is not allowed for student APIs")));
     }
 
     @Test
@@ -238,6 +263,8 @@ class OssltTrackingApiTest {
                 .andExpect(jsonPath("$.studentId").value(student.getId()))
                 .andExpect(jsonPath("$.latestOssltResult").value("PASS"))
                 .andExpect(jsonPath("$.hasOsslc").value(true))
+                .andExpect(jsonPath("$.osslcCourseStatus").value(nullValue()))
+                .andExpect(jsonPath("$.osslcCourseLocation").value(nullValue()))
                 .andExpect(jsonPath("$.ossltTrackingStatus").value("PASSED"))
                 .andExpect(jsonPath("$.teacherNote").doesNotExist());
     }
@@ -296,6 +323,37 @@ class OssltTrackingApiTest {
     }
 
     @Test
+    void teacherUpdateOssltModule_osslcValidation_returns400() throws Exception {
+        Teacher teacher = createTeacherAccount("osslt_teacher_osslc_validation", "OSSLT Teacher OSSLC Validation");
+        Student student = createStudentAccount("osslt_student_osslc_validation", "OSSLT", "Osslc", "Validation");
+        assignTeacherStudent(teacher, student);
+
+        Map<String, Object> missingCourseStatus = new LinkedHashMap<String, Object>();
+        missingCourseStatus.put("ossltTrackingManualStatus", "NEEDS_TRACKING");
+
+        mockMvc.perform(put("/api/teacher/students/{studentId}/osslt-module", student.getId())
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(missingCourseStatus)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("BAD_REQUEST"))
+                .andExpect(jsonPath("$.details", hasItem("osslcCourseStatus is required when ossltTrackingManualStatus is NEEDS_TRACKING")));
+
+        Map<String, Object> missingCourseLocation = new LinkedHashMap<String, Object>();
+        missingCourseLocation.put("ossltTrackingManualStatus", "NEEDS_TRACKING");
+        missingCourseLocation.put("osslcCourseStatus", "IN_PROGRESS");
+        missingCourseLocation.put("osslcCourseLocation", "   ");
+
+        mockMvc.perform(put("/api/teacher/students/{studentId}/osslt-module", student.getId())
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(missingCourseLocation)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("BAD_REQUEST"))
+                .andExpect(jsonPath("$.details", hasItem("osslcCourseLocation is required when osslcCourseStatus is IN_PROGRESS")));
+    }
+
+    @Test
     void teacherGetOssltSummary_batch_success() throws Exception {
         Teacher teacher = createTeacherAccount("osslt_teacher_summary", "OSSLT Teacher Summary");
         Student studentA = createStudentAccount("osslt_student_summary_a", "OSSLT", "SummaryA", "SummaryA");
@@ -312,7 +370,7 @@ class OssltTrackingApiTest {
         mockMvc.perform(put("/api/teacher/students/{studentId}/osslt-module", studentB.getId())
                         .header("Authorization", bearerFor(teacher.getUser()))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"latestOssltResult\":\"FAIL\",\"hasOsslc\":false,\"ossltTrackingManualStatus\":\"NEEDS_TRACKING\"}"))
+                        .content("{\"latestOssltResult\":\"FAIL\",\"hasOsslc\":false,\"ossltTrackingManualStatus\":\"NEEDS_TRACKING\",\"osslcCourseStatus\":\"IN_PROGRESS\",\"osslcCourseLocation\":\"Main Campus\"}"))
                 .andExpect(status().isOk());
 
         String query = studentA.getId() + "," + studentB.getId();

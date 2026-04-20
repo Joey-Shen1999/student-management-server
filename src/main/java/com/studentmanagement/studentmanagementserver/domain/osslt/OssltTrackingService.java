@@ -39,6 +39,7 @@ import java.util.regex.Pattern;
 public class OssltTrackingService {
 
     private static final Pattern DATE_PATTERN = Pattern.compile("\\d{4}-\\d{2}-\\d{2}");
+    private static final int MAX_OSSLC_COURSE_LOCATION_LENGTH = 255;
 
     private final AuthSessionService authSessionService;
     private final ManagementAccessService managementAccessService;
@@ -135,6 +136,24 @@ public class OssltTrackingService {
         if (normalized.overwriteOssltTrackingManualStatus) {
             module.updateOssltTrackingManualStatus(normalized.ossltTrackingManualStatus);
         }
+        if (normalized.overwriteOsslcCourseStatus) {
+            module.updateOsslcCourseStatus(normalized.osslcCourseStatus);
+        }
+        if (normalized.overwriteOsslcCourseLocation) {
+            module.updateOsslcCourseLocation(normalized.osslcCourseLocation);
+        }
+
+        validateTeacherOsslcRules(
+                normalized.overwriteOssltTrackingManualStatus
+                        ? normalized.ossltTrackingManualStatus
+                        : module.getOssltTrackingManualStatus(),
+                normalized.overwriteOsslcCourseStatus
+                        ? normalized.osslcCourseStatus
+                        : module.getOsslcCourseStatus(),
+                normalized.overwriteOsslcCourseLocation
+                        ? normalized.osslcCourseLocation
+                        : module.getOsslcCourseLocation()
+        );
 
         OssltTrackingStatus finalStatus = deriveFinalTrackingStatus(
                 module.getLatestOssltResult(),
@@ -196,6 +215,8 @@ public class OssltTrackingService {
                                                                StudentOssltModule module) {
         OssltLatestResult latestResult = resolveLatestResult(module == null ? null : module.getLatestOssltResult());
         Boolean hasOsslc = module == null ? null : module.getHasOsslc();
+        OsslcCourseStatus osslcCourseStatus = module == null ? null : module.getOsslcCourseStatus();
+        String osslcCourseLocation = module == null ? null : module.getOsslcCourseLocation();
         OssltTrackingManualStatus manualStatus = module == null ? null : module.getOssltTrackingManualStatus();
         OssltTrackingStatus finalTrackingStatus = deriveFinalTrackingStatus(latestResult, hasOsslc, manualStatus);
         return new TeacherStudentOssltModuleStateDto(
@@ -204,6 +225,8 @@ public class OssltTrackingService {
                 latestResult.name(),
                 module == null || module.getLatestOssltDate() == null ? null : module.getLatestOssltDate().toString(),
                 hasOsslc,
+                osslcCourseStatus == null ? null : osslcCourseStatus.name(),
+                osslcCourseLocation,
                 manualStatus == null ? null : manualStatus.name(),
                 finalTrackingStatus.name(),
                 resolveUpdatedAt(module)
@@ -248,6 +271,24 @@ public class OssltTrackingService {
             );
         }
 
+        OsslcCourseStatus osslcCourseStatus = null;
+        if (requestBody.isOsslcCourseStatusPresent()) {
+            osslcCourseStatus = parseOsslcCourseStatus(
+                    requestBody.getOsslcCourseStatus(),
+                    "osslcCourseStatus",
+                    details
+            );
+        }
+
+        String osslcCourseLocation = null;
+        if (requestBody.isOsslcCourseLocationPresent()) {
+            osslcCourseLocation = parseOsslcCourseLocation(
+                    requestBody.getOsslcCourseLocation(),
+                    "osslcCourseLocation",
+                    details
+            );
+        }
+
         if (!details.isEmpty()) {
             throw validationFailed(details);
         }
@@ -260,7 +301,11 @@ public class OssltTrackingService {
                 requestBody.isHasOsslcPresent(),
                 hasOsslc,
                 requestBody.isOssltTrackingManualStatusPresent(),
-                ossltTrackingManualStatus
+                ossltTrackingManualStatus,
+                requestBody.isOsslcCourseStatusPresent(),
+                osslcCourseStatus,
+                requestBody.isOsslcCourseLocationPresent(),
+                osslcCourseLocation
         );
     }
 
@@ -272,6 +317,12 @@ public class OssltTrackingService {
         List<String> details = new ArrayList<String>();
         if (requestBody.isOssltTrackingManualStatusPresent()) {
             details.add("ossltTrackingManualStatus is not allowed for student APIs");
+        }
+        if (requestBody.isOsslcCourseStatusPresent()) {
+            details.add("osslcCourseStatus is not allowed for student APIs");
+        }
+        if (requestBody.isOsslcCourseLocationPresent()) {
+            details.add("osslcCourseLocation is not allowed for student APIs");
         }
 
         boolean overwriteLatestOssltResult = requestBody.isLatestOssltResultPresent();
@@ -345,6 +396,52 @@ public class OssltTrackingService {
         }
     }
 
+    private OsslcCourseStatus parseOsslcCourseStatus(String rawValue, String fieldPath, List<String> details) {
+        String normalized = trimToNull(rawValue);
+        if (normalized == null) {
+            return null;
+        }
+        try {
+            return OsslcCourseStatus.valueOf(normalized.toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            details.add(fieldPath + " invalid");
+            return null;
+        }
+    }
+
+    private String parseOsslcCourseLocation(String rawValue, String fieldPath, List<String> details) {
+        String normalized = trimToNull(rawValue);
+        if (normalized == null) {
+            return null;
+        }
+        if (normalized.length() > MAX_OSSLC_COURSE_LOCATION_LENGTH) {
+            details.add(fieldPath + " too long");
+            return null;
+        }
+        return normalized;
+    }
+
+    private void validateTeacherOsslcRules(OssltTrackingManualStatus manualStatus,
+                                           OsslcCourseStatus osslcCourseStatus,
+                                           String osslcCourseLocation) {
+        List<String> details = new ArrayList<String>();
+        if (manualStatus == OssltTrackingManualStatus.NEEDS_TRACKING && osslcCourseStatus == null) {
+            details.add("osslcCourseStatus is required when ossltTrackingManualStatus is NEEDS_TRACKING");
+        }
+
+        String normalizedLocation = trimToNull(osslcCourseLocation);
+        if (osslcCourseStatus == OsslcCourseStatus.IN_PROGRESS && normalizedLocation == null) {
+            details.add("osslcCourseLocation is required when osslcCourseStatus is IN_PROGRESS");
+        }
+        if (normalizedLocation != null && normalizedLocation.length() > MAX_OSSLC_COURSE_LOCATION_LENGTH) {
+            details.add("osslcCourseLocation too long");
+        }
+
+        if (!details.isEmpty()) {
+            throw validationFailed(details);
+        }
+    }
+
     private LocalDate parseOptionalDate(String rawDate, String fieldPath, List<String> details) {
         String normalized = trimToNull(rawDate);
         if (normalized == null) {
@@ -367,11 +464,16 @@ public class OssltTrackingService {
     }
 
     private OssltTrackingStatus deriveAutoTrackingStatus(OssltLatestResult latestResult, Boolean hasOsslc) {
+        if (hasOsslc != null) {
+            return hasOsslc.booleanValue()
+                    ? OssltTrackingStatus.PASSED
+                    : OssltTrackingStatus.NEEDS_TRACKING;
+        }
         OssltLatestResult resolvedResult = resolveLatestResult(latestResult);
         if (resolvedResult == OssltLatestResult.PASS) {
             return OssltTrackingStatus.PASSED;
         }
-        if (resolvedResult == OssltLatestResult.FAIL && Boolean.FALSE.equals(hasOsslc)) {
+        if (resolvedResult == OssltLatestResult.FAIL) {
             return OssltTrackingStatus.NEEDS_TRACKING;
         }
         return OssltTrackingStatus.WAITING_UPDATE;
@@ -592,6 +694,10 @@ public class OssltTrackingService {
         private final Boolean hasOsslc;
         private final boolean overwriteOssltTrackingManualStatus;
         private final OssltTrackingManualStatus ossltTrackingManualStatus;
+        private final boolean overwriteOsslcCourseStatus;
+        private final OsslcCourseStatus osslcCourseStatus;
+        private final boolean overwriteOsslcCourseLocation;
+        private final String osslcCourseLocation;
 
         private NormalizedUpdate(boolean overwriteLatestOssltResult,
                                  OssltLatestResult latestOssltResult,
@@ -600,7 +706,11 @@ public class OssltTrackingService {
                                  boolean overwriteHasOsslc,
                                  Boolean hasOsslc,
                                  boolean overwriteOssltTrackingManualStatus,
-                                 OssltTrackingManualStatus ossltTrackingManualStatus) {
+                                 OssltTrackingManualStatus ossltTrackingManualStatus,
+                                 boolean overwriteOsslcCourseStatus,
+                                 OsslcCourseStatus osslcCourseStatus,
+                                 boolean overwriteOsslcCourseLocation,
+                                 String osslcCourseLocation) {
             this.overwriteLatestOssltResult = overwriteLatestOssltResult;
             this.latestOssltResult = latestOssltResult;
             this.overwriteLatestOssltDate = overwriteLatestOssltDate;
@@ -609,6 +719,10 @@ public class OssltTrackingService {
             this.hasOsslc = hasOsslc;
             this.overwriteOssltTrackingManualStatus = overwriteOssltTrackingManualStatus;
             this.ossltTrackingManualStatus = ossltTrackingManualStatus;
+            this.overwriteOsslcCourseStatus = overwriteOsslcCourseStatus;
+            this.osslcCourseStatus = osslcCourseStatus;
+            this.overwriteOsslcCourseLocation = overwriteOsslcCourseLocation;
+            this.osslcCourseLocation = osslcCourseLocation;
         }
     }
 
