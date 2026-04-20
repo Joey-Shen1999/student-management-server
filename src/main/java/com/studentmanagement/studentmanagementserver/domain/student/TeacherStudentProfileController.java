@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -36,8 +37,24 @@ public class TeacherStudentProfileController {
     @PutMapping
     public ResponseEntity<TeacherStudentProfileDto> saveProfile(@PathVariable Long studentId,
                                                                 @RequestBody(required = false) TeacherStudentProfileDto requestBody,
+                                                                @RequestHeader(value = "If-Match", required = false) String ifMatch,
+                                                                @RequestHeader(value = "X-Profile-Change-Source", required = false) String changeSource,
                                                                 HttpServletRequest request) {
-        return ResponseEntity.ok(teacherStudentProfileService.saveProfile(studentId, requestBody, request));
+        return ResponseEntity.ok(teacherStudentProfileService.saveProfile(
+                studentId,
+                requestBody,
+                ifMatch,
+                changeSource,
+                request
+        ));
+    }
+
+    @GetMapping("/history")
+    public ResponseEntity<StudentProfileHistoryListDto> getProfileHistory(@PathVariable Long studentId,
+                                                                           @RequestParam(value = "page", required = false, defaultValue = "0") Integer page,
+                                                                           @RequestParam(value = "size", required = false, defaultValue = "20") Integer size,
+                                                                           HttpServletRequest request) {
+        return ResponseEntity.ok(teacherStudentProfileService.getProfileHistory(studentId, page, size, request));
     }
 
     @PostMapping(value = "/schools/{schoolRecordId}/transcript", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

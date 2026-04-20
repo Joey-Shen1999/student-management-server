@@ -42,6 +42,8 @@ public class TeacherStudentProfileService {
 
     public TeacherStudentProfileDto saveProfile(Long studentId,
                                                 TeacherStudentProfileDto requestBody,
+                                                String ifMatch,
+                                                String changeSource,
                                                 HttpServletRequest request) {
         User operator = managementAccessService.requireStudentAccountManagementAccess(request);
         ensureValidStudentId(studentId);
@@ -50,8 +52,20 @@ public class TeacherStudentProfileService {
                 studentId,
                 requestBody,
                 operator.getId(),
-                resolveTraceId(request)
+                resolveTraceId(request),
+                ifMatch,
+                changeSource
         );
+    }
+
+    public StudentProfileHistoryListDto getProfileHistory(Long studentId,
+                                                          Integer page,
+                                                          Integer size,
+                                                          HttpServletRequest request) {
+        User operator = managementAccessService.requireStudentAccountManagementAccess(request);
+        ensureValidStudentId(studentId);
+        ensureTeacherCanAccessStudent(operator, studentId);
+        return studentProfileService.getProfileHistoryByStudentId(studentId, page, size);
     }
 
     public StudentSchoolTranscriptDto uploadSchoolTranscript(Long studentId,

@@ -1,17 +1,31 @@
 package com.studentmanagement.studentmanagementserver.domain.student;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.studentmanagement.studentmanagementserver.domain.enums.SchoolType;
 import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
+import com.studentmanagement.studentmanagementserver.domain.teacher.Teacher;
 import com.studentmanagement.studentmanagementserver.domain.user.User;
 import com.studentmanagement.studentmanagementserver.repo.StudentCourseRecordRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentIdentityFileRepository;
+import com.studentmanagement.studentmanagementserver.repo.StudentProfileChangeEventRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentProfileRepository;
+import com.studentmanagement.studentmanagementserver.repo.StudentProfileVersionRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentSchoolRecordRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentSchoolTranscriptRepository;
+import com.studentmanagement.studentmanagementserver.repo.TeacherRepository;
+import com.studentmanagement.studentmanagementserver.repo.UserRepository;
 import com.studentmanagement.studentmanagementserver.service.AuthSessionService;
+import com.studentmanagement.studentmanagementserver.service.ProfileVersionConflictException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +34,9 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import javax.servlet.http.HttpServletRequest;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -31,10 +48,13 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.regex.Pattern;
 
 @Service
@@ -47,6 +67,13 @@ public class StudentProfileService {
     private static final int MAX_UNIQUE_SCHOOLS_PER_PROFILE = 100;
     private static final int MAX_TEACHER_NOTE_LENGTH = 5000;
     private static final long MAX_UPLOAD_SIZE_BYTES = 50L * 1024L * 1024L;
+    private static final int DEFAULT_HISTORY_PAGE = 0;
+    private static final int DEFAULT_HISTORY_SIZE = 20;
+    private static final int MAX_HISTORY_SIZE = 100;
+    private static final String CHANGE_SOURCE_MANUAL_SAVE = "manual_save";
+    private static final String CHANGE_SOURCE_AUTO_SAVE = "auto_save";
+    private static final String CHANGE_SOURCE_FILE_UPLOAD = "file_upload";
+    private static final String CHANGE_SOURCE_VERSION_RESTORE = "version_restore";
 
     private final AuthSessionService authSessionService;
     private final StudentRepository studentRepository;
@@ -55,8 +82,13 @@ public class StudentProfileService {
     private final StudentSchoolTranscriptRepository studentSchoolTranscriptRepository;
     private final StudentIdentityFileRepository studentIdentityFileRepository;
     private final StudentCourseRecordRepository studentCourseRecordRepository;
+    private final StudentProfileChangeEventRepository studentProfileChangeEventRepository;
+    private final StudentProfileVersionRepository studentProfileVersionRepository;
+    private final UserRepository userRepository;
+    private final TeacherRepository teacherRepository;
     private final StudentSchoolTranscriptStorageService transcriptStorageService;
     private final StudentIdentityFileStorageService identityFileStorageService;
+    private final ObjectMapper objectMapper;
 
     public StudentProfileService(AuthSessionService authSessionService,
                                  StudentRepository studentRepository,
@@ -65,8 +97,13 @@ public class StudentProfileService {
                                  StudentSchoolTranscriptRepository studentSchoolTranscriptRepository,
                                  StudentIdentityFileRepository studentIdentityFileRepository,
                                  StudentCourseRecordRepository studentCourseRecordRepository,
+                                 StudentProfileChangeEventRepository studentProfileChangeEventRepository,
+                                 StudentProfileVersionRepository studentProfileVersionRepository,
+                                 UserRepository userRepository,
+                                 TeacherRepository teacherRepository,
                                  StudentSchoolTranscriptStorageService transcriptStorageService,
-                                 StudentIdentityFileStorageService identityFileStorageService) {
+                                 StudentIdentityFileStorageService identityFileStorageService,
+                                 ObjectMapper objectMapper) {
         this.authSessionService = authSessionService;
         this.studentRepository = studentRepository;
         this.studentProfileRepository = studentProfileRepository;
@@ -74,8 +111,13 @@ public class StudentProfileService {
         this.studentSchoolTranscriptRepository = studentSchoolTranscriptRepository;
         this.studentIdentityFileRepository = studentIdentityFileRepository;
         this.studentCourseRecordRepository = studentCourseRecordRepository;
+        this.studentProfileChangeEventRepository = studentProfileChangeEventRepository;
+        this.studentProfileVersionRepository = studentProfileVersionRepository;
+        this.userRepository = userRepository;
+        this.teacherRepository = teacherRepository;
         this.transcriptStorageService = transcriptStorageService;
         this.identityFileStorageService = identityFileStorageService;
+        this.objectMapper = objectMapper;
     }
 
     @Transactional(readOnly = true)
@@ -96,14 +138,48 @@ public class StudentProfileService {
         return toTeacherDto(getProfileForStudent(student, true));
     }
 
-    @Transactional
-    public StudentProfileDto saveCurrentStudentProfile(StudentProfileDto requestBody, HttpServletRequest request) {
+    @Transactional(readOnly = true)
+    public StudentProfileHistoryListDto getCurrentStudentProfileHistory(Integer page,
+                                                                        Integer size,
+                                                                        HttpServletRequest request) {
         Student student = requireCurrentStudent(request);
+        return getProfileHistoryByStudentId(student.getId(), page, size);
+    }
+
+    @Transactional(readOnly = true)
+    public StudentProfileHistoryListDto getProfileHistoryByStudentId(Long studentId, Integer page, Integer size) {
+        Student student = requireStudentById(studentId);
+        int normalizedPage = normalizeHistoryPage(page);
+        int normalizedSize = normalizeHistorySize(size);
+        Pageable pageable = PageRequest.of(
+                normalizedPage,
+                normalizedSize,
+                Sort.by(Sort.Order.desc("changedAt"), Sort.Order.desc("id"))
+        );
+
+        Page<StudentProfileChangeEvent> result = studentProfileChangeEventRepository.findByStudentId(student.getId(), pageable);
+        StudentProfileHistoryListDto response = new StudentProfileHistoryListDto();
+        response.setItems(toHistoryItems(result.getContent()));
+        response.setTotal(result.getTotalElements());
+        response.setPage(normalizedPage);
+        response.setSize(normalizedSize);
+        return response;
+    }
+
+    @Transactional
+    public StudentProfileDto saveCurrentStudentProfile(StudentProfileDto requestBody,
+                                                       HttpServletRequest request,
+                                                       String ifMatch,
+                                                       String changeSource) {
+        Student student = requireCurrentStudent(request);
+        Long expectedVersion = resolveExpectedVersion(requestBody, ifMatch);
         return saveProfileForStudent(
                 student,
                 requestBody,
                 student.getUser().getId(),
                 resolveTraceId(request),
+                normalizeChangeSource(changeSource, CHANGE_SOURCE_MANUAL_SAVE),
+                expectedVersion,
                 false,
                 null,
                 false
@@ -121,7 +197,17 @@ public class StudentProfileService {
                                                     Long operatorUserId,
                                                     String traceId) {
         Student student = requireStudentById(studentId);
-        return saveProfileForStudent(student, requestBody, operatorUserId, traceId, false, null, false);
+        return saveProfileForStudent(
+                student,
+                requestBody,
+                operatorUserId,
+                traceId,
+                CHANGE_SOURCE_MANUAL_SAVE,
+                null,
+                false,
+                null,
+                false
+        );
     }
 
     @Transactional
@@ -129,6 +215,23 @@ public class StudentProfileService {
                                                                      TeacherStudentProfileDto requestBody,
                                                                      Long operatorUserId,
                                                                      String traceId) {
+        return saveProfileByStudentIdForTeacher(
+                studentId,
+                requestBody,
+                operatorUserId,
+                traceId,
+                null,
+                CHANGE_SOURCE_MANUAL_SAVE
+        );
+    }
+
+    @Transactional
+    public TeacherStudentProfileDto saveProfileByStudentIdForTeacher(Long studentId,
+                                                                     TeacherStudentProfileDto requestBody,
+                                                                     Long operatorUserId,
+                                                                     String traceId,
+                                                                     String ifMatch,
+                                                                     String changeSource) {
         Student student = requireStudentById(studentId);
         String teacherNoteToSave = null;
         boolean teacherNoteProvided = false;
@@ -136,11 +239,14 @@ public class StudentProfileService {
             teacherNoteToSave = normalizeTeacherNote(requestBody.getTeacherNote());
             teacherNoteProvided = true;
         }
+        Long expectedVersion = resolveExpectedVersion(requestBody, ifMatch);
         StudentProfileDto saved = saveProfileForStudent(
                 student,
                 requestBody,
                 operatorUserId,
                 traceId,
+                normalizeChangeSource(changeSource, CHANGE_SOURCE_MANUAL_SAVE),
+                expectedVersion,
                 teacherNoteProvided,
                 teacherNoteToSave,
                 true
@@ -158,7 +264,8 @@ public class StudentProfileService {
                 schoolRecordId,
                 file,
                 student.getUser().getId(),
-                resolveTraceId(request)
+                resolveTraceId(request),
+                CHANGE_SOURCE_FILE_UPLOAD
         );
     }
 
@@ -177,7 +284,14 @@ public class StudentProfileService {
                                                                                String traceId) {
         Student student = requireStudentById(studentId);
         Long operatorUserId = uploadedBy == null ? student.getUser().getId() : uploadedBy;
-        return uploadSchoolTranscriptForStudent(student, schoolRecordId, file, operatorUserId, traceId);
+        return uploadSchoolTranscriptForStudent(
+                student,
+                schoolRecordId,
+                file,
+                operatorUserId,
+                traceId,
+                CHANGE_SOURCE_FILE_UPLOAD
+        );
     }
 
     @Transactional(readOnly = true)
@@ -211,7 +325,13 @@ public class StudentProfileService {
     @Transactional
     public StudentIdentityFileUploadDto uploadCurrentStudentIdentityFile(MultipartFile file, HttpServletRequest request) {
         Student student = requireCurrentStudent(request);
-        return uploadIdentityFileForStudent(student, file, student.getUser().getId(), resolveTraceId(request));
+        return uploadIdentityFileForStudent(
+                student,
+                file,
+                student.getUser().getId(),
+                resolveTraceId(request),
+                CHANGE_SOURCE_FILE_UPLOAD
+        );
     }
 
     @Transactional
@@ -221,7 +341,13 @@ public class StudentProfileService {
                                                                               String traceId) {
         Student student = requireStudentById(studentId);
         Long operatorUserId = uploadedBy == null ? student.getUser().getId() : uploadedBy;
-        return uploadIdentityFileForStudent(student, file, operatorUserId, traceId);
+        return uploadIdentityFileForStudent(
+                student,
+                file,
+                operatorUserId,
+                traceId,
+                CHANGE_SOURCE_FILE_UPLOAD
+        );
     }
 
     @Transactional(readOnly = true)
@@ -291,13 +417,18 @@ public class StudentProfileService {
                                                     StudentProfileDto requestBody,
                                                     Long operatorUserId,
                                                     String traceId,
+                                                    String changeSource,
+                                                    Long expectedVersion,
                                                     boolean teacherNoteProvided,
                                                     String teacherNoteToSave,
                                                     boolean includeTeacherNoteInResponse) {
         NormalizedProfile normalized = normalizeAndValidate(requestBody);
+        StudentProfileDto beforeSnapshot = getProfileForStudent(student, false);
 
         StudentProfile profile = studentProfileRepository.findByStudent_Id(student.getId())
                 .orElseGet(() -> new StudentProfile(student));
+        long currentVersion = safeProfileVersion(profile.getProfileVersion());
+        ensureProfileVersionMatches(expectedVersion, currentVersion);
         applyProfile(profile, normalized, operatorUserId);
         if (teacherNoteProvided) {
             profile.setTeacherNote(teacherNoteToSave);
@@ -362,7 +493,7 @@ public class StudentProfileService {
             savedCourses = studentCourseRecordRepository.saveAll(savedCourses);
         }
 
-        return toDto(
+        StudentProfileDto savedDto = toDto(
                 student,
                 profile,
                 savedSchools,
@@ -371,6 +502,16 @@ public class StudentProfileService {
                 savedCourses,
                 includeTeacherNoteInResponse
         );
+        recordProfileHistoryIfChanged(
+                student,
+                profile,
+                beforeSnapshot,
+                savedDto,
+                operatorUserId,
+                traceId,
+                changeSource
+        );
+        return savedDto;
     }
 
     private void applyProfile(StudentProfile profile, NormalizedProfile normalized, Long operatorUserId) {
@@ -402,7 +543,8 @@ public class StudentProfileService {
                                                                         Long schoolRecordId,
                                                                         MultipartFile file,
                                                                         Long uploadedBy,
-                                                                        String traceId) {
+                                                                        String traceId,
+                                                                        String changeSource) {
         if (schoolRecordId == null || schoolRecordId.longValue() <= 0L) {
             throw new IllegalArgumentException("schoolRecordId must be positive");
         }
@@ -411,6 +553,14 @@ public class StudentProfileService {
         }
         assertUploadSizeWithinLimit(file);
 
+        StudentProfile profile = studentProfileRepository.findByStudent_Id(student.getId())
+                .orElseGet(() -> {
+                    StudentProfile created = new StudentProfile(student);
+                    created.setUpdatedBy(uploadedBy);
+                    created.setProfileVersion(0L);
+                    return studentProfileRepository.save(created);
+                });
+        StudentProfileDto beforeSnapshot = getProfileForStudent(student, false);
         StudentSchoolRecord school = requireOwnedSchoolRecord(student, schoolRecordId);
 
         LocalDateTime now = LocalDateTime.now();
@@ -443,6 +593,16 @@ public class StudentProfileService {
                 uploadedBy,
                 school.getId(),
                 transcript.getId()
+        );
+        StudentProfileDto afterSnapshot = getProfileForStudent(student, false);
+        recordProfileHistoryIfChanged(
+                student,
+                profile,
+                beforeSnapshot,
+                afterSnapshot,
+                uploadedBy,
+                traceId,
+                changeSource
         );
 
         return toTranscriptDto(school, transcripts);
@@ -515,16 +675,19 @@ public class StudentProfileService {
     private StudentIdentityFileUploadDto uploadIdentityFileForStudent(Student student,
                                                                        MultipartFile file,
                                                                        Long uploadedBy,
-                                                                       String traceId) {
+                                                                       String traceId,
+                                                                       String changeSource) {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("identity file is required");
         }
         assertUploadSizeWithinLimit(file);
 
+        StudentProfileDto beforeSnapshot = getProfileForStudent(student, false);
         StudentProfile profile = studentProfileRepository.findByStudent_Id(student.getId())
                 .orElseGet(() -> {
                     StudentProfile created = new StudentProfile(student);
                     created.setUpdatedBy(uploadedBy);
+                    created.setProfileVersion(0L);
                     return studentProfileRepository.save(created);
                 });
 
@@ -549,6 +712,16 @@ public class StudentProfileService {
                 uploadedBy,
                 profile.getId(),
                 identityFile.getId()
+        );
+        StudentProfileDto afterSnapshot = getProfileForStudent(student, false);
+        recordProfileHistoryIfChanged(
+                student,
+                profile,
+                beforeSnapshot,
+                afterSnapshot,
+                uploadedBy,
+                traceId,
+                changeSource
         );
 
         return toIdentityFileUploadDto(identityFiles);
@@ -610,6 +783,7 @@ public class StudentProfileService {
         dto.setFirstName(student.getFirstName());
         dto.setLastName(student.getLastName());
         dto.setNickName(student.getNickName());
+        dto.setVersion(profile == null ? Long.valueOf(0L) : Long.valueOf(safeProfileVersion(profile.getProfileVersion())));
         dto.setAp(Boolean.FALSE);
 
         if (profile != null) {
@@ -1571,6 +1745,465 @@ public class StudentProfileService {
         return value == null ? null : value.toString();
     }
 
+    private String formatUtcDateTime(LocalDateTime value) {
+        if (value == null) {
+            return null;
+        }
+        return OffsetDateTime.of(value, ZoneOffset.UTC).toInstant().toString();
+    }
+
+    private int normalizeHistoryPage(Integer page) {
+        if (page == null) {
+            return DEFAULT_HISTORY_PAGE;
+        }
+        return Math.max(page.intValue(), 0);
+    }
+
+    private int normalizeHistorySize(Integer size) {
+        if (size == null || size.intValue() <= 0) {
+            return DEFAULT_HISTORY_SIZE;
+        }
+        return Math.min(size.intValue(), MAX_HISTORY_SIZE);
+    }
+
+    private Long resolveExpectedVersion(StudentProfileDto requestBody, String ifMatch) {
+        Long bodyVersion = requestBody == null ? null : requestBody.getVersion();
+        if (bodyVersion != null && bodyVersion.longValue() < 0L) {
+            throw new IllegalArgumentException("version must be a non-negative integer");
+        }
+
+        Long headerVersion = parseIfMatchVersion(ifMatch);
+        if (bodyVersion != null && headerVersion != null && !bodyVersion.equals(headerVersion)) {
+            throw new IllegalArgumentException("version in payload does not match If-Match header");
+        }
+        return bodyVersion != null ? bodyVersion : headerVersion;
+    }
+
+    private Long parseIfMatchVersion(String ifMatch) {
+        String normalized = trimToNull(ifMatch);
+        if (normalized == null || "*".equals(normalized)) {
+            return null;
+        }
+        if (normalized.startsWith("W/")) {
+            normalized = trimToNull(normalized.substring(2));
+        }
+        if (normalized == null) {
+            return null;
+        }
+        if (normalized.startsWith("\"") && normalized.endsWith("\"") && normalized.length() >= 2) {
+            normalized = normalized.substring(1, normalized.length() - 1);
+        }
+        try {
+            long value = Long.parseLong(normalized);
+            if (value < 0L) {
+                throw new IllegalArgumentException("If-Match version must be non-negative");
+            }
+            return Long.valueOf(value);
+        } catch (NumberFormatException ex) {
+            throw new IllegalArgumentException("If-Match must contain a numeric profile version");
+        }
+    }
+
+    private void ensureProfileVersionMatches(Long expectedVersion, long currentVersion) {
+        if (expectedVersion == null) {
+            return;
+        }
+        if (expectedVersion.longValue() != currentVersion) {
+            throw new ProfileVersionConflictException(Long.valueOf(currentVersion));
+        }
+    }
+
+    private long safeProfileVersion(Long value) {
+        return value == null ? 0L : Math.max(0L, value.longValue());
+    }
+
+    private void recordProfileHistoryIfChanged(Student student,
+                                               StudentProfile profile,
+                                               StudentProfileDto beforeSnapshot,
+                                               StudentProfileDto afterSnapshot,
+                                               Long actorUserId,
+                                               String traceId,
+                                               String changeSource) {
+        List<StudentProfileHistoryListDto.FieldChangeDto> changedFields = buildChangedFields(beforeSnapshot, afterSnapshot);
+        if (changedFields.isEmpty()) {
+            return;
+        }
+
+        long fromVersion = safeProfileVersion(profile.getProfileVersion());
+        long toVersion = fromVersion + 1L;
+        profile.setProfileVersion(Long.valueOf(toVersion));
+        profile.setUpdatedBy(actorUserId);
+        studentProfileRepository.save(profile);
+        if (afterSnapshot != null) {
+            afterSnapshot.setVersion(Long.valueOf(toVersion));
+        }
+
+        AuditActor actor = resolveAuditActor(actorUserId, student);
+        LocalDateTime changedAt = LocalDateTime.now(ZoneOffset.UTC);
+        String normalizedSource = normalizeChangeSource(changeSource, CHANGE_SOURCE_MANUAL_SAVE);
+
+        StudentProfileChangeEvent event = new StudentProfileChangeEvent();
+        event.setStudentId(student.getId());
+        event.setFromVersion(Long.valueOf(fromVersion));
+        event.setToVersion(Long.valueOf(toVersion));
+        event.setChangeSource(normalizedSource);
+        event.setActorUserId(actor.userId);
+        event.setActorRole(actor.role);
+        event.setActorName(actor.name);
+        event.setChangedAt(changedAt);
+        event.setRequestId(safeTraceId(traceId));
+        event.setChangedFieldsJson(serializeChangedFields(changedFields));
+        event = studentProfileChangeEventRepository.save(event);
+
+        StudentProfileVersion version = new StudentProfileVersion();
+        version.setStudentId(student.getId());
+        version.setProfileVersion(Long.valueOf(toVersion));
+        String snapshotJson = serializeProfileSnapshot(afterSnapshot);
+        version.setProfileSnapshotJson(snapshotJson);
+        String previousHash = loadPreviousSnapshotHash(student.getId());
+        version.setPreviousHash(previousHash);
+        version.setSnapshotHash(computeSnapshotHash(snapshotJson, previousHash));
+        version.setChangedByUserId(actor.userId);
+        version.setChangedByRole(actor.role);
+        version.setChangedAt(changedAt);
+        version.setChangeEventId(event.getId());
+        version.setRequestId(safeTraceId(traceId));
+        studentProfileVersionRepository.save(version);
+    }
+
+    private String loadPreviousSnapshotHash(Long studentId) {
+        return studentProfileVersionRepository.findTopByStudentIdOrderByProfileVersionDescIdDesc(studentId)
+                .map(StudentProfileVersion::getSnapshotHash)
+                .orElse(null);
+    }
+
+    private String serializeChangedFields(List<StudentProfileHistoryListDto.FieldChangeDto> changedFields) {
+        try {
+            return objectMapper.writeValueAsString(changedFields);
+        } catch (JsonProcessingException ex) {
+            throw new IllegalStateException("Failed to serialize profile history changed fields", ex);
+        }
+    }
+
+    private String serializeProfileSnapshot(StudentProfileDto snapshot) {
+        Map<String, Object> payload = buildComparableSnapshot(snapshot);
+        try {
+            return objectMapper.writeValueAsString(payload);
+        } catch (JsonProcessingException ex) {
+            throw new IllegalStateException("Failed to serialize profile history snapshot", ex);
+        }
+    }
+
+    private String computeSnapshotHash(String snapshotJson, String previousHash) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            String data = (snapshotJson == null ? "" : snapshotJson) + "|" + (previousHash == null ? "" : previousHash);
+            byte[] hashed = digest.digest(data.getBytes(StandardCharsets.UTF_8));
+            StringBuilder builder = new StringBuilder(hashed.length * 2);
+            for (byte b : hashed) {
+                builder.append(String.format("%02x", Integer.valueOf(b & 0xff)));
+            }
+            return builder.toString();
+        } catch (NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("SHA-256 algorithm is unavailable", ex);
+        }
+    }
+
+    private String normalizeChangeSource(String raw, String fallback) {
+        String candidate = trimToNull(raw);
+        if (candidate == null) {
+            return fallback;
+        }
+        String normalized = candidate.toLowerCase(Locale.ROOT).replace('-', '_').replace(' ', '_');
+        if (CHANGE_SOURCE_MANUAL_SAVE.equals(normalized)
+                || CHANGE_SOURCE_AUTO_SAVE.equals(normalized)
+                || CHANGE_SOURCE_FILE_UPLOAD.equals(normalized)
+                || CHANGE_SOURCE_VERSION_RESTORE.equals(normalized)) {
+            return normalized;
+        }
+        if ("manual".equals(normalized) || normalized.contains("manual")) {
+            return CHANGE_SOURCE_MANUAL_SAVE;
+        }
+        if ("auto".equals(normalized) || normalized.contains("auto")) {
+            return CHANGE_SOURCE_AUTO_SAVE;
+        }
+        if ("file".equals(normalized) || normalized.contains("upload")) {
+            return CHANGE_SOURCE_FILE_UPLOAD;
+        }
+        if ("restore".equals(normalized) || normalized.contains("restore")) {
+            return CHANGE_SOURCE_VERSION_RESTORE;
+        }
+        return fallback;
+    }
+
+    private List<StudentProfileHistoryListDto.ItemDto> toHistoryItems(List<StudentProfileChangeEvent> events) {
+        List<StudentProfileHistoryListDto.ItemDto> items = new ArrayList<StudentProfileHistoryListDto.ItemDto>();
+        if (events == null) {
+            return items;
+        }
+
+        for (StudentProfileChangeEvent event : events) {
+            StudentProfileHistoryListDto.ItemDto item = new StudentProfileHistoryListDto.ItemDto();
+            item.setId(event.getId());
+            item.setStudentId(event.getStudentId());
+            item.setFromVersion(event.getFromVersion());
+            item.setToVersion(event.getToVersion());
+            item.setChangeSource(normalizeChangeSource(event.getChangeSource(), CHANGE_SOURCE_MANUAL_SAVE));
+            item.setActorUserId(event.getActorUserId());
+            item.setActorRole(trimToNull(event.getActorRole()));
+            item.setActorName(trimToNull(event.getActorName()));
+            item.setChangedAt(formatUtcDateTime(event.getChangedAt() == null ? event.getCreatedAt() : event.getChangedAt()));
+
+            List<StudentProfileHistoryListDto.FieldChangeDto> rawChanges = parseChangedFieldsJson(event.getChangedFieldsJson());
+            List<StudentProfileHistoryListDto.FieldChangeDto> normalizedChanges =
+                    new ArrayList<StudentProfileHistoryListDto.FieldChangeDto>(rawChanges.size());
+            for (StudentProfileHistoryListDto.FieldChangeDto rawChange : rawChanges) {
+                String path = trimToNull(rawChange.getPath());
+                String effectivePath = path == null ? "field" : path;
+                if (shouldIgnoreHistoryPath(effectivePath)) {
+                    continue;
+                }
+                String label = trimToNull(rawChange.getLabel());
+                if (label == null) {
+                    label = resolveHistoryFieldLabel(effectivePath);
+                }
+                normalizedChanges.add(new StudentProfileHistoryListDto.FieldChangeDto(
+                        effectivePath,
+                        label,
+                        rawChange.getBefore(),
+                        rawChange.getAfter()
+                ));
+            }
+            item.setChangedFields(normalizedChanges);
+            items.add(item);
+        }
+        return items;
+    }
+
+    private List<StudentProfileHistoryListDto.FieldChangeDto> parseChangedFieldsJson(String changedFieldsJson) {
+        String raw = trimToNull(changedFieldsJson);
+        if (raw == null) {
+            return Collections.<StudentProfileHistoryListDto.FieldChangeDto>emptyList();
+        }
+        try {
+            List<StudentProfileHistoryListDto.FieldChangeDto> parsed = objectMapper.readValue(
+                    raw,
+                    new TypeReference<List<StudentProfileHistoryListDto.FieldChangeDto>>() {
+                    }
+            );
+            return parsed == null ? Collections.<StudentProfileHistoryListDto.FieldChangeDto>emptyList() : parsed;
+        } catch (Exception ex) {
+            log.warn("Failed to parse changed_fields_json, return empty list. raw={}", raw, ex);
+            return Collections.<StudentProfileHistoryListDto.FieldChangeDto>emptyList();
+        }
+    }
+
+    private List<StudentProfileHistoryListDto.FieldChangeDto> buildChangedFields(StudentProfileDto beforeSnapshot,
+                                                                                  StudentProfileDto afterSnapshot) {
+        Map<String, Object> before = flattenSnapshot(buildComparableSnapshot(beforeSnapshot));
+        Map<String, Object> after = flattenSnapshot(buildComparableSnapshot(afterSnapshot));
+        Set<String> allPaths = new TreeSet<String>();
+        allPaths.addAll(before.keySet());
+        allPaths.addAll(after.keySet());
+
+        List<StudentProfileHistoryListDto.FieldChangeDto> changes = new ArrayList<StudentProfileHistoryListDto.FieldChangeDto>();
+        for (String path : allPaths) {
+            if (shouldIgnoreHistoryPath(path)) {
+                continue;
+            }
+            Object beforeValue = before.get(path);
+            Object afterValue = after.get(path);
+            if (Objects.equals(beforeValue, afterValue)) {
+                continue;
+            }
+            changes.add(new StudentProfileHistoryListDto.FieldChangeDto(
+                    path,
+                    resolveHistoryFieldLabel(path),
+                    beforeValue,
+                    afterValue
+            ));
+        }
+        return changes;
+    }
+
+    private boolean shouldIgnoreHistoryPath(String path) {
+        String normalizedPath = trimToNull(path);
+        if (normalizedPath == null) {
+            return true;
+        }
+
+        // Technical/derived fields that should not be shown in change history.
+        return normalizedPath.endsWith(".schoolRecordId")
+                || normalizedPath.endsWith(".hasTranscript")
+                || normalizedPath.endsWith(".transcriptFileName")
+                || normalizedPath.endsWith(".transcriptSizeBytes")
+                || normalizedPath.endsWith(".transcriptUploadedAt")
+                || normalizedPath.endsWith(".id")
+                || normalizedPath.endsWith(".storageKey")
+                || normalizedPath.endsWith(".uploadedBy");
+    }
+
+    private Map<String, Object> buildComparableSnapshot(StudentProfileDto snapshot) {
+        if (snapshot == null) {
+            return Collections.<String, Object>emptyMap();
+        }
+        Map<String, Object> payload = objectMapper.convertValue(snapshot, new TypeReference<Map<String, Object>>() {
+        });
+        payload.remove("firstName");
+        payload.remove("lastName");
+        payload.remove("nickName");
+        payload.remove("serviceProjects");
+        payload.remove("schoolRecords");
+        payload.remove("externalCourses");
+        payload.remove("version");
+        payload.remove("teacherNote");
+        return payload;
+    }
+
+    private Map<String, Object> flattenSnapshot(Map<String, Object> snapshot) {
+        if (snapshot == null || snapshot.isEmpty()) {
+            return Collections.<String, Object>emptyMap();
+        }
+        Map<String, Object> flattened = new LinkedHashMap<String, Object>();
+        JsonNode node = objectMapper.valueToTree(snapshot);
+        flattenJsonNode("", node, flattened);
+        return flattened;
+    }
+
+    private void flattenJsonNode(String path, JsonNode node, Map<String, Object> flattened) {
+        if (node == null || node.isMissingNode()) {
+            return;
+        }
+        if (node.isObject()) {
+            if (!node.fieldNames().hasNext()) {
+                if (trimToNull(path) != null) {
+                    flattened.put(path, null);
+                }
+                return;
+            }
+            node.fields().forEachRemaining(entry -> {
+                String childPath = trimToNull(path) == null ? entry.getKey() : path + "." + entry.getKey();
+                flattenJsonNode(childPath, entry.getValue(), flattened);
+            });
+            return;
+        }
+        if (node.isArray()) {
+            for (int i = 0; i < node.size(); i++) {
+                String childPath = path + "[" + i + "]";
+                flattenJsonNode(childPath, node.get(i), flattened);
+            }
+            return;
+        }
+        flattened.put(path, jsonNodeToSimpleValue(node));
+    }
+
+    private Object jsonNodeToSimpleValue(JsonNode node) {
+        if (node == null || node.isNull()) {
+            return null;
+        }
+        if (node.isTextual()) {
+            return node.asText();
+        }
+        if (node.isBoolean()) {
+            return Boolean.valueOf(node.asBoolean());
+        }
+        if (node.isNumber()) {
+            return node.numberValue();
+        }
+        return node.toString();
+    }
+
+    private String resolveHistoryFieldLabel(String path) {
+        String normalizedPath = trimToNull(path);
+        if (normalizedPath == null) {
+            return "字段";
+        }
+        String leaf = normalizedPath.replaceAll("\\[\\d+\\]", "");
+        int lastDot = leaf.lastIndexOf('.');
+        if (lastDot >= 0 && lastDot < leaf.length() - 1) {
+            leaf = leaf.substring(lastDot + 1);
+        }
+
+        if ("legalFirstName".equals(leaf)) return "法定名字";
+        if ("legalLastName".equals(leaf)) return "法定姓氏";
+        if ("preferredName".equals(leaf)) return "常用名";
+        if ("gender".equals(leaf)) return "性别";
+        if ("genderOther".equals(leaf)) return "其他性别说明";
+        if ("birthday".equals(leaf)) return "生日";
+        if ("phone".equals(leaf)) return "联系电话";
+        if ("email".equals(leaf)) return "邮箱";
+        if ("statusInCanada".equals(leaf)) return "在加身份";
+        if ("citizenship".equals(leaf)) return "国籍";
+        if ("firstLanguage".equals(leaf)) return "第一语言";
+        if ("firstBoardingDate".equals(leaf)) return "首次入境加拿大时间";
+        if ("oenNumber".equals(leaf)) return "OEN";
+        if ("ib".equals(leaf)) return "IB";
+        if ("ap".equals(leaf)) return "AP";
+        if ("serviceItems".equals(leaf)) return "服务项目";
+        if ("schools".equals(leaf)) return "高中学校";
+        if ("schoolName".equals(leaf)) return "学校名称";
+        if ("schoolBoard".equals(leaf)) return "所属教育局";
+        if ("streetAddress".equals(leaf)) return "街道地址";
+        if ("streetAddressLine2".equals(leaf)) return "地址第二行";
+        if ("city".equals(leaf)) return "城市";
+        if ("state".equals(leaf)) return "省/州";
+        if ("country".equals(leaf)) return "国家";
+        if ("postal".equals(leaf)) return "邮编";
+        if ("startTime".equals(leaf)) return "开始日期";
+        if ("endTime".equals(leaf)) return "结束日期";
+        if ("transcriptFileName".equals(leaf)) return "成绩单文件名";
+        if ("transcriptSizeBytes".equals(leaf)) return "成绩单文件大小";
+        if ("transcriptUploadedAt".equals(leaf)) return "成绩单上传时间";
+        if ("identityFiles".equals(leaf)) return "身份证明文件";
+        if ("identityFileName".equals(leaf)) return "身份证明文件名";
+        if ("identityFileSizeBytes".equals(leaf)) return "身份证明文件大小";
+        if ("identityFileUploadedAt".equals(leaf)) return "身份证明上传时间";
+        if ("otherCourses".equals(leaf)) return "校外课程";
+        if ("courseCode".equals(leaf)) return "课程代码";
+        if ("mark".equals(leaf)) return "分数";
+        if ("gradeLevel".equals(leaf)) return "年级";
+        return normalizedPath;
+    }
+
+    private AuditActor resolveAuditActor(Long actorUserId, Student targetStudent) {
+        if (actorUserId == null) {
+            return new AuditActor(null, "SYSTEM", "System");
+        }
+        User actor = userRepository.findById(actorUserId).orElse(null);
+        if (actor == null) {
+            return new AuditActor(actorUserId, "SYSTEM", "System");
+        }
+        String role = actor.getRole() == null ? "SYSTEM" : actor.getRole().name();
+        String name = trimToNull(actor.getUsername());
+
+        if (actor.getRole() == UserRole.STUDENT) {
+            Student actorStudent = targetStudent != null && targetStudent.getUser() != null
+                    && actorUserId.equals(targetStudent.getUser().getId())
+                    ? targetStudent
+                    : studentRepository.findByUser_Id(actorUserId).orElse(null);
+            if (actorStudent != null) {
+                String nick = trimToNull(actorStudent.getNickName());
+                if (nick != null) {
+                    name = nick;
+                } else {
+                    String first = trimToNull(actorStudent.getFirstName());
+                    String last = trimToNull(actorStudent.getLastName());
+                    name = trimToNull((first == null ? "" : first) + " " + (last == null ? "" : last));
+                }
+            }
+        } else if (actor.getRole() == UserRole.TEACHER) {
+            Teacher teacher = teacherRepository.findByUser_Id(actorUserId).orElse(null);
+            if (teacher != null && trimToNull(teacher.getName()) != null) {
+                name = teacher.getName().trim();
+            }
+        }
+
+        if (trimToNull(name) == null) {
+            name = "Unknown";
+        }
+        return new AuditActor(actorUserId, role, name);
+    }
+
     private void assertUploadSizeWithinLimit(MultipartFile file) {
         if (file == null) {
             return;
@@ -2110,6 +2743,18 @@ public class StudentProfileService {
         private NormalizedGender(String gender, String genderOther) {
             this.gender = gender;
             this.genderOther = genderOther;
+        }
+    }
+
+    private static class AuditActor {
+        private final Long userId;
+        private final String role;
+        private final String name;
+
+        private AuditActor(Long userId, String role, String name) {
+            this.userId = userId;
+            this.role = role;
+            this.name = name;
         }
     }
 

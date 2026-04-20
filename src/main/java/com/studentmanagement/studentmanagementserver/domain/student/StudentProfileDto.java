@@ -24,6 +24,7 @@ public class StudentProfileDto {
     private String citizenship;
     private String firstLanguage;
     private String firstBoardingDate;
+    private Long version;
     private AddressDto address = new AddressDto();
     private String oenNumber;
     private String ib;
@@ -160,6 +161,14 @@ public class StudentProfileDto {
 
     public void setFirstBoardingDate(String firstBoardingDate) {
         this.firstBoardingDate = firstBoardingDate;
+    }
+
+    public Long getVersion() {
+        return version;
+    }
+
+    public void setVersion(Long version) {
+        this.version = version;
     }
 
     public AddressDto getAddress() {

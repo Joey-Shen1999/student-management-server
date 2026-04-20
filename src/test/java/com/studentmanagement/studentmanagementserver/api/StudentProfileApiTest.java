@@ -1254,6 +1254,110 @@ class StudentProfileApiTest {
                 .andExpect(jsonPath("$.serviceProjects[0]").value("面试辅导"));
     }
 
+    @Test
+    void getProfileHistory_withStudentToken_returnsPagedStructureAndItems() throws Exception {
+        Student student = createStudentAccount("profile_history_student", "Amy", "Chen", "Amy");
+        String bearer = bearerFor(student.getUser());
+
+        mockMvc.perform(get("/api/student/profile/history")
+                        .header("Authorization", bearer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items").isArray())
+                .andExpect(jsonPath("$.items").isEmpty())
+                .andExpect(jsonPath("$.total").value(0))
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(20));
+
+        Map<String, Object> payload = buildProfilePayload(
+                "Amy",
+                "Chen",
+                "Amy",
+                Boolean.TRUE,
+                Arrays.asList(buildSchool("MAIN", "A High School", "2023-09-01", null)),
+                Arrays.asList(buildCourse("Summer School", "MHF4U", 95, 12, "2025-07-01", "2025-08-20"))
+        );
+        payload.put("version", 0);
+
+        mockMvc.perform(put("/api/student/profile")
+                        .header("Authorization", bearer)
+                        .header("X-Profile-Change-Source", "manual_save")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(payload)))
+                .andExpect(status().isOk());
+
+        MvcResult historyResult = mockMvc.perform(get("/api/student/profile/history?size=20")
+                        .header("Authorization", bearer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items").isArray())
+                .andExpect(jsonPath("$.items[0].id").isNumber())
+                .andExpect(jsonPath("$.items[0].studentId").value(student.getId()))
+                .andExpect(jsonPath("$.items[0].fromVersion").value(0))
+                .andExpect(jsonPath("$.items[0].toVersion").value(1))
+                .andExpect(jsonPath("$.items[0].changeSource").value("manual_save"))
+                .andExpect(jsonPath("$.items[0].actorRole").value("STUDENT"))
+                .andExpect(jsonPath("$.items[0].actorName").isString())
+                .andExpect(jsonPath("$.items[0].changedAt").isString())
+                .andExpect(jsonPath("$.items[0].changedFields").isArray())
+                .andExpect(jsonPath("$.items[0].changedFields[0].path").isString())
+                .andExpect(jsonPath("$.items[0].changedFields[0].label").isString())
+                .andExpect(jsonPath("$.total").value(1))
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(20))
+                .andReturn();
+
+        JsonNode changedFields = objectMapper.readTree(historyResult.getResponse().getContentAsString())
+                .path("items")
+                .path(0)
+                .path("changedFields");
+        assertHistoryFieldPlainValue(changedFields, "birthday", null, "2008-06-01");
+        assertHistoryFieldPlainValue(changedFields, "phone", null, "(647) 111-2222");
+        assertHistoryFieldPlainValue(changedFields, "oenNumber", null, "123456789");
+        assertHistoryFieldPlainValue(changedFields, "address.streetAddress", null, "123 Main St");
+        assertHistoryPathAbsent(changedFields, "schools[0].schoolRecordId");
+        assertHistoryPathAbsent(changedFields, "schools[0].hasTranscript");
+    }
+
+    @Test
+    void putProfile_withStaleVersion_returns409ProfileVersionConflict() throws Exception {
+        Student student = createStudentAccount("profile_version_conflict_student", "Amy", "Chen", "Amy");
+        String bearer = bearerFor(student.getUser());
+
+        Map<String, Object> firstPayload = buildProfilePayload(
+                "Amy",
+                "Chen",
+                "Amy",
+                Boolean.TRUE,
+                Arrays.asList(buildSchool("MAIN", "A High School", "2023-09-01", null)),
+                Arrays.asList(buildCourse("Summer School", "MHF4U", 95, 12, "2025-07-01", "2025-08-20"))
+        );
+        firstPayload.put("version", 0);
+
+        mockMvc.perform(put("/api/student/profile")
+                        .header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(firstPayload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.version").value(1));
+
+        Map<String, Object> stalePayload = buildProfilePayload(
+                "Amy",
+                "Chen",
+                "Amy Updated",
+                Boolean.TRUE,
+                Arrays.asList(buildSchool("MAIN", "A High School", "2023-09-01", null)),
+                Arrays.asList(buildCourse("Summer School", "MHF4U", 95, 12, "2025-07-01", "2025-08-20"))
+        );
+        stalePayload.put("version", 0);
+
+        mockMvc.perform(put("/api/student/profile")
+                        .header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(stalePayload)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("PROFILE_VERSION_CONFLICT"))
+                .andExpect(jsonPath("$.currentVersion").value(1));
+    }
+
     private Student createStudentAccount(String username, String firstName, String lastName, String nickName) {
         User user = userRepository.save(new User(username, passwordEncoder.encode("Student!234"), UserRole.STUDENT));
         return studentRepository.save(new Student(user, firstName, lastName, nickName));
@@ -1266,6 +1370,37 @@ class StudentProfileApiTest {
 
     private String toJson(Object value) throws Exception {
         return objectMapper.writeValueAsString(value);
+    }
+
+    private void assertHistoryFieldPlainValue(JsonNode changedFields,
+                                              String path,
+                                              String expectedBefore,
+                                              String expectedAfter) {
+        for (JsonNode field : changedFields) {
+            if (!path.equals(field.path("path").asText())) {
+                continue;
+            }
+
+            JsonNode before = field.get("before");
+            if (expectedBefore == null) {
+                assertTrue(before != null && before.isNull(), "before should be null for path=" + path);
+            } else {
+                assertEquals(expectedBefore, before == null ? null : before.asText(), "before mismatch for path=" + path);
+            }
+
+            JsonNode after = field.get("after");
+            assertEquals(expectedAfter, after == null ? null : after.asText(), "after mismatch for path=" + path);
+            return;
+        }
+        throw new AssertionError("Expected changed field path not found: " + path);
+    }
+
+    private void assertHistoryPathAbsent(JsonNode changedFields, String path) {
+        for (JsonNode field : changedFields) {
+            if (path.equals(field.path("path").asText())) {
+                throw new AssertionError("Unexpected changed field path found: " + path);
+            }
+        }
     }
 
     private Map<String, Object> buildProfilePayload(String legalFirstName,

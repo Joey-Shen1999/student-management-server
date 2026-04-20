@@ -97,12 +97,16 @@ public class StudentProfile extends BaseEntity {
     @Column(name = "updated_by")
     private Long updatedBy;
 
+    @Column(name = "profile_version", nullable = false)
+    private Long profileVersion;
+
     protected StudentProfile() {
     }
 
     public StudentProfile(Student student) {
         this.student = student;
         this.ap = false;
+        this.profileVersion = 0L;
     }
 
     public Student getStudent() {
@@ -290,5 +294,13 @@ public class StudentProfile extends BaseEntity {
 
     public void setUpdatedBy(Long updatedBy) {
         this.updatedBy = updatedBy;
+    }
+
+    public Long getProfileVersion() {
+        return profileVersion == null ? 0L : profileVersion;
+    }
+
+    public void setProfileVersion(Long profileVersion) {
+        this.profileVersion = profileVersion == null ? 0L : profileVersion;
     }
 }

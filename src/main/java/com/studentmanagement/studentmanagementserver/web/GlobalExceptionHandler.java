@@ -4,6 +4,7 @@ import com.studentmanagement.studentmanagementserver.service.AccountArchivedExce
 import com.studentmanagement.studentmanagementserver.service.ApiRequestException;
 import com.studentmanagement.studentmanagementserver.service.MustChangePasswordRequiredException;
 import com.studentmanagement.studentmanagementserver.service.PasswordPolicyViolationException;
+import com.studentmanagement.studentmanagementserver.service.ProfileVersionConflictException;
 import com.studentmanagement.studentmanagementserver.service.StudentInviteException;
 import com.studentmanagement.studentmanagementserver.service.TeacherBindingRequiredException;
 import org.slf4j.Logger;
@@ -71,6 +72,18 @@ public class GlobalExceptionHandler {
                 e.getDetails()
         );
         return ResponseEntity.status(status).body(body);
+    }
+
+    @ExceptionHandler(ProfileVersionConflictException.class)
+    public ResponseEntity<ApiError> handleProfileVersionConflict(ProfileVersionConflictException e) {
+        ApiError body = new ApiError(
+                HttpStatus.CONFLICT.value(),
+                "Profile version conflict.",
+                "PROFILE_VERSION_CONFLICT",
+                Collections.<String>emptyList()
+        );
+        body.setCurrentVersion(e.getCurrentVersion());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
     }
 
     @ExceptionHandler(StudentInviteException.class)
@@ -269,6 +282,7 @@ public class GlobalExceptionHandler {
         private String message;
         private String code;
         private List<String> details;
+        private Long currentVersion;
 
         public ApiError() {
             this.details = Collections.emptyList();
@@ -279,6 +293,7 @@ public class GlobalExceptionHandler {
             this.message = message;
             this.code = code;
             this.details = details == null ? Collections.<String>emptyList() : details;
+            this.currentVersion = null;
         }
 
         public int getStatus() {
@@ -311,6 +326,14 @@ public class GlobalExceptionHandler {
 
         public void setDetails(List<String> details) {
             this.details = details == null ? Collections.<String>emptyList() : details;
+        }
+
+        public Long getCurrentVersion() {
+            return currentVersion;
+        }
+
+        public void setCurrentVersion(Long currentVersion) {
+            this.currentVersion = currentVersion;
         }
     }
 }

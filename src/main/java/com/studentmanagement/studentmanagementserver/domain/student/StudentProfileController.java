@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -34,8 +35,24 @@ public class StudentProfileController {
 
     @PutMapping
     public ResponseEntity<StudentProfileDto> saveProfile(@RequestBody(required = false) StudentProfileDto requestBody,
+                                                         @RequestHeader(value = "If-Match", required = false) String ifMatch,
+                                                         @RequestHeader(value = "X-Profile-Change-Source", required = false) String changeSource,
                                                          HttpServletRequest request) {
-        return ResponseEntity.ok(studentProfileService.saveCurrentStudentProfile(requestBody, request));
+        return ResponseEntity.ok(studentProfileService.saveCurrentStudentProfile(
+                requestBody,
+                request,
+                ifMatch,
+                changeSource
+        ));
+    }
+
+    @GetMapping("/history")
+    public ResponseEntity<StudentProfileHistoryListDto> getProfileHistory(
+            @RequestParam(value = "page", required = false, defaultValue = "0") Integer page,
+            @RequestParam(value = "size", required = false, defaultValue = "20") Integer size,
+            HttpServletRequest request
+    ) {
+        return ResponseEntity.ok(studentProfileService.getCurrentStudentProfileHistory(page, size, request));
     }
 
     @PostMapping(value = "/schools/{schoolRecordId}/transcript", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
