@@ -63,6 +63,7 @@ public class StudentProfileService {
     private static final Logger log = LoggerFactory.getLogger(StudentProfileService.class);
     private static final Pattern DATE_PATTERN = Pattern.compile("\\d{4}-\\d{2}-\\d{2}");
     private static final Pattern SCHOOL_BOARD_PATTERN = Pattern.compile("^[\\p{L}\\p{N} &()/.\\-]+$");
+    private static final Pattern LOCAL_STUDENT_NUMBER_PATTERN = Pattern.compile("^\\d{9}$");
     private static final int MAX_SCHOOL_BOARD_LENGTH = 64;
     private static final int MAX_UNIQUE_SCHOOLS_PER_PROFILE = 100;
     private static final int MAX_TEACHER_NOTE_LENGTH = 5000;
@@ -74,6 +75,23 @@ public class StudentProfileService {
     private static final String CHANGE_SOURCE_AUTO_SAVE = "auto_save";
     private static final String CHANGE_SOURCE_FILE_UPLOAD = "file_upload";
     private static final String CHANGE_SOURCE_VERSION_RESTORE = "version_restore";
+    private static final String STUDENT_REGION_ONTARIO = "Ontario";
+    private static final String STUDENT_REGION_BRITISH_COLUMBIA = "British Columbia";
+    private static final String STUDENT_REGION_ALBERTA = "Alberta";
+    private static final String STUDENT_REGION_SASKATCHEWAN = "Saskatchewan";
+    private static final String STUDENT_REGION_MANITOBA = "Manitoba";
+    private static final String STUDENT_REGION_QUEBEC = "Quebec";
+    private static final String STUDENT_REGION_NEW_BRUNSWICK = "New Brunswick";
+    private static final String STUDENT_REGION_NOVA_SCOTIA = "Nova Scotia";
+    private static final String STUDENT_REGION_PRINCE_EDWARD_ISLAND = "Prince Edward Island";
+    private static final String STUDENT_REGION_NEWFOUNDLAND_AND_LABRADOR = "Newfoundland and Labrador";
+    private static final String STUDENT_REGION_YUKON = "Yukon";
+    private static final String STUDENT_REGION_NORTHWEST_TERRITORIES = "Northwest Territories";
+    private static final String STUDENT_REGION_NUNAVUT = "Nunavut";
+    private static final String STUDENT_REGION_CHINA = "China";
+    private static final String STUDENT_REGION_UNITED_STATES = "United States";
+    private static final Set<String> SUPPORTED_STUDENT_REGIONS = buildSupportedStudentRegions();
+    private static final Map<String, String> STUDENT_REGION_ALIASES = buildStudentRegionAliases();
 
     private final AuthSessionService authSessionService;
     private final StudentRepository studentRepository;
@@ -524,7 +542,9 @@ public class StudentProfileService {
         profile.setCitizenship(normalized.citizenship);
         profile.setFirstLanguage(normalized.firstLanguage);
         profile.setFirstBoardingDate(normalized.firstBoardingDate);
+        profile.setStudentRegion(normalized.studentRegion);
         profile.setOenNumber(normalized.oenNumber);
+        profile.setPenNumber(normalized.penNumber);
         profile.setIb(normalized.ib);
         profile.setAp(normalized.ap);
         profile.setStreetAddress(normalized.address.streetAddress);
@@ -785,6 +805,7 @@ public class StudentProfileService {
         dto.setNickName(student.getNickName());
         dto.setVersion(profile == null ? Long.valueOf(0L) : Long.valueOf(safeProfileVersion(profile.getProfileVersion())));
         dto.setAp(Boolean.FALSE);
+        dto.setStudentRegion(STUDENT_REGION_ONTARIO);
 
         if (profile != null) {
             NormalizedGender normalizedGender = normalizeGenderFields(
@@ -801,7 +822,14 @@ public class StudentProfileService {
             dto.setCitizenship(profile.getCitizenship());
             dto.setFirstLanguage(profile.getFirstLanguage());
             dto.setFirstBoardingDate(formatDate(profile.getFirstBoardingDate()));
-            dto.setOenNumber(profile.getOenNumber());
+            StudentRegionSnapshot regionSnapshot = resolveStudentRegionSnapshotFromStored(
+                    profile.getStudentRegion(),
+                    profile.getOenNumber(),
+                    profile.getPenNumber()
+            );
+            dto.setStudentRegion(regionSnapshot.studentRegion);
+            dto.setOenNumber(regionSnapshot.oenNumber);
+            dto.setPenNumber(regionSnapshot.penNumber);
             dto.setIb(profile.getIb());
             dto.setAp(profile.isAp());
             StudentProfileDto.AddressDto address = new StudentProfileDto.AddressDto();
@@ -2136,7 +2164,9 @@ public class StudentProfileService {
         if ("citizenship".equals(leaf)) return "国籍";
         if ("firstLanguage".equals(leaf)) return "第一语言";
         if ("firstBoardingDate".equals(leaf)) return "首次入境加拿大时间";
+        if ("studentRegion".equals(leaf)) return "高中毕业地区";
         if ("oenNumber".equals(leaf)) return "OEN";
+        if ("penNumber".equals(leaf)) return "PEN";
         if ("ib".equals(leaf)) return "IB";
         if ("ap".equals(leaf)) return "AP";
         if ("serviceItems".equals(leaf)) return "服务项目";
@@ -2252,7 +2282,20 @@ public class StudentProfileService {
         String citizenship = trimToNull(requestBody.getCitizenship());
         String firstLanguage = trimToNull(requestBody.getFirstLanguage());
         LocalDate firstBoardingDate = parseDateOrNull(requestBody.getFirstBoardingDate(), "firstBoardingDate");
-        String oenNumber = trimToNull(requestBody.getOenNumber());
+        String rawOenNumber = trimToNull(requestBody.getOenNumber());
+        String rawPenNumber = trimToNull(requestBody.getPenNumber());
+        String studentRegion = resolveStudentRegionForPayload(
+                requestBody.getStudentRegion(),
+                rawOenNumber,
+                rawPenNumber
+        );
+        StudentRegionSnapshot regionSnapshot = resolveStudentRegionSnapshotForPayload(
+                studentRegion,
+                rawOenNumber,
+                rawPenNumber
+        );
+        String oenNumber = regionSnapshot.oenNumber;
+        String penNumber = regionSnapshot.penNumber;
         String ib = trimToNull(requestBody.getIb());
         List<String> serviceItems = StudentServiceItemNormalizer.normalizeIncoming(
                 requestBody.getServiceItems(),
@@ -2468,7 +2511,9 @@ public class StudentProfileService {
                 citizenship,
                 firstLanguage,
                 firstBoardingDate,
+                studentRegion,
                 oenNumber,
+                penNumber,
                 ib,
                 serviceItems,
                 apRaw.booleanValue(),
@@ -2720,6 +2765,173 @@ public class StudentProfileService {
         }
     }
 
+    private static Set<String> buildSupportedStudentRegions() {
+        Set<String> regions = new LinkedHashSet<String>();
+        regions.add(STUDENT_REGION_ONTARIO);
+        regions.add(STUDENT_REGION_BRITISH_COLUMBIA);
+        regions.add(STUDENT_REGION_ALBERTA);
+        regions.add(STUDENT_REGION_SASKATCHEWAN);
+        regions.add(STUDENT_REGION_MANITOBA);
+        regions.add(STUDENT_REGION_QUEBEC);
+        regions.add(STUDENT_REGION_NEW_BRUNSWICK);
+        regions.add(STUDENT_REGION_NOVA_SCOTIA);
+        regions.add(STUDENT_REGION_PRINCE_EDWARD_ISLAND);
+        regions.add(STUDENT_REGION_NEWFOUNDLAND_AND_LABRADOR);
+        regions.add(STUDENT_REGION_YUKON);
+        regions.add(STUDENT_REGION_NORTHWEST_TERRITORIES);
+        regions.add(STUDENT_REGION_NUNAVUT);
+        regions.add(STUDENT_REGION_CHINA);
+        regions.add(STUDENT_REGION_UNITED_STATES);
+        return Collections.unmodifiableSet(regions);
+    }
+
+    private static Map<String, String> buildStudentRegionAliases() {
+        Map<String, String> aliases = new LinkedHashMap<String, String>();
+        for (String region : SUPPORTED_STUDENT_REGIONS) {
+            registerStudentRegionAlias(aliases, region, region);
+        }
+
+        registerStudentRegionAlias(aliases, "ON", STUDENT_REGION_ONTARIO);
+        registerStudentRegionAlias(aliases, "CA-ON", STUDENT_REGION_ONTARIO);
+        registerStudentRegionAlias(aliases, "安大略", STUDENT_REGION_ONTARIO);
+
+        registerStudentRegionAlias(aliases, "BC", STUDENT_REGION_BRITISH_COLUMBIA);
+        registerStudentRegionAlias(aliases, "CA-BC", STUDENT_REGION_BRITISH_COLUMBIA);
+        registerStudentRegionAlias(aliases, "不列颠哥伦比亚", STUDENT_REGION_BRITISH_COLUMBIA);
+
+        registerStudentRegionAlias(aliases, "AB", STUDENT_REGION_ALBERTA);
+        registerStudentRegionAlias(aliases, "SK", STUDENT_REGION_SASKATCHEWAN);
+        registerStudentRegionAlias(aliases, "MB", STUDENT_REGION_MANITOBA);
+        registerStudentRegionAlias(aliases, "QC", STUDENT_REGION_QUEBEC);
+        registerStudentRegionAlias(aliases, "NB", STUDENT_REGION_NEW_BRUNSWICK);
+        registerStudentRegionAlias(aliases, "NS", STUDENT_REGION_NOVA_SCOTIA);
+        registerStudentRegionAlias(aliases, "PEI", STUDENT_REGION_PRINCE_EDWARD_ISLAND);
+        registerStudentRegionAlias(aliases, "NL", STUDENT_REGION_NEWFOUNDLAND_AND_LABRADOR);
+        registerStudentRegionAlias(aliases, "YT", STUDENT_REGION_YUKON);
+        registerStudentRegionAlias(aliases, "NT", STUDENT_REGION_NORTHWEST_TERRITORIES);
+        registerStudentRegionAlias(aliases, "NU", STUDENT_REGION_NUNAVUT);
+
+        registerStudentRegionAlias(aliases, "CN", STUDENT_REGION_CHINA);
+        registerStudentRegionAlias(aliases, "PRC", STUDENT_REGION_CHINA);
+        registerStudentRegionAlias(aliases, "中国", STUDENT_REGION_CHINA);
+
+        registerStudentRegionAlias(aliases, "US", STUDENT_REGION_UNITED_STATES);
+        registerStudentRegionAlias(aliases, "USA", STUDENT_REGION_UNITED_STATES);
+        registerStudentRegionAlias(aliases, "United States of America", STUDENT_REGION_UNITED_STATES);
+        registerStudentRegionAlias(aliases, "美国", STUDENT_REGION_UNITED_STATES);
+
+        return Collections.unmodifiableMap(aliases);
+    }
+
+    private static void registerStudentRegionAlias(Map<String, String> aliases, String alias, String region) {
+        String normalized = normalizeStudentRegionAliasKey(alias);
+        if (normalized != null && !normalized.isEmpty()) {
+            aliases.put(normalized, region);
+        }
+    }
+
+    private static String normalizeStudentRegionAliasKey(String value) {
+        if (value == null) {
+            return null;
+        }
+        String normalized = value.trim().toLowerCase(Locale.ROOT);
+        if (normalized.isEmpty()) {
+            return null;
+        }
+        normalized = normalized.replace('_', ' ');
+        normalized = normalized.replace('-', ' ');
+        normalized = normalized.replaceAll("\\s+", " ").trim();
+        return normalized.isEmpty() ? null : normalized;
+    }
+
+    private String resolveStudentRegionAlias(String value) {
+        String normalizedKey = normalizeStudentRegionAliasKey(value);
+        if (normalizedKey == null) {
+            return null;
+        }
+        return STUDENT_REGION_ALIASES.get(normalizedKey);
+    }
+
+    private String resolveStudentRegionForPayload(String rawRegion, String rawOenNumber, String rawPenNumber) {
+        String explicitRegion = trimToNull(rawRegion);
+        if (explicitRegion != null) {
+            String resolved = resolveStudentRegionAlias(explicitRegion);
+            if (resolved == null) {
+                throw new IllegalArgumentException(
+                        "studentRegion must be one of: " + String.join(", ", SUPPORTED_STUDENT_REGIONS)
+                );
+            }
+            return resolved;
+        }
+
+        if (trimToNull(rawOenNumber) != null) {
+            return STUDENT_REGION_ONTARIO;
+        }
+        if (trimToNull(rawPenNumber) != null) {
+            return STUDENT_REGION_BRITISH_COLUMBIA;
+        }
+        return STUDENT_REGION_ONTARIO;
+    }
+
+    private StudentRegionSnapshot resolveStudentRegionSnapshotForPayload(String studentRegion,
+                                                                         String rawOenNumber,
+                                                                         String rawPenNumber) {
+        String oenNumber = trimToNull(rawOenNumber);
+        String penNumber = trimToNull(rawPenNumber);
+
+        if (STUDENT_REGION_ONTARIO.equals(studentRegion)) {
+            if (oenNumber != null && !LOCAL_STUDENT_NUMBER_PATTERN.matcher(oenNumber).matches()) {
+                throw new IllegalArgumentException("oenNumber must be 9 digits when studentRegion is Ontario");
+            }
+            return new StudentRegionSnapshot(studentRegion, oenNumber, null);
+        }
+
+        if (STUDENT_REGION_BRITISH_COLUMBIA.equals(studentRegion)) {
+            if (penNumber != null && !LOCAL_STUDENT_NUMBER_PATTERN.matcher(penNumber).matches()) {
+                throw new IllegalArgumentException("penNumber must be 9 digits when studentRegion is British Columbia");
+            }
+            return new StudentRegionSnapshot(studentRegion, null, penNumber);
+        }
+
+        return new StudentRegionSnapshot(studentRegion, null, null);
+    }
+
+    private StudentRegionSnapshot resolveStudentRegionSnapshotFromStored(String rawRegion,
+                                                                         String rawOenNumber,
+                                                                         String rawPenNumber) {
+        String studentRegion = resolveStudentRegionAlias(rawRegion);
+        String oenNumber = trimToNull(rawOenNumber);
+        String penNumber = trimToNull(rawPenNumber);
+
+        if (studentRegion == null) {
+            if (oenNumber != null) {
+                studentRegion = STUDENT_REGION_ONTARIO;
+            } else if (penNumber != null) {
+                studentRegion = STUDENT_REGION_BRITISH_COLUMBIA;
+            } else {
+                studentRegion = STUDENT_REGION_ONTARIO;
+            }
+        }
+
+        if (STUDENT_REGION_ONTARIO.equals(studentRegion)) {
+            String normalizedOen = oenNumber;
+            if (normalizedOen != null && !LOCAL_STUDENT_NUMBER_PATTERN.matcher(normalizedOen).matches()) {
+                normalizedOen = null;
+            }
+            return new StudentRegionSnapshot(studentRegion, normalizedOen, null);
+        }
+
+        if (STUDENT_REGION_BRITISH_COLUMBIA.equals(studentRegion)) {
+            String normalizedPen = penNumber;
+            if (normalizedPen != null && !LOCAL_STUDENT_NUMBER_PATTERN.matcher(normalizedPen).matches()) {
+                normalizedPen = null;
+            }
+            return new StudentRegionSnapshot(studentRegion, null, normalizedPen);
+        }
+
+        return new StudentRegionSnapshot(studentRegion, null, null);
+    }
+
     private String trimToNull(String value) {
         if (value == null) {
             return null;
@@ -2734,6 +2946,18 @@ public class StudentProfileService {
             return first;
         }
         return trimToNull(fallback);
+    }
+
+    private static class StudentRegionSnapshot {
+        private final String studentRegion;
+        private final String oenNumber;
+        private final String penNumber;
+
+        private StudentRegionSnapshot(String studentRegion, String oenNumber, String penNumber) {
+            this.studentRegion = studentRegion;
+            this.oenNumber = oenNumber;
+            this.penNumber = penNumber;
+        }
     }
 
     private static class NormalizedGender {
@@ -2843,7 +3067,9 @@ public class StudentProfileService {
         private final String citizenship;
         private final String firstLanguage;
         private final LocalDate firstBoardingDate;
+        private final String studentRegion;
         private final String oenNumber;
+        private final String penNumber;
         private final String ib;
         private final List<String> serviceItems;
         private final boolean ap;
@@ -2864,7 +3090,9 @@ public class StudentProfileService {
                                   String citizenship,
                                   String firstLanguage,
                                   LocalDate firstBoardingDate,
+                                  String studentRegion,
                                   String oenNumber,
+                                  String penNumber,
                                   String ib,
                                   List<String> serviceItems,
                                   boolean ap,
@@ -2884,7 +3112,9 @@ public class StudentProfileService {
             this.citizenship = citizenship;
             this.firstLanguage = firstLanguage;
             this.firstBoardingDate = firstBoardingDate;
+            this.studentRegion = studentRegion;
             this.oenNumber = oenNumber;
+            this.penNumber = penNumber;
             this.ib = ib;
             this.serviceItems = serviceItems;
             this.ap = ap;

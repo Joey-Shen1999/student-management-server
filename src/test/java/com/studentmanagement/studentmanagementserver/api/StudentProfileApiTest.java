@@ -431,6 +431,141 @@ class StudentProfileApiTest {
     }
 
     @Test
+    void putProfile_withOntarioRegion_acceptsOenAndClearsPen() throws Exception {
+        Student student = createStudentAccount("profile_region_on_student", "Amy", "Chen", "Amy");
+
+        Map<String, Object> payload = buildProfilePayload(
+                "Amy",
+                "Chen",
+                "Amy",
+                false,
+                new ArrayList<Map<String, Object>>(),
+                new ArrayList<Map<String, Object>>()
+        );
+        payload.put("studentRegion", "Ontario");
+        payload.put("oenNumber", "123456789");
+        payload.put("penNumber", "987654321");
+
+        MvcResult result = mockMvc.perform(put("/api/student/profile")
+                        .header("Authorization", bearerFor(student.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(payload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.studentRegion").value("Ontario"))
+                .andExpect(jsonPath("$.oenNumber").value("123456789"))
+                .andReturn();
+
+        JsonNode response = objectMapper.readTree(result.getResponse().getContentAsString());
+        assertTrue(isNullOrEmpty(response.path("penNumber")));
+    }
+
+    @Test
+    void putProfile_withBritishColumbiaRegion_acceptsPenAndClearsOen() throws Exception {
+        Student student = createStudentAccount("profile_region_bc_student", "Amy", "Chen", "Amy");
+
+        Map<String, Object> payload = buildProfilePayload(
+                "Amy",
+                "Chen",
+                "Amy",
+                false,
+                new ArrayList<Map<String, Object>>(),
+                new ArrayList<Map<String, Object>>()
+        );
+        payload.put("studentRegion", "British Columbia");
+        payload.put("oenNumber", "123456789");
+        payload.put("penNumber", "987654321");
+
+        MvcResult result = mockMvc.perform(put("/api/student/profile")
+                        .header("Authorization", bearerFor(student.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(payload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.studentRegion").value("British Columbia"))
+                .andExpect(jsonPath("$.penNumber").value("987654321"))
+                .andReturn();
+
+        JsonNode response = objectMapper.readTree(result.getResponse().getContentAsString());
+        assertTrue(isNullOrEmpty(response.path("oenNumber")));
+    }
+
+    @Test
+    void putProfile_withChinaRegion_clearsBothLocalStudentNumbers() throws Exception {
+        Student student = createStudentAccount("profile_region_cn_student", "Amy", "Chen", "Amy");
+
+        Map<String, Object> payload = buildProfilePayload(
+                "Amy",
+                "Chen",
+                "Amy",
+                false,
+                new ArrayList<Map<String, Object>>(),
+                new ArrayList<Map<String, Object>>()
+        );
+        payload.put("studentRegion", "China");
+        payload.put("oenNumber", "123456789");
+        payload.put("penNumber", "987654321");
+
+        MvcResult result = mockMvc.perform(put("/api/student/profile")
+                        .header("Authorization", bearerFor(student.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(payload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.studentRegion").value("China"))
+                .andReturn();
+
+        JsonNode response = objectMapper.readTree(result.getResponse().getContentAsString());
+        assertTrue(isNullOrEmpty(response.path("oenNumber")));
+        assertTrue(isNullOrEmpty(response.path("penNumber")));
+    }
+
+    @Test
+    void putProfile_withInvalidPenForBritishColumbia_returns400() throws Exception {
+        Student student = createStudentAccount("profile_region_bc_invalid_pen_student", "Amy", "Chen", "Amy");
+
+        Map<String, Object> payload = buildProfilePayload(
+                "Amy",
+                "Chen",
+                "Amy",
+                false,
+                new ArrayList<Map<String, Object>>(),
+                new ArrayList<Map<String, Object>>()
+        );
+        payload.put("studentRegion", "British Columbia");
+        payload.put("penNumber", "abc123");
+
+        mockMvc.perform(put("/api/student/profile")
+                        .header("Authorization", bearerFor(student.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(payload)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("penNumber must be 9 digits when studentRegion is British Columbia"))
+                .andExpect(jsonPath("$.code").value("BAD_REQUEST"));
+    }
+
+    @Test
+    void putProfile_withoutStudentRegion_andWithLegacyOen_infersOntario() throws Exception {
+        Student student = createStudentAccount("profile_region_legacy_oen_student", "Amy", "Chen", "Amy");
+
+        Map<String, Object> payload = buildProfilePayload(
+                "Amy",
+                "Chen",
+                "Amy",
+                false,
+                new ArrayList<Map<String, Object>>(),
+                new ArrayList<Map<String, Object>>()
+        );
+        payload.remove("studentRegion");
+        payload.put("oenNumber", "123456789");
+
+        mockMvc.perform(put("/api/student/profile")
+                        .header("Authorization", bearerFor(student.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(payload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.studentRegion").value("Ontario"))
+                .andExpect(jsonPath("$.oenNumber").value("123456789"));
+    }
+
+    @Test
     void putProfile_aliasLists_schoolRecordsAndExternalCourses_supported() throws Exception {
         Student student = createStudentAccount("profile_alias_lists_student", "Amy", "Chen", "Amy");
 
@@ -1372,6 +1507,13 @@ class StudentProfileApiTest {
         return objectMapper.writeValueAsString(value);
     }
 
+    private boolean isNullOrEmpty(JsonNode node) {
+        if (node == null || node.isMissingNode() || node.isNull()) {
+            return true;
+        }
+        return node.asText("").trim().isEmpty();
+    }
+
     private void assertHistoryFieldPlainValue(JsonNode changedFields,
                                               String path,
                                               String expectedBefore,
@@ -1421,6 +1563,7 @@ class StudentProfileApiTest {
         payload.put("citizenship", "Canada");
         payload.put("firstLanguage", "English");
         payload.put("firstBoardingDate", "2024-09-01");
+        payload.put("studentRegion", "Ontario");
         payload.put("oenNumber", "123456789");
         payload.put("ib", "IB DP");
         payload.put("ap", ap);

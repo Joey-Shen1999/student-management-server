@@ -1,6 +1,7 @@
 package com.studentmanagement.studentmanagementserver.domain.student;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import java.util.ArrayList;
@@ -26,7 +27,12 @@ public class StudentProfileDto {
     private String firstBoardingDate;
     private Long version;
     private AddressDto address = new AddressDto();
+    @JsonAlias({"student_region", "region", "profileRegion"})
+    private String studentRegion;
+    @JsonAlias({"oen"})
     private String oenNumber;
+    @JsonAlias({"pen"})
+    private String penNumber;
     private String ib;
     private Boolean ap = Boolean.FALSE;
     private List<String> serviceItems;
@@ -182,12 +188,28 @@ public class StudentProfileDto {
         this.address = address == null ? new AddressDto() : address;
     }
 
+    public String getStudentRegion() {
+        return studentRegion;
+    }
+
+    public void setStudentRegion(String studentRegion) {
+        this.studentRegion = studentRegion;
+    }
+
     public String getOenNumber() {
         return oenNumber;
     }
 
     public void setOenNumber(String oenNumber) {
         this.oenNumber = oenNumber;
+    }
+
+    public String getPenNumber() {
+        return penNumber;
+    }
+
+    public void setPenNumber(String penNumber) {
+        this.penNumber = penNumber;
     }
 
     public String getIb() {

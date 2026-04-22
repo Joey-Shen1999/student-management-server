@@ -55,8 +55,14 @@ public class StudentProfile extends BaseEntity {
     @Column(name = "first_boarding_date")
     private LocalDate firstBoardingDate;
 
+    @Column(name = "student_region", length = 64)
+    private String studentRegion;
+
     @Column(name = "oen_number", length = 80)
     private String oenNumber;
+
+    @Column(name = "pen_number", length = 80)
+    private String penNumber;
 
     @Column(length = 80)
     private String ib;
@@ -185,12 +191,28 @@ public class StudentProfile extends BaseEntity {
         this.firstBoardingDate = firstBoardingDate;
     }
 
+    public String getStudentRegion() {
+        return studentRegion;
+    }
+
+    public void setStudentRegion(String studentRegion) {
+        this.studentRegion = studentRegion;
+    }
+
     public String getOenNumber() {
         return oenNumber;
     }
 
     public void setOenNumber(String oenNumber) {
         this.oenNumber = oenNumber;
+    }
+
+    public String getPenNumber() {
+        return penNumber;
+    }
+
+    public void setPenNumber(String penNumber) {
+        this.penNumber = penNumber;
     }
 
     public String getIb() {

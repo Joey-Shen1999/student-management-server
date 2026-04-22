@@ -729,6 +729,7 @@ class TeacherStudentProfileApiTest {
         payload.put("citizenship", "Canada");
         payload.put("firstLanguage", "English");
         payload.put("firstBoardingDate", "2024-09-01");
+        payload.put("studentRegion", "Ontario");
         payload.put("oenNumber", "123456789");
         payload.put("ib", "IB DP");
         payload.put("ap", Boolean.TRUE);
