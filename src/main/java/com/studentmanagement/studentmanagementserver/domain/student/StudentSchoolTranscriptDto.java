@@ -12,6 +12,9 @@ public class StudentSchoolTranscriptDto {
     private String transcriptContentType;
     private Long transcriptSizeBytes;
     private String transcriptUploadedAt;
+    private String academicRecordType;
+    private Integer reportYear;
+    private String reportMonth;
     private Boolean hasTranscript;
     private List<TranscriptItemDto> transcripts;
 
@@ -55,6 +58,30 @@ public class StudentSchoolTranscriptDto {
         this.transcriptUploadedAt = transcriptUploadedAt;
     }
 
+    public String getAcademicRecordType() {
+        return academicRecordType;
+    }
+
+    public void setAcademicRecordType(String academicRecordType) {
+        this.academicRecordType = academicRecordType;
+    }
+
+    public Integer getReportYear() {
+        return reportYear;
+    }
+
+    public void setReportYear(Integer reportYear) {
+        this.reportYear = reportYear;
+    }
+
+    public String getReportMonth() {
+        return reportMonth;
+    }
+
+    public void setReportMonth(String reportMonth) {
+        this.reportMonth = reportMonth;
+    }
+
     public Boolean getHasTranscript() {
         return hasTranscript;
     }
@@ -83,6 +110,9 @@ public class StudentSchoolTranscriptDto {
         private Long transcriptSizeBytes;
         private String transcriptUploadedAt;
         private Long uploadedBy;
+        private String academicRecordType;
+        private Integer reportYear;
+        private String reportMonth;
 
         public Long getId() {
             return id;
@@ -130,6 +160,30 @@ public class StudentSchoolTranscriptDto {
 
         public void setUploadedBy(Long uploadedBy) {
             this.uploadedBy = uploadedBy;
+        }
+
+        public String getAcademicRecordType() {
+            return academicRecordType;
+        }
+
+        public void setAcademicRecordType(String academicRecordType) {
+            this.academicRecordType = academicRecordType;
+        }
+
+        public Integer getReportYear() {
+            return reportYear;
+        }
+
+        public void setReportYear(Integer reportYear) {
+            this.reportYear = reportYear;
+        }
+
+        public String getReportMonth() {
+            return reportMonth;
+        }
+
+        public void setReportMonth(String reportMonth) {
+            this.reportMonth = reportMonth;
         }
     }
 }

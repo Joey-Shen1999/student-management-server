@@ -92,6 +92,7 @@ public class StudentProfileService {
     private static final String STUDENT_REGION_UNITED_STATES = "United States";
     private static final Set<String> SUPPORTED_STUDENT_REGIONS = buildSupportedStudentRegions();
     private static final Map<String, String> STUDENT_REGION_ALIASES = buildStudentRegionAliases();
+    private static final Set<String> REPORT_CARD_MONTHS = buildReportCardMonths();
 
     private final AuthSessionService authSessionService;
     private final StudentRepository studentRepository;
@@ -106,6 +107,7 @@ public class StudentProfileService {
     private final TeacherRepository teacherRepository;
     private final StudentSchoolTranscriptStorageService transcriptStorageService;
     private final StudentIdentityFileStorageService identityFileStorageService;
+    private final StudentDocumentService studentDocumentService;
     private final ObjectMapper objectMapper;
 
     public StudentProfileService(AuthSessionService authSessionService,
@@ -121,6 +123,7 @@ public class StudentProfileService {
                                  TeacherRepository teacherRepository,
                                  StudentSchoolTranscriptStorageService transcriptStorageService,
                                  StudentIdentityFileStorageService identityFileStorageService,
+                                 StudentDocumentService studentDocumentService,
                                  ObjectMapper objectMapper) {
         this.authSessionService = authSessionService;
         this.studentRepository = studentRepository;
@@ -135,6 +138,7 @@ public class StudentProfileService {
         this.teacherRepository = teacherRepository;
         this.transcriptStorageService = transcriptStorageService;
         this.identityFileStorageService = identityFileStorageService;
+        this.studentDocumentService = studentDocumentService;
         this.objectMapper = objectMapper;
     }
 
@@ -275,12 +279,18 @@ public class StudentProfileService {
     @Transactional
     public StudentSchoolTranscriptDto uploadCurrentStudentSchoolTranscript(Long schoolRecordId,
                                                                            MultipartFile file,
+                                                                           String academicRecordType,
+                                                                           Integer reportYear,
+                                                                           String reportMonth,
                                                                            HttpServletRequest request) {
         Student student = requireCurrentStudent(request);
         return uploadSchoolTranscriptForStudent(
                 student,
                 schoolRecordId,
                 file,
+                academicRecordType,
+                reportYear,
+                reportMonth,
                 student.getUser().getId(),
                 resolveTraceId(request),
                 CHANGE_SOURCE_FILE_UPLOAD
@@ -291,13 +301,25 @@ public class StudentProfileService {
     public StudentSchoolTranscriptDto uploadStudentSchoolTranscriptByStudentId(Long studentId,
                                                                                Long schoolRecordId,
                                                                                MultipartFile file) {
-        return uploadStudentSchoolTranscriptByStudentId(studentId, schoolRecordId, file, null, "N/A");
+        return uploadStudentSchoolTranscriptByStudentId(
+                studentId,
+                schoolRecordId,
+                file,
+                null,
+                null,
+                null,
+                null,
+                "N/A"
+        );
     }
 
     @Transactional
     public StudentSchoolTranscriptDto uploadStudentSchoolTranscriptByStudentId(Long studentId,
                                                                                Long schoolRecordId,
                                                                                MultipartFile file,
+                                                                               String academicRecordType,
+                                                                               Integer reportYear,
+                                                                               String reportMonth,
                                                                                Long uploadedBy,
                                                                                String traceId) {
         Student student = requireStudentById(studentId);
@@ -306,6 +328,9 @@ public class StudentProfileService {
                 student,
                 schoolRecordId,
                 file,
+                academicRecordType,
+                reportYear,
+                reportMonth,
                 operatorUserId,
                 traceId,
                 CHANGE_SOURCE_FILE_UPLOAD
@@ -341,11 +366,14 @@ public class StudentProfileService {
     }
 
     @Transactional
-    public StudentIdentityFileUploadDto uploadCurrentStudentIdentityFile(MultipartFile file, HttpServletRequest request) {
+    public StudentIdentityFileUploadDto uploadCurrentStudentIdentityFile(MultipartFile file,
+                                                                         String identityDocumentType,
+                                                                         HttpServletRequest request) {
         Student student = requireCurrentStudent(request);
         return uploadIdentityFileForStudent(
                 student,
                 file,
+                identityDocumentType,
                 student.getUser().getId(),
                 resolveTraceId(request),
                 CHANGE_SOURCE_FILE_UPLOAD
@@ -355,6 +383,7 @@ public class StudentProfileService {
     @Transactional
     public StudentIdentityFileUploadDto uploadStudentIdentityFileByStudentId(Long studentId,
                                                                               MultipartFile file,
+                                                                              String identityDocumentType,
                                                                               Long uploadedBy,
                                                                               String traceId) {
         Student student = requireStudentById(studentId);
@@ -362,6 +391,7 @@ public class StudentProfileService {
         return uploadIdentityFileForStudent(
                 student,
                 file,
+                identityDocumentType,
                 operatorUserId,
                 traceId,
                 CHANGE_SOURCE_FILE_UPLOAD
@@ -562,6 +592,9 @@ public class StudentProfileService {
     private StudentSchoolTranscriptDto uploadSchoolTranscriptForStudent(Student student,
                                                                         Long schoolRecordId,
                                                                         MultipartFile file,
+                                                                        String academicRecordType,
+                                                                        Integer reportYear,
+                                                                        String reportMonth,
                                                                         Long uploadedBy,
                                                                         String traceId,
                                                                         String changeSource) {
@@ -572,6 +605,13 @@ public class StudentProfileService {
             throw new IllegalArgumentException("transcript file is required");
         }
         assertUploadSizeWithinLimit(file);
+        assertPdfUpload(file);
+
+        NormalizedAcademicUploadMetadata academicUploadMetadata = normalizeAcademicUploadMetadata(
+                academicRecordType,
+                reportYear,
+                reportMonth
+        );
 
         StudentProfile profile = studentProfileRepository.findByStudent_Id(student.getId())
                 .orElseGet(() -> {
@@ -597,6 +637,17 @@ public class StudentProfileService {
                 uploadedBy
         );
         transcript = studentSchoolTranscriptRepository.save(transcript);
+
+        studentDocumentService.createLinkedAcademicDocument(
+                student,
+                school,
+                transcript,
+                file,
+                academicUploadMetadata.academicRecordType,
+                academicUploadMetadata.reportYear,
+                academicUploadMetadata.reportMonth,
+                uploadedBy
+        );
 
         school.setTranscriptOriginalFilename(stored.getOriginalFilename());
         school.setTranscriptContentType(stored.getContentType());
@@ -625,7 +676,13 @@ public class StudentProfileService {
                 changeSource
         );
 
-        return toTranscriptDto(school, transcripts);
+        return toTranscriptDto(
+                school,
+                transcripts,
+                academicUploadMetadata.academicRecordType,
+                academicUploadMetadata.reportYear,
+                academicUploadMetadata.reportMonth
+        );
     }
 
     private SchoolTranscriptDownload downloadSchoolTranscriptForStudent(Student student, Long schoolRecordId) {
@@ -664,9 +721,15 @@ public class StudentProfileService {
     }
 
     private StudentSchoolTranscriptDto toTranscriptDto(StudentSchoolRecord school,
-                                                       List<StudentSchoolTranscript> transcripts) {
+                                                       List<StudentSchoolTranscript> transcripts,
+                                                       String academicRecordType,
+                                                       Integer reportYear,
+                                                       String reportMonth) {
         StudentSchoolTranscriptDto dto = new StudentSchoolTranscriptDto();
         dto.setSchoolRecordId(school.getId());
+        dto.setAcademicRecordType(academicRecordType);
+        dto.setReportYear(reportYear);
+        dto.setReportMonth(reportMonth);
         List<StudentSchoolTranscript> sorted = sortTranscriptsLatestFirst(transcripts);
         List<StudentSchoolTranscriptDto.TranscriptItemDto> transcriptItems =
                 new ArrayList<StudentSchoolTranscriptDto.TranscriptItemDto>();
@@ -694,6 +757,7 @@ public class StudentProfileService {
 
     private StudentIdentityFileUploadDto uploadIdentityFileForStudent(Student student,
                                                                        MultipartFile file,
+                                                                       String identityDocumentType,
                                                                        Long uploadedBy,
                                                                        String traceId,
                                                                        String changeSource) {
@@ -701,6 +765,7 @@ public class StudentProfileService {
             throw new IllegalArgumentException("identity file is required");
         }
         assertUploadSizeWithinLimit(file);
+        assertPdfUpload(file);
 
         StudentProfileDto beforeSnapshot = getProfileForStudent(student, false);
         StudentProfile profile = studentProfileRepository.findByStudent_Id(student.getId())
@@ -723,6 +788,14 @@ public class StudentProfileService {
                 uploadedBy
         );
         identityFile = studentIdentityFileRepository.save(identityFile);
+
+        studentDocumentService.createLinkedIdentityDocument(
+                student,
+                identityFile,
+                file,
+                identityDocumentType,
+                uploadedBy
+        );
 
         List<StudentIdentityFile> identityFiles =
                 studentIdentityFileRepository.findByStudentProfile_IdOrderByUploadedAtDescIdDesc(profile.getId());
@@ -1319,6 +1392,7 @@ public class StudentProfileService {
             }
             deleteTranscriptStorageOrThrow(legacy, operatorUserId, traceId, "put_sync_removed");
             if (legacy.getId() != null) {
+                studentDocumentService.deleteDocumentsLinkedToSchoolTranscript(legacy.getId());
                 studentSchoolTranscriptRepository.delete(legacy);
             }
         }
@@ -1529,6 +1603,9 @@ public class StudentProfileService {
                 continue;
             }
             deleteIdentityFileStorageOrThrow(legacy, operatorUserId, traceId, "put_sync_removed");
+            if (legacy.getId() != null) {
+                studentDocumentService.deleteDocumentsLinkedToIdentityFile(legacy.getId());
+            }
             studentIdentityFileRepository.delete(legacy);
         }
 
@@ -2243,6 +2320,67 @@ public class StudentProfileService {
         }
     }
 
+    private void assertPdfUpload(MultipartFile file) {
+        if (file == null) {
+            return;
+        }
+        String fileName = trimToNull(file.getOriginalFilename());
+        String contentType = trimToNull(file.getContentType());
+        boolean byName = fileName != null && fileName.toLowerCase(Locale.ROOT).endsWith(".pdf");
+        boolean byType = contentType != null && contentType.equalsIgnoreCase("application/pdf");
+        if (!byName && !byType) {
+            throw new IllegalArgumentException("Only PDF files are supported.");
+        }
+    }
+
+    private NormalizedAcademicUploadMetadata normalizeAcademicUploadMetadata(String academicRecordType,
+                                                                             Integer reportYear,
+                                                                             String reportMonth) {
+        String normalizedType = trimToNull(academicRecordType);
+        if (normalizedType == null) {
+            normalizedType = StudentDocumentService.ACADEMIC_RECORD_TYPE_TRANSCRIPT;
+        } else if (StudentDocumentService.ACADEMIC_RECORD_TYPE_REPORT_CARD.equalsIgnoreCase(normalizedType)) {
+            normalizedType = StudentDocumentService.ACADEMIC_RECORD_TYPE_REPORT_CARD;
+        } else if (StudentDocumentService.ACADEMIC_RECORD_TYPE_TRANSCRIPT.equalsIgnoreCase(normalizedType)) {
+            normalizedType = StudentDocumentService.ACADEMIC_RECORD_TYPE_TRANSCRIPT;
+        } else {
+            throw new IllegalArgumentException("academicRecordType must be Transcript or Report Card");
+        }
+
+        if (StudentDocumentService.ACADEMIC_RECORD_TYPE_REPORT_CARD.equals(normalizedType)) {
+            if (reportYear == null) {
+                throw new IllegalArgumentException("reportYear is required when academicRecordType is Report Card");
+            }
+            int normalizedYear = reportYear.intValue();
+            if (normalizedYear < 1900 || normalizedYear > 2200) {
+                throw new IllegalArgumentException("reportYear must be between 1900 and 2200");
+            }
+            String normalizedMonth = trimToNull(reportMonth);
+            if (normalizedMonth == null) {
+                throw new IllegalArgumentException("reportMonth is required when academicRecordType is Report Card");
+            }
+            String canonicalMonth = null;
+            for (String month : REPORT_CARD_MONTHS) {
+                if (month.equalsIgnoreCase(normalizedMonth)) {
+                    canonicalMonth = month;
+                    break;
+                }
+            }
+            if (canonicalMonth == null) {
+                throw new IllegalArgumentException(
+                        "reportMonth must be one of: " + String.join(", ", REPORT_CARD_MONTHS)
+                );
+            }
+            return new NormalizedAcademicUploadMetadata(
+                    normalizedType,
+                    Integer.valueOf(normalizedYear),
+                    canonicalMonth
+            );
+        }
+
+        return new NormalizedAcademicUploadMetadata(normalizedType, null, null);
+    }
+
     private String normalizeTeacherNote(String teacherNoteRaw) {
         if (teacherNoteRaw == null) {
             return null;
@@ -2765,6 +2903,23 @@ public class StudentProfileService {
         }
     }
 
+    private static Set<String> buildReportCardMonths() {
+        Set<String> months = new LinkedHashSet<String>();
+        months.add("January");
+        months.add("February");
+        months.add("March");
+        months.add("April");
+        months.add("May");
+        months.add("June");
+        months.add("July");
+        months.add("August");
+        months.add("September");
+        months.add("October");
+        months.add("November");
+        months.add("December");
+        return Collections.unmodifiableSet(months);
+    }
+
     private static Set<String> buildSupportedStudentRegions() {
         Set<String> regions = new LinkedHashSet<String>();
         regions.add(STUDENT_REGION_ONTARIO);
@@ -2957,6 +3112,18 @@ public class StudentProfileService {
             this.studentRegion = studentRegion;
             this.oenNumber = oenNumber;
             this.penNumber = penNumber;
+        }
+    }
+
+    private static class NormalizedAcademicUploadMetadata {
+        private final String academicRecordType;
+        private final Integer reportYear;
+        private final String reportMonth;
+
+        private NormalizedAcademicUploadMetadata(String academicRecordType, Integer reportYear, String reportMonth) {
+            this.academicRecordType = academicRecordType;
+            this.reportYear = reportYear;
+            this.reportMonth = reportMonth;
         }
     }
 

@@ -71,6 +71,9 @@ public class TeacherStudentProfileService {
     public StudentSchoolTranscriptDto uploadSchoolTranscript(Long studentId,
                                                              Long schoolRecordId,
                                                              MultipartFile file,
+                                                             String academicRecordType,
+                                                             Integer reportYear,
+                                                             String reportMonth,
                                                              HttpServletRequest request) {
         User operator = managementAccessService.requireStudentAccountManagementAccess(request);
         ensureValidStudentId(studentId);
@@ -79,6 +82,9 @@ public class TeacherStudentProfileService {
                 studentId,
                 schoolRecordId,
                 file,
+                academicRecordType,
+                reportYear,
+                reportMonth,
                 operator.getId(),
                 resolveTraceId(request)
         );
@@ -109,6 +115,7 @@ public class TeacherStudentProfileService {
 
     public StudentIdentityFileUploadDto uploadIdentityFile(Long studentId,
                                                            MultipartFile file,
+                                                           String identityDocumentType,
                                                            HttpServletRequest request) {
         User operator = managementAccessService.requireStudentAccountManagementAccess(request);
         ensureValidStudentId(studentId);
@@ -116,6 +123,7 @@ public class TeacherStudentProfileService {
         return studentProfileService.uploadStudentIdentityFileByStudentId(
                 studentId,
                 file,
+                identityDocumentType,
                 operator.getId(),
                 resolveTraceId(request)
         );

@@ -59,10 +59,22 @@ public class StudentProfileController {
     public ResponseEntity<StudentSchoolTranscriptDto> uploadSchoolTranscript(@PathVariable Long schoolRecordId,
                                                                              @RequestParam(value = "file", required = false) MultipartFile file,
                                                                              @RequestParam(value = "transcript", required = false) MultipartFile transcript,
+                                                                             @RequestParam(value = "academicRecordType", required = false) String academicRecordType,
+                                                                             @RequestParam(value = "transcriptType", required = false) String transcriptType,
+                                                                             @RequestParam(value = "reportYear", required = false) Integer reportYear,
+                                                                             @RequestParam(value = "reportMonth", required = false) String reportMonth,
                                                                              HttpServletRequest request) {
         MultipartFile effectiveFile = chooseUploadFile(file, transcript);
+        String effectiveAcademicRecordType = chooseText(academicRecordType, transcriptType);
         return ResponseEntity.ok(
-                studentProfileService.uploadCurrentStudentSchoolTranscript(schoolRecordId, effectiveFile, request)
+                studentProfileService.uploadCurrentStudentSchoolTranscript(
+                        schoolRecordId,
+                        effectiveFile,
+                        effectiveAcademicRecordType,
+                        reportYear,
+                        reportMonth,
+                        request
+                )
         );
     }
 
@@ -70,10 +82,13 @@ public class StudentProfileController {
     public ResponseEntity<StudentIdentityFileUploadDto> uploadIdentityFile(
             @RequestParam(value = "file", required = false) MultipartFile file,
             @RequestParam(value = "identity", required = false) MultipartFile identity,
+            @RequestParam(value = "identityDocumentType", required = false) String identityDocumentType,
             HttpServletRequest request
     ) {
         MultipartFile effectiveFile = chooseUploadFile(file, identity);
-        return ResponseEntity.ok(studentProfileService.uploadCurrentStudentIdentityFile(effectiveFile, request));
+        return ResponseEntity.ok(
+                studentProfileService.uploadCurrentStudentIdentityFile(effectiveFile, identityDocumentType, request)
+        );
     }
 
     @GetMapping("/schools/{schoolRecordId}/transcript")
@@ -137,5 +152,15 @@ public class StudentProfileController {
             return transcript;
         }
         return file != null ? file : transcript;
+    }
+
+    private String chooseText(String primary, String fallback) {
+        if (primary != null && !primary.trim().isEmpty()) {
+            return primary.trim();
+        }
+        if (fallback != null && !fallback.trim().isEmpty()) {
+            return fallback.trim();
+        }
+        return null;
     }
 }
