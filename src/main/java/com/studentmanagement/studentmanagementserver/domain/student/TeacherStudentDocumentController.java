@@ -18,31 +18,34 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/student/documents")
-public class StudentDocumentController {
+@RequestMapping("/api/teacher/students/{studentId}/documents")
+public class TeacherStudentDocumentController {
 
-    private final StudentDocumentService studentDocumentService;
+    private final TeacherStudentDocumentService teacherStudentDocumentService;
 
-    public StudentDocumentController(StudentDocumentService studentDocumentService) {
-        this.studentDocumentService = studentDocumentService;
+    public TeacherStudentDocumentController(TeacherStudentDocumentService teacherStudentDocumentService) {
+        this.teacherStudentDocumentService = teacherStudentDocumentService;
     }
 
     @GetMapping
-    public ResponseEntity<List<StudentDocumentDto>> listDocuments(HttpServletRequest request) {
-        return ResponseEntity.ok(studentDocumentService.listCurrentStudentDocuments(request));
+    public ResponseEntity<List<StudentDocumentDto>> listDocuments(@PathVariable Long studentId,
+                                                                  HttpServletRequest request) {
+        return ResponseEntity.ok(teacherStudentDocumentService.listDocuments(studentId, request));
     }
 
     @GetMapping("/history")
     public ResponseEntity<StudentDocumentHistoryListDto> listDocumentHistory(
+            @PathVariable Long studentId,
             @RequestParam(value = "page", required = false) Integer page,
             @RequestParam(value = "size", required = false) Integer size,
             HttpServletRequest request
     ) {
-        return ResponseEntity.ok(studentDocumentService.listCurrentStudentDocumentHistory(page, size, request));
+        return ResponseEntity.ok(teacherStudentDocumentService.listDocumentHistory(studentId, page, size, request));
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<StudentDocumentDto> uploadDocument(
+            @PathVariable Long studentId,
             @RequestParam(value = "file", required = false) MultipartFile file,
             @RequestParam(value = "documentCategory", required = false) String documentCategory,
             @RequestParam(value = "identityDocumentType", required = false) String identityDocumentType,
@@ -53,7 +56,8 @@ public class StudentDocumentController {
             @RequestParam(value = "notes", required = false) String notes,
             HttpServletRequest request
     ) {
-        return ResponseEntity.ok(studentDocumentService.uploadCurrentStudentDocument(
+        return ResponseEntity.ok(teacherStudentDocumentService.uploadDocument(
+                studentId,
                 file,
                 documentCategory,
                 identityDocumentType,
@@ -67,9 +71,11 @@ public class StudentDocumentController {
     }
 
     @GetMapping("/{documentId}/file")
-    public ResponseEntity<byte[]> viewDocument(@PathVariable Long documentId, HttpServletRequest request) {
+    public ResponseEntity<byte[]> viewDocument(@PathVariable Long studentId,
+                                               @PathVariable Long documentId,
+                                               HttpServletRequest request) {
         StudentDocumentService.DocumentDownload download =
-                studentDocumentService.downloadCurrentStudentDocument(documentId, request);
+                teacherStudentDocumentService.downloadDocument(studentId, documentId, request);
 
         ContentDisposition contentDisposition = ContentDisposition.inline()
                 .filename(download.getFileName(), StandardCharsets.UTF_8)
@@ -83,8 +89,10 @@ public class StudentDocumentController {
     }
 
     @DeleteMapping("/{documentId}")
-    public ResponseEntity<Void> deleteDocument(@PathVariable Long documentId, HttpServletRequest request) {
-        studentDocumentService.deleteCurrentStudentDocument(documentId, request);
+    public ResponseEntity<Void> deleteDocument(@PathVariable Long studentId,
+                                               @PathVariable Long documentId,
+                                               HttpServletRequest request) {
+        teacherStudentDocumentService.deleteDocument(studentId, documentId, request);
         return ResponseEntity.noContent().build();
     }
 }

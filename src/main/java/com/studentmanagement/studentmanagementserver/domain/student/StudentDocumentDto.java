@@ -14,6 +14,9 @@ public class StudentDocumentDto {
     private String contentType;
     private Long sizeBytes;
     private String uploadedAt;
+    private Long uploadedBy;
+    private String uploadedByRole;
+    private String uploadedByName;
 
     public Long getId() {
         return id;
@@ -109,5 +112,29 @@ public class StudentDocumentDto {
 
     public void setUploadedAt(String uploadedAt) {
         this.uploadedAt = uploadedAt;
+    }
+
+    public Long getUploadedBy() {
+        return uploadedBy;
+    }
+
+    public void setUploadedBy(Long uploadedBy) {
+        this.uploadedBy = uploadedBy;
+    }
+
+    public String getUploadedByRole() {
+        return uploadedByRole;
+    }
+
+    public void setUploadedByRole(String uploadedByRole) {
+        this.uploadedByRole = uploadedByRole;
+    }
+
+    public String getUploadedByName() {
+        return uploadedByName;
+    }
+
+    public void setUploadedByName(String uploadedByName) {
+        this.uploadedByName = uploadedByName;
     }
 }

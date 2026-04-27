@@ -1,14 +1,22 @@
 package com.studentmanagement.studentmanagementserver.domain.student;
 
 import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
+import com.studentmanagement.studentmanagementserver.domain.teacher.Teacher;
 import com.studentmanagement.studentmanagementserver.domain.user.User;
+import com.studentmanagement.studentmanagementserver.repo.StudentDocumentHistoryRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentDocumentRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentIdentityFileRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentProfileRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentSchoolRecordRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentSchoolTranscriptRepository;
+import com.studentmanagement.studentmanagementserver.repo.TeacherRepository;
+import com.studentmanagement.studentmanagementserver.repo.UserRepository;
 import com.studentmanagement.studentmanagementserver.service.AuthSessionService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,7 +25,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import javax.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -41,10 +49,15 @@ public class StudentDocumentService {
     public static final String ACADEMIC_RECORD_TYPE_TRANSCRIPT = "Transcript";
     public static final String ACADEMIC_RECORD_TYPE_REPORT_CARD = "Report Card";
 
+    public static final String HISTORY_ACTION_UPLOAD = "UPLOAD";
+    public static final String HISTORY_ACTION_DELETE = "DELETE";
+
     private static final long MAX_UPLOAD_SIZE_BYTES = 50L * 1024L * 1024L;
     private static final int MIN_REPORT_YEAR = 1900;
     private static final int MAX_REPORT_YEAR = 2200;
-    private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+    private static final int DEFAULT_HISTORY_PAGE = 0;
+    private static final int DEFAULT_HISTORY_SIZE = 20;
+    private static final int MAX_HISTORY_SIZE = 100;
 
     private static final Set<String> DOCUMENT_CATEGORIES = unmodifiableSet(
             DOCUMENT_CATEGORY_IDENTITY,
@@ -76,16 +89,23 @@ public class StudentDocumentService {
             "September",
             "October",
             "November",
-            "December"
+            "December",
+            "winter",
+            "spring",
+            "summer",
+            "fall"
     );
 
     private final AuthSessionService authSessionService;
     private final StudentRepository studentRepository;
     private final StudentProfileRepository studentProfileRepository;
     private final StudentDocumentRepository studentDocumentRepository;
+    private final StudentDocumentHistoryRepository studentDocumentHistoryRepository;
     private final StudentIdentityFileRepository studentIdentityFileRepository;
     private final StudentSchoolRecordRepository studentSchoolRecordRepository;
     private final StudentSchoolTranscriptRepository studentSchoolTranscriptRepository;
+    private final UserRepository userRepository;
+    private final TeacherRepository teacherRepository;
     private final StudentDocumentStorageService studentDocumentStorageService;
     private final StudentIdentityFileStorageService identityFileStorageService;
     private final StudentSchoolTranscriptStorageService transcriptStorageService;
@@ -94,9 +114,12 @@ public class StudentDocumentService {
                                   StudentRepository studentRepository,
                                   StudentProfileRepository studentProfileRepository,
                                   StudentDocumentRepository studentDocumentRepository,
+                                  StudentDocumentHistoryRepository studentDocumentHistoryRepository,
                                   StudentIdentityFileRepository studentIdentityFileRepository,
                                   StudentSchoolRecordRepository studentSchoolRecordRepository,
                                   StudentSchoolTranscriptRepository studentSchoolTranscriptRepository,
+                                  UserRepository userRepository,
+                                  TeacherRepository teacherRepository,
                                   StudentDocumentStorageService studentDocumentStorageService,
                                   StudentIdentityFileStorageService identityFileStorageService,
                                   StudentSchoolTranscriptStorageService transcriptStorageService) {
@@ -104,9 +127,12 @@ public class StudentDocumentService {
         this.studentRepository = studentRepository;
         this.studentProfileRepository = studentProfileRepository;
         this.studentDocumentRepository = studentDocumentRepository;
+        this.studentDocumentHistoryRepository = studentDocumentHistoryRepository;
         this.studentIdentityFileRepository = studentIdentityFileRepository;
         this.studentSchoolRecordRepository = studentSchoolRecordRepository;
         this.studentSchoolTranscriptRepository = studentSchoolTranscriptRepository;
+        this.userRepository = userRepository;
+        this.teacherRepository = teacherRepository;
         this.studentDocumentStorageService = studentDocumentStorageService;
         this.identityFileStorageService = identityFileStorageService;
         this.transcriptStorageService = transcriptStorageService;
@@ -115,12 +141,52 @@ public class StudentDocumentService {
     @Transactional(readOnly = true)
     public List<StudentDocumentDto> listCurrentStudentDocuments(HttpServletRequest request) {
         Student student = requireCurrentStudent(request);
-        List<StudentDocument> documents = studentDocumentRepository.findByStudent_IdOrderByUploadedAtDescIdDesc(student.getId());
-        List<StudentDocumentDto> items = new ArrayList<StudentDocumentDto>();
+        return listDocumentsByStudentId(student.getId());
+    }
+
+    @Transactional(readOnly = true)
+    public List<StudentDocumentDto> listDocumentsByStudentId(Long studentId) {
+        if (studentId == null || studentId.longValue() <= 0L) {
+            throw new IllegalArgumentException("studentId must be positive");
+        }
+        studentRepository.findById(studentId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Student profile not found."));
+        List<StudentDocument> documents = studentDocumentRepository.findByStudent_IdOrderByUploadedAtDescIdDesc(studentId);
+        List<StudentDocumentDto> items = new ArrayList<StudentDocumentDto>(documents.size());
         for (StudentDocument document : documents) {
             items.add(toDto(document));
         }
         return items;
+    }
+
+    @Transactional(readOnly = true)
+    public StudentDocumentHistoryListDto listCurrentStudentDocumentHistory(Integer page,
+                                                                          Integer size,
+                                                                          HttpServletRequest request) {
+        Student student = requireCurrentStudent(request);
+        return listDocumentHistoryByStudentId(student.getId(), page, size);
+    }
+
+    @Transactional(readOnly = true)
+    public StudentDocumentHistoryListDto listDocumentHistoryByStudentId(Long studentId,
+                                                                       Integer page,
+                                                                       Integer size) {
+        requireStudentById(studentId);
+        int normalizedPage = normalizeHistoryPage(page);
+        int normalizedSize = normalizeHistorySize(size);
+        Pageable pageable = PageRequest.of(
+                normalizedPage,
+                normalizedSize,
+                Sort.by(Sort.Order.desc("actionAt"), Sort.Order.desc("id"))
+        );
+
+        Page<StudentDocumentHistory> result = studentDocumentHistoryRepository.findByStudentId(studentId, pageable);
+        StudentDocumentHistoryListDto response = new StudentDocumentHistoryListDto();
+        response.setItems(toHistoryItems(result.getContent()));
+        response.setTotal(result.getTotalElements());
+        response.setPage(normalizedPage);
+        response.setSize(normalizedSize);
+        return response;
     }
 
     @Transactional
@@ -134,6 +200,56 @@ public class StudentDocumentService {
                                                            String notes,
                                                            HttpServletRequest request) {
         Student student = requireCurrentStudent(request);
+        return uploadDocumentForStudent(
+                student,
+                file,
+                documentCategory,
+                identityDocumentType,
+                academicRecordType,
+                reportYear,
+                reportMonth,
+                title,
+                notes,
+                student.getUser().getId()
+        );
+    }
+
+    @Transactional
+    public StudentDocumentDto uploadDocumentForStudentId(Long studentId,
+                                                         MultipartFile file,
+                                                         String documentCategory,
+                                                         String identityDocumentType,
+                                                         String academicRecordType,
+                                                         Integer reportYear,
+                                                         String reportMonth,
+                                                         String title,
+                                                         String notes,
+                                                         Long uploadedBy) {
+        Student student = requireStudentById(studentId);
+        return uploadDocumentForStudent(
+                student,
+                file,
+                documentCategory,
+                identityDocumentType,
+                academicRecordType,
+                reportYear,
+                reportMonth,
+                title,
+                notes,
+                uploadedBy
+        );
+    }
+
+    private StudentDocumentDto uploadDocumentForStudent(Student student,
+                                                        MultipartFile file,
+                                                        String documentCategory,
+                                                        String identityDocumentType,
+                                                        String academicRecordType,
+                                                        Integer reportYear,
+                                                        String reportMonth,
+                                                        String title,
+                                                        String notes,
+                                                        Long uploadedBy) {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("file is required");
         }
@@ -167,15 +283,26 @@ public class StudentDocumentService {
                 stored.getContentType(),
                 Long.valueOf(stored.getSizeBytes()),
                 now,
-                student.getUser().getId()
+                uploadedBy == null ? student.getUser().getId() : uploadedBy
         );
         StudentDocument persisted = studentDocumentRepository.save(document);
+        recordDocumentHistory(persisted, HISTORY_ACTION_UPLOAD, uploadedBy);
         return toDto(persisted);
     }
 
     @Transactional(readOnly = true)
     public DocumentDownload downloadCurrentStudentDocument(Long documentId, HttpServletRequest request) {
         Student student = requireCurrentStudent(request);
+        return downloadDocumentForStudent(student, documentId);
+    }
+
+    @Transactional(readOnly = true)
+    public DocumentDownload downloadDocumentForStudentId(Long studentId, Long documentId) {
+        Student student = requireStudentById(studentId);
+        return downloadDocumentForStudent(student, documentId);
+    }
+
+    private DocumentDownload downloadDocumentForStudent(Student student, Long documentId) {
         StudentDocument document = requireOwnedDocument(student, documentId);
         byte[] content = studentDocumentStorageService.readAllBytes(document.getStorageKey());
 
@@ -193,9 +320,25 @@ public class StudentDocumentService {
     @Transactional
     public void deleteCurrentStudentDocument(Long documentId, HttpServletRequest request) {
         Student student = requireCurrentStudent(request);
+        deleteDocumentForStudent(student, documentId, student.getUser().getId());
+    }
+
+    @Transactional
+    public void deleteDocumentForStudentId(Long studentId, Long documentId) {
+        deleteDocumentForStudentId(studentId, documentId, null);
+    }
+
+    @Transactional
+    public void deleteDocumentForStudentId(Long studentId, Long documentId, Long actorUserId) {
+        Student student = requireStudentById(studentId);
+        deleteDocumentForStudent(student, documentId, actorUserId);
+    }
+
+    private void deleteDocumentForStudent(Student student, Long documentId, Long actorUserId) {
         StudentDocument document = requireOwnedDocument(student, documentId);
-        deleteLinkedLegacyRows(student, document);
+        deleteLinkedLegacyRows(student, document, actorUserId);
         deleteDocumentStorageOrThrow(document, "student_delete");
+        recordDocumentHistory(document, HISTORY_ACTION_DELETE, actorUserId);
         studentDocumentRepository.delete(document);
     }
 
@@ -232,7 +375,8 @@ public class StudentDocumentService {
                 uploadedBy == null ? student.getUser().getId() : uploadedBy
         );
         document.setLinkedIdentityFileId(identityFile.getId());
-        studentDocumentRepository.save(document);
+        StudentDocument persisted = studentDocumentRepository.save(document);
+        recordDocumentHistory(persisted, HISTORY_ACTION_UPLOAD, uploadedBy);
     }
 
     @Transactional
@@ -269,7 +413,8 @@ public class StudentDocumentService {
         );
         document.setLinkedSchoolRecordId(schoolRecord.getId());
         document.setLinkedSchoolTranscriptId(transcript.getId());
-        studentDocumentRepository.save(document);
+        StudentDocument persisted = studentDocumentRepository.save(document);
+        recordDocumentHistory(persisted, HISTORY_ACTION_UPLOAD, uploadedBy);
     }
 
     @Transactional
@@ -280,6 +425,7 @@ public class StudentDocumentService {
         List<StudentDocument> linked = studentDocumentRepository.findByLinkedIdentityFileId(identityFileId);
         for (StudentDocument document : linked) {
             deleteDocumentStorageOrThrow(document, "linked_identity_removed");
+            recordDocumentHistory(document, HISTORY_ACTION_DELETE, null);
             studentDocumentRepository.delete(document);
         }
     }
@@ -292,6 +438,7 @@ public class StudentDocumentService {
         List<StudentDocument> linked = studentDocumentRepository.findByLinkedSchoolTranscriptId(schoolTranscriptId);
         for (StudentDocument document : linked) {
             deleteDocumentStorageOrThrow(document, "linked_transcript_removed");
+            recordDocumentHistory(document, HISTORY_ACTION_DELETE, null);
             studentDocumentRepository.delete(document);
         }
     }
@@ -305,6 +452,14 @@ public class StudentDocumentService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Student profile not found."));
     }
 
+    private Student requireStudentById(Long studentId) {
+        if (studentId == null || studentId.longValue() <= 0L) {
+            throw new IllegalArgumentException("studentId must be positive");
+        }
+        return studentRepository.findById(studentId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Student profile not found."));
+    }
+
     private StudentDocument requireOwnedDocument(Student student, Long documentId) {
         if (documentId == null || documentId.longValue() <= 0L) {
             throw new IllegalArgumentException("documentId must be positive");
@@ -313,21 +468,22 @@ public class StudentDocumentService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Document not found."));
     }
 
-    private void deleteLinkedLegacyRows(Student student, StudentDocument document) {
+    private void deleteLinkedLegacyRows(Student student, StudentDocument document, Long actorUserId) {
         Long linkedIdentityFileId = document.getLinkedIdentityFileId();
         if (linkedIdentityFileId != null) {
-            deleteLinkedIdentityFile(student, document, linkedIdentityFileId);
+            deleteLinkedIdentityFile(student, document, linkedIdentityFileId, actorUserId);
         }
 
         Long linkedTranscriptId = document.getLinkedSchoolTranscriptId();
         if (linkedTranscriptId != null) {
-            deleteLinkedTranscript(student, document, linkedTranscriptId);
+            deleteLinkedTranscript(student, document, linkedTranscriptId, actorUserId);
         }
     }
 
     private void deleteLinkedIdentityFile(Student student,
                                           StudentDocument currentDocument,
-                                          Long linkedIdentityFileId) {
+                                          Long linkedIdentityFileId,
+                                          Long actorUserId) {
         StudentProfile profile = studentProfileRepository.findByStudent_Id(student.getId()).orElse(null);
         if (profile == null) {
             return;
@@ -350,13 +506,15 @@ public class StudentDocumentService {
                 continue;
             }
             deleteDocumentStorageOrThrow(sibling, "linked_identity_sibling_cleanup");
+            recordDocumentHistory(sibling, HISTORY_ACTION_DELETE, actorUserId);
             studentDocumentRepository.delete(sibling);
         }
     }
 
     private void deleteLinkedTranscript(Student student,
                                         StudentDocument currentDocument,
-                                        Long linkedTranscriptId) {
+                                        Long linkedTranscriptId,
+                                        Long actorUserId) {
         StudentSchoolRecord schoolRecord = null;
         Long linkedSchoolRecordId = currentDocument.getLinkedSchoolRecordId();
         if (linkedSchoolRecordId != null) {
@@ -393,6 +551,7 @@ public class StudentDocumentService {
                 continue;
             }
             deleteDocumentStorageOrThrow(sibling, "linked_transcript_sibling_cleanup");
+            recordDocumentHistory(sibling, HISTORY_ACTION_DELETE, actorUserId);
             studentDocumentRepository.delete(sibling);
         }
     }
@@ -536,19 +695,26 @@ public class StudentDocumentService {
             normalizedAcademicType = ACADEMIC_RECORD_TYPE_TRANSCRIPT;
         }
 
+        Integer normalizedYear = normalizeReportYear(reportYear);
+        String normalizedMonth = normalizeReportMonth(reportMonth);
+
         if (ACADEMIC_RECORD_TYPE_REPORT_CARD.equals(normalizedAcademicType)) {
-            Integer normalizedYear = normalizeReportYear(reportYear);
             if (normalizedYear == null) {
                 throw new IllegalArgumentException("reportYear is required when academicRecordType is Report Card");
             }
-            String normalizedMonth = normalizeReportMonth(reportMonth);
             if (normalizedMonth == null) {
                 throw new IllegalArgumentException("reportMonth is required when academicRecordType is Report Card");
             }
             return new NormalizedAcademicMetadata(normalizedAcademicType, normalizedYear, normalizedMonth);
         }
 
-        return new NormalizedAcademicMetadata(normalizedAcademicType, null, null);
+        if (normalizedYear != null && normalizedMonth == null) {
+            throw new IllegalArgumentException("reportMonth is required when reportYear is provided");
+        }
+        if (normalizedYear == null && normalizedMonth != null) {
+            throw new IllegalArgumentException("reportYear is required when reportMonth is provided");
+        }
+        return new NormalizedAcademicMetadata(normalizedAcademicType, normalizedYear, normalizedMonth);
     }
 
     private String normalizeDocumentCategory(String value) {
@@ -580,6 +746,158 @@ public class StudentDocumentService {
         return Integer.valueOf(year);
     }
 
+    private int normalizeHistoryPage(Integer value) {
+        if (value == null || value.intValue() < 0) {
+            return DEFAULT_HISTORY_PAGE;
+        }
+        return value.intValue();
+    }
+
+    private int normalizeHistorySize(Integer value) {
+        if (value == null || value.intValue() <= 0) {
+            return DEFAULT_HISTORY_SIZE;
+        }
+        return Math.min(value.intValue(), MAX_HISTORY_SIZE);
+    }
+
+    private void recordDocumentHistory(StudentDocument document, String action, Long actorUserId) {
+        if (document == null || document.getStudent() == null || document.getStudent().getId() == null) {
+            return;
+        }
+
+        Long effectiveActorUserId = actorUserId == null ? document.getUploadedBy() : actorUserId;
+        AuditActor actor = resolveAuditActor(effectiveActorUserId, document.getStudent());
+        StudentDocumentHistory history = new StudentDocumentHistory();
+        history.setStudentId(document.getStudent().getId());
+        history.setDocumentId(document.getId());
+        history.setAction(normalizeHistoryAction(action));
+        history.setDocumentCategory(document.getDocumentCategory());
+        history.setIdentityDocumentType(document.getIdentityDocumentType());
+        history.setAcademicRecordType(document.getAcademicRecordType());
+        history.setReportYear(document.getReportYear());
+        history.setReportMonth(document.getReportMonth());
+        history.setTitle(document.getTitle());
+        history.setNotes(document.getNotes());
+        history.setFileName(document.getOriginalFilename());
+        history.setContentType(document.getMimeType());
+        history.setSizeBytes(document.getSizeBytes());
+        history.setActorUserId(actor.userId);
+        history.setActorRole(actor.role);
+        history.setActorName(actor.name);
+        history.setActionAt(LocalDateTime.now(ZoneOffset.UTC));
+        studentDocumentHistoryRepository.save(history);
+    }
+
+    private String normalizeHistoryAction(String value) {
+        String text = trimToNull(value);
+        if (HISTORY_ACTION_DELETE.equalsIgnoreCase(text)) {
+            return HISTORY_ACTION_DELETE;
+        }
+        return HISTORY_ACTION_UPLOAD;
+    }
+
+    private List<StudentDocumentHistoryListDto.ItemDto> toHistoryItems(List<StudentDocumentHistory> histories) {
+        List<StudentDocumentHistoryListDto.ItemDto> items =
+                new ArrayList<StudentDocumentHistoryListDto.ItemDto>();
+        if (histories == null) {
+            return items;
+        }
+
+        for (StudentDocumentHistory history : histories) {
+            StudentDocumentHistoryListDto.ItemDto item = new StudentDocumentHistoryListDto.ItemDto();
+            item.setId(history.getId());
+            item.setStudentId(history.getStudentId());
+            item.setDocumentId(history.getDocumentId());
+            item.setAction(normalizeHistoryAction(history.getAction()));
+            item.setDocumentCategory(history.getDocumentCategory());
+            item.setIdentityDocumentType(history.getIdentityDocumentType());
+            item.setAcademicRecordType(history.getAcademicRecordType());
+            item.setReportYear(history.getReportYear());
+            item.setReportMonth(history.getReportMonth());
+            item.setTitle(history.getTitle());
+            item.setNotes(history.getNotes());
+            item.setFileName(history.getFileName());
+            item.setContentType(history.getContentType());
+            item.setSizeBytes(history.getSizeBytes());
+            item.setActorUserId(history.getActorUserId());
+            item.setActorRole(trimToNull(history.getActorRole()));
+            item.setActorName(trimToNull(history.getActorName()));
+            item.setActionAt(formatDateTime(
+                    history.getActionAt() == null ? history.getCreatedAt() : history.getActionAt()
+            ));
+            items.add(item);
+        }
+        return items;
+    }
+
+    private AuditActor resolveAuditActor(Long actorUserId, Student targetStudent) {
+        if (actorUserId == null) {
+            return new AuditActor(null, "SYSTEM", "System");
+        }
+        User actor = userRepository.findById(actorUserId).orElse(null);
+        if (actor == null) {
+            AuditActor legacyActor = resolveLegacyOwnerIdAsActor(actorUserId, targetStudent);
+            if (legacyActor != null) {
+                return legacyActor;
+            }
+            return new AuditActor(actorUserId, "SYSTEM", "System");
+        }
+        return toAuditActor(actor, actorUserId, targetStudent);
+    }
+
+    private AuditActor resolveLegacyOwnerIdAsActor(Long actorUserId, Student targetStudent) {
+        if (targetStudent != null
+                && targetStudent.getId() != null
+                && targetStudent.getId().equals(actorUserId)
+                && targetStudent.getUser() != null) {
+            return toAuditActor(targetStudent.getUser(), targetStudent.getUser().getId(), targetStudent);
+        }
+
+        Student student = studentRepository.findById(actorUserId).orElse(null);
+        if (student != null && student.getUser() != null) {
+            return toAuditActor(student.getUser(), student.getUser().getId(), student);
+        }
+
+        Teacher teacher = teacherRepository.findById(actorUserId).orElse(null);
+        if (teacher != null && teacher.getUser() != null) {
+            return toAuditActor(teacher.getUser(), teacher.getUser().getId(), targetStudent);
+        }
+
+        return null;
+    }
+
+    private AuditActor toAuditActor(User actor, Long actorUserId, Student targetStudent) {
+        String role = actor.getRole() == null ? "SYSTEM" : actor.getRole().name();
+        String name = trimToNull(actor.getUsername());
+
+        if (actor.getRole() == UserRole.STUDENT) {
+            Student actorStudent = targetStudent != null && targetStudent.getUser() != null
+                    && actorUserId.equals(targetStudent.getUser().getId())
+                    ? targetStudent
+                    : studentRepository.findByUser_Id(actorUserId).orElse(null);
+            if (actorStudent != null) {
+                String nick = trimToNull(actorStudent.getNickName());
+                if (nick != null) {
+                    name = nick;
+                } else {
+                    String first = trimToNull(actorStudent.getFirstName());
+                    String last = trimToNull(actorStudent.getLastName());
+                    name = trimToNull((first == null ? "" : first) + " " + (last == null ? "" : last));
+                }
+            }
+        } else if (actor.getRole() == UserRole.TEACHER || actor.getRole() == UserRole.ADMIN) {
+            Teacher teacher = teacherRepository.findByUser_Id(actorUserId).orElse(null);
+            if (teacher != null && trimToNull(teacher.getName()) != null) {
+                name = teacher.getName().trim();
+            }
+        }
+
+        if (trimToNull(name) == null) {
+            name = "Unknown";
+        }
+        return new AuditActor(actorUserId, role, name);
+    }
+
     private String normalizeEnum(String value, Set<String> candidates) {
         String text = trimToNull(value);
         if (text == null) {
@@ -607,14 +925,50 @@ public class StudentDocumentService {
         dto.setContentType(document.getMimeType());
         dto.setSizeBytes(document.getSizeBytes());
         dto.setUploadedAt(formatDateTime(document.getUploadedAt()));
+        AuditActor uploader = resolveAuditActor(document.getUploadedBy(), document.getStudent());
+        uploader = resolveUploadHistoryActorIfNeeded(document.getId(), uploader);
+        dto.setUploadedBy(uploader.userId);
+        dto.setUploadedByRole(uploader.role);
+        dto.setUploadedByName(uploader.name);
         return dto;
+    }
+
+    private AuditActor resolveUploadHistoryActorIfNeeded(Long documentId, AuditActor current) {
+        if (!isUnknownAuditActor(current) || documentId == null) {
+            return current;
+        }
+
+        StudentDocumentHistory uploadHistory = studentDocumentHistoryRepository
+                .findFirstByDocumentIdAndActionOrderByActionAtDescIdDesc(documentId, HISTORY_ACTION_UPLOAD)
+                .orElse(null);
+        if (uploadHistory == null || trimToNull(uploadHistory.getActorName()) == null) {
+            return current;
+        }
+
+        String role = trimToNull(uploadHistory.getActorRole());
+        if (role == null) {
+            role = current == null ? "SYSTEM" : current.role;
+        }
+        return new AuditActor(
+                uploadHistory.getActorUserId(),
+                role,
+                trimToNull(uploadHistory.getActorName())
+        );
+    }
+
+    private boolean isUnknownAuditActor(AuditActor actor) {
+        if (actor == null || trimToNull(actor.name) == null) {
+            return true;
+        }
+        String name = actor.name.trim();
+        return "Unknown".equalsIgnoreCase(name) || "System".equalsIgnoreCase(name);
     }
 
     private String formatDateTime(LocalDateTime value) {
         if (value == null) {
             return null;
         }
-        return value.format(DATE_TIME_FORMATTER);
+        return value.atOffset(ZoneOffset.UTC).toInstant().toString();
     }
 
     private String buildLinkedIdentityTitle(StudentIdentityFile identityFile) {
@@ -687,6 +1041,18 @@ public class StudentDocumentService {
 
         public byte[] getContent() {
             return content;
+        }
+    }
+
+    private static class AuditActor {
+        private final Long userId;
+        private final String role;
+        private final String name;
+
+        private AuditActor(Long userId, String role, String name) {
+            this.userId = userId;
+            this.role = role;
+            this.name = name;
         }
     }
 

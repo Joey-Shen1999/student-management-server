@@ -1446,7 +1446,7 @@ class StudentProfileApiTest {
                 .path("changedFields");
         assertHistoryFieldPlainValue(changedFields, "birthday", null, "2008-06-01");
         assertHistoryFieldPlainValue(changedFields, "phone", null, "(647) 111-2222");
-        assertHistoryFieldPlainValue(changedFields, "oenNumber", null, "123456789");
+        assertHistoryFieldPlainValue(changedFields, "oenNumber", null, "123***");
         assertHistoryFieldPlainValue(changedFields, "address.streetAddress", null, "123 Main St");
         assertHistoryPathAbsent(changedFields, "schools[0].schoolRecordId");
         assertHistoryPathAbsent(changedFields, "schools[0].hasTranscript");

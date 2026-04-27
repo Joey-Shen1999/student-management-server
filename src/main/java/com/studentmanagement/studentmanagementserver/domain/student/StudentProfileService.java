@@ -93,6 +93,7 @@ public class StudentProfileService {
     private static final Set<String> SUPPORTED_STUDENT_REGIONS = buildSupportedStudentRegions();
     private static final Map<String, String> STUDENT_REGION_ALIASES = buildStudentRegionAliases();
     private static final Set<String> REPORT_CARD_MONTHS = buildReportCardMonths();
+    private static final Set<String> HISTORY_SENSITIVE_FIELDS = buildHistorySensitiveFields();
 
     private final AuthSessionService authSessionService;
     private final StudentRepository studentRepository;
@@ -2075,8 +2076,8 @@ public class StudentProfileService {
                 normalizedChanges.add(new StudentProfileHistoryListDto.FieldChangeDto(
                         effectivePath,
                         label,
-                        rawChange.getBefore(),
-                        rawChange.getAfter()
+                        maskHistoryValueIfSensitive(effectivePath, rawChange.getBefore()),
+                        maskHistoryValueIfSensitive(effectivePath, rawChange.getAfter())
                 ));
             }
             item.setChangedFields(normalizedChanges);
@@ -2146,6 +2147,34 @@ public class StudentProfileService {
                 || normalizedPath.endsWith(".id")
                 || normalizedPath.endsWith(".storageKey")
                 || normalizedPath.endsWith(".uploadedBy");
+    }
+
+    private Object maskHistoryValueIfSensitive(String path, Object value) {
+        if (!isSensitiveHistoryPath(path)) {
+            return value;
+        }
+        String raw = value == null ? null : String.valueOf(value);
+        String trimmed = trimToNull(raw);
+        if (trimmed == null) {
+            return null;
+        }
+        if (trimmed.length() <= 3) {
+            return "***";
+        }
+        return trimmed.substring(0, 3) + "***";
+    }
+
+    private boolean isSensitiveHistoryPath(String path) {
+        String normalizedPath = trimToNull(path);
+        if (normalizedPath == null) {
+            return false;
+        }
+        String leaf = normalizedPath.replaceAll("\\[\\d+\\]", "");
+        int lastDot = leaf.lastIndexOf('.');
+        if (lastDot >= 0 && lastDot < leaf.length() - 1) {
+            leaf = leaf.substring(lastDot + 1);
+        }
+        return HISTORY_SENSITIVE_FIELDS.contains(leaf.toLowerCase(Locale.ROOT));
     }
 
     private Map<String, Object> buildComparableSnapshot(StudentProfileDto snapshot) {
@@ -2918,6 +2947,16 @@ public class StudentProfileService {
         months.add("November");
         months.add("December");
         return Collections.unmodifiableSet(months);
+    }
+
+    private static Set<String> buildHistorySensitiveFields() {
+        Set<String> fields = new HashSet<String>();
+        fields.add("oennumber");
+        fields.add("pennumber");
+        fields.add("passportnumber");
+        fields.add("identitynumber");
+        fields.add("idnumber");
+        return Collections.unmodifiableSet(fields);
     }
 
     private static Set<String> buildSupportedStudentRegions() {

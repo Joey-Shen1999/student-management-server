@@ -585,14 +585,14 @@ class TeacherStudentProfileApiTest {
                 .path("changedFields");
         assertHistoryFieldPlainValue(changedFields, "birthday", null, "2008-06-01");
         assertHistoryFieldPlainValue(changedFields, "phone", null, "(647) 111-2222");
-        assertHistoryFieldPlainValue(changedFields, "oenNumber", null, "123456789");
+        assertHistoryFieldPlainValue(changedFields, "oenNumber", null, "123***");
         assertHistoryFieldPlainValue(changedFields, "address.streetAddress", null, "123 Main St");
         assertHistoryPathAbsent(changedFields, "schools[0].schoolRecordId");
         assertHistoryPathAbsent(changedFields, "schools[0].hasTranscript");
     }
 
     @Test
-    void teacherProfileHistory_admin_canReadPlainSensitiveFields() throws Exception {
+    void teacherProfileHistory_admin_canReadMaskedSensitiveFields() throws Exception {
         User admin = createAdmin("phase2_admin_history_plain");
         Student student = createStudentAccount("phase2_admin_student_history", "Amy", "Chen", "Amy");
         String bearer = bearerFor(admin);
@@ -621,7 +621,7 @@ class TeacherStudentProfileApiTest {
                 .path("changedFields");
         assertHistoryFieldPlainValue(changedFields, "birthday", null, "2008-06-01");
         assertHistoryFieldPlainValue(changedFields, "phone", null, "(647) 111-2222");
-        assertHistoryFieldPlainValue(changedFields, "oenNumber", null, "123456789");
+        assertHistoryFieldPlainValue(changedFields, "oenNumber", null, "123***");
         assertHistoryFieldPlainValue(changedFields, "address.streetAddress", null, "123 Main St");
         assertHistoryPathAbsent(changedFields, "schools[0].schoolRecordId");
         assertHistoryPathAbsent(changedFields, "schools[0].hasTranscript");
