@@ -456,6 +456,58 @@ class TaskCenterGoalApiTest {
     }
 
     @Test
+    void teacherCanViewGoalGroupStudentStatuses_success() throws Exception {
+        Teacher teacher = createTeacherAccount("task_group_status_teacher", "Task Group Status Teacher");
+        Student studentA = createStudentAccount("task_group_status_student_a", "Status", "A", "StatusA");
+        Student studentB = createStudentAccount("task_group_status_student_b", "Status", "B", "StatusB");
+        assignTeacherStudent(teacher, studentA, TeacherStudentStatus.ACTIVE);
+        assignTeacherStudent(teacher, studentB, TeacherStudentStatus.ACTIVE);
+
+        MvcResult createGroupResult = mockMvc.perform(post("/api/teacher/tasks/goal-groups")
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"Group status title\"," +
+                                "\"description\":\"Group status description\"," +
+                                "\"dueAt\":\"2026-04-30\"," +
+                                "\"studentIds\":[" + studentA.getId() + "," + studentB.getId() + "]}"))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        JsonNode createdGroupJson = objectMapper.readTree(createGroupResult.getResponse().getContentAsString());
+        String taskGroupId = createdGroupJson.path("taskGroupId").asText();
+        long goalAId = 0L;
+        for (JsonNode item : createdGroupJson.path("items")) {
+            if (item.path("assignedStudentId").asLong() == studentA.getId()) {
+                goalAId = item.path("id").asLong();
+                break;
+            }
+        }
+        assertTrue(goalAId > 0L);
+
+        mockMvc.perform(patch("/api/teacher/tasks/{taskId}/status", goalAId)
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"COMPLETED\",\"progressNote\":\"status-done\"}"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/teacher/tasks/goal-groups/{taskGroupId}/students/status", taskGroupId)
+                        .header("Authorization", bearerFor(teacher.getUser())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.taskGroupId").value(taskGroupId))
+                .andExpect(jsonPath("$.title").value("Group status title"))
+                .andExpect(jsonPath("$.totalAssigned").value(2))
+                .andExpect(jsonPath("$.completedCount").value(1))
+                .andExpect(jsonPath("$.pendingCount").value(1))
+                .andExpect(jsonPath("$.students.length()").value(2))
+                .andExpect(jsonPath("$.students[0].studentId").value(studentB.getId()))
+                .andExpect(jsonPath("$.students[0].completed").value(false))
+                .andExpect(jsonPath("$.students[1].studentId").value(studentA.getId()))
+                .andExpect(jsonPath("$.students[1].completed").value(true))
+                .andExpect(jsonPath("$.students[1].completedAt").isNotEmpty())
+                .andExpect(jsonPath("$.students[1].progressNote").value("status-done"));
+    }
+
+    @Test
     void teacherCannotOverwriteOtherTeacherGoalGroup_returns403() throws Exception {
         Teacher teacherA = createTeacherAccount("task_group_owner_teacher", "Task Group Owner");
         Teacher teacherB = createTeacherAccount("task_group_other_teacher", "Task Group Other");

@@ -329,6 +329,106 @@ public class TaskCenterService {
         return toGoalGroupResponse(taskGroupId, savedGoals);
     }
 
+    @Transactional(readOnly = true)
+    public GoalGroupStudentStatusResponseDto getGoalGroupStudentStatuses(String taskGroupIdRaw,
+                                                                         HttpServletRequest request) {
+        String taskGroupId = requireTaskGroupId(taskGroupIdRaw, "taskGroupId");
+
+        User operator = authSessionService.requireAuthenticatedUser(request);
+        if (operator.getRole() != UserRole.TEACHER && operator.getRole() != UserRole.ADMIN) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: teacher/admin role required.");
+        }
+
+        Teacher teacher = null;
+        if (operator.getRole() == UserRole.TEACHER) {
+            teacher = requireTeacherByUser(operator);
+        }
+
+        List<GoalTask> goals = goalTaskRepository.findByTaskGroupIdOrderByIdAsc(taskGroupId);
+        if (goals.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Task group not found.");
+        }
+        if (teacher != null) {
+            for (GoalTask goal : goals) {
+                Teacher assignedByTeacher = goal.getAssignedByTeacher();
+                Long assignedByTeacherId = assignedByTeacher == null ? null : assignedByTeacher.getId();
+                if (!teacher.getId().equals(assignedByTeacherId)) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: task group is not assigned by current teacher.");
+                }
+            }
+        }
+
+        List<GoalTask> sortedGoals = new ArrayList<GoalTask>(goals);
+        Collections.sort(sortedGoals, new Comparator<GoalTask>() {
+            @Override
+            public int compare(GoalTask left, GoalTask right) {
+                int statusCompare = Integer.compare(
+                        goalGroupStatusRank(left.getStatus()),
+                        goalGroupStatusRank(right.getStatus())
+                );
+                if (statusCompare != 0) {
+                    return statusCompare;
+                }
+                int nameCompare = buildStudentDisplayName(left.getAssignedStudent())
+                        .compareToIgnoreCase(buildStudentDisplayName(right.getAssignedStudent()));
+                if (nameCompare != 0) {
+                    return nameCompare;
+                }
+                Long leftId = left.getAssignedStudent() == null ? 0L : left.getAssignedStudent().getId();
+                Long rightId = right.getAssignedStudent() == null ? 0L : right.getAssignedStudent().getId();
+                return leftId.compareTo(rightId);
+            }
+        });
+
+        List<Long> studentIds = new ArrayList<Long>(sortedGoals.size());
+        for (GoalTask goal : sortedGoals) {
+            Student student = goal.getAssignedStudent();
+            if (student != null && student.getId() != null) {
+                studentIds.add(student.getId());
+            }
+        }
+        Map<Long, StudentProfile> profileByStudentId = findProfilesByStudentIds(studentIds);
+
+        long completedCount = 0L;
+        List<GoalGroupStudentStatusDto> students = new ArrayList<GoalGroupStudentStatusDto>(sortedGoals.size());
+        for (GoalTask goal : sortedGoals) {
+            Student student = goal.getAssignedStudent();
+            Long studentId = student == null ? null : student.getId();
+            StudentProfile profile = studentId == null ? null : profileByStudentId.get(studentId);
+            boolean completed = goal.getStatus() == GoalTaskStatus.COMPLETED;
+            if (completed) {
+                completedCount += 1L;
+            }
+
+            students.add(new GoalGroupStudentStatusDto(
+                    goal.getId(),
+                    goal.getTaskGroupId(),
+                    studentId,
+                    student == null ? null : buildStudentDisplayName(student),
+                    student == null || student.getUser() == null ? null : trimToNull(student.getUser().getUsername()),
+                    profile == null ? null : trimToNull(profile.getEmail()),
+                    goal.getStatus(),
+                    completed,
+                    goal.getCompletedAt() == null ? null : goal.getCompletedAt().toString(),
+                    goal.getUpdatedAt() == null ? null : goal.getUpdatedAt().toString(),
+                    goal.getProgressNote() == null ? "" : goal.getProgressNote()
+            ));
+        }
+
+        GoalTask representative = sortedGoals.get(0);
+        long totalAssigned = students.size();
+        return new GoalGroupStudentStatusResponseDto(
+                taskGroupId,
+                representative.getTitle(),
+                representative.getDescription(),
+                representative.getDueAt() == null ? null : representative.getDueAt().toString(),
+                totalAssigned,
+                completedCount,
+                totalAssigned - completedCount,
+                students
+        );
+    }
+
     @Transactional
     public GoalTaskDto updateGoal(Long goalId, UpdateGoalRequestDto requestBody, HttpServletRequest request) {
         Long normalizedGoalId = requirePositiveId(goalId, "goalId");
@@ -817,6 +917,19 @@ public class TaskCenterService {
         int month = graduationDate.getMonthValue();
         String monthText = month < 10 ? "0" + month : String.valueOf(month);
         return graduationDate.getYear() + "-" + monthText;
+    }
+
+    private int goalGroupStatusRank(GoalTaskStatus status) {
+        if (status == GoalTaskStatus.NOT_STARTED) {
+            return 0;
+        }
+        if (status == GoalTaskStatus.IN_PROGRESS) {
+            return 1;
+        }
+        if (status == GoalTaskStatus.COMPLETED) {
+            return 2;
+        }
+        return 3;
     }
 
     private String summarizeGender(StudentProfile profile) {

@@ -118,6 +118,13 @@ public class TaskCenterController {
         return ResponseEntity.ok(goalTaskCenterService.overwriteGoalGroup(taskGroupId, requestBody, request));
     }
 
+    @GetMapping("/api/teacher/tasks/goal-groups/{taskGroupId}/students/status")
+    public ResponseEntity<GoalGroupStudentStatusResponseDto> getGoalGroupStudentStatuses(
+            @PathVariable String taskGroupId,
+            HttpServletRequest request) {
+        return ResponseEntity.ok(goalTaskCenterService.getGoalGroupStudentStatuses(taskGroupId, request));
+    }
+
     @PatchMapping("/api/teacher/tasks/goals/{goalId}")
     public ResponseEntity<GoalTaskDto> updateGoal(
             @PathVariable Long goalId,
