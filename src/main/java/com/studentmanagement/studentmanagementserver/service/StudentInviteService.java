@@ -7,10 +7,13 @@ import com.studentmanagement.studentmanagementserver.domain.teacher.Teacher;
 import com.studentmanagement.studentmanagementserver.domain.user.User;
 import com.studentmanagement.studentmanagementserver.repo.StudentInviteRepository;
 import com.studentmanagement.studentmanagementserver.repo.TeacherRepository;
+import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.persistence.LockTimeoutException;
+import javax.persistence.PessimisticLockException;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.Base64;
@@ -78,8 +81,17 @@ public class StudentInviteService {
             throw StudentInviteException.invalid();
         }
 
-        StudentInvite invite = studentInviteRepository.findByInviteTokenForUpdate(token)
-                .orElseThrow(StudentInviteException::notFound);
+        StudentInvite invite;
+        try {
+            invite = studentInviteRepository.findByInviteTokenForUpdate(token)
+                    .orElseThrow(StudentInviteException::notFound);
+        } catch (PessimisticLockException ex) {
+            throw StudentInviteException.locked();
+        } catch (LockTimeoutException ex) {
+            throw StudentInviteException.locked();
+        } catch (PessimisticLockingFailureException ex) {
+            throw StudentInviteException.locked();
+        }
         expireIfNeeded(invite);
 
         if (invite.getStatus() == StudentInviteStatus.PENDING) {

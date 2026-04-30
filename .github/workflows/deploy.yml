@@ -27,6 +27,11 @@ jobs:
       DB_NAME: ${{ vars.DB_NAME }}
       DB_USER: ${{ vars.DB_USER }}
       DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      SPRING_MAIL_USERNAME: ${{ vars.SPRING_MAIL_USERNAME }}
+      SPRING_MAIL_PASSWORD: ${{ secrets.SPRING_MAIL_PASSWORD }}
+      APP_MAIL_FROM: ${{ vars.APP_MAIL_FROM }}
+      APP_INFO_TASK_EMAIL_REMINDERS_ENABLED: ${{ vars.APP_INFO_TASK_EMAIL_REMINDERS_ENABLED }}
+      APP_TASK_TRACKING_EMAIL_REMINDERS_ENABLED: ${{ vars.APP_TASK_TRACKING_EMAIL_REMINDERS_ENABLED }}
     defaults:
       run:
         shell: bash
@@ -73,7 +78,12 @@ jobs:
             "${DB_PORT:-}" \
             "${DB_NAME:-}" \
             "${DB_USER:-}" \
-            "${DB_PASSWORD:-}" <<'REMOTE_SCRIPT'
+            "${DB_PASSWORD:-}" \
+            "${SPRING_MAIL_USERNAME:-}" \
+            "${SPRING_MAIL_PASSWORD:-}" \
+            "${APP_MAIL_FROM:-}" \
+            "${APP_INFO_TASK_EMAIL_REMINDERS_ENABLED:-}" \
+            "${APP_TASK_TRACKING_EMAIL_REMINDERS_ENABLED:-}" <<'REMOTE_SCRIPT'
           set -euo pipefail
 
           DEPLOY_PATH="$1"
@@ -84,11 +94,31 @@ jobs:
           DB_NAME="${6:-}"
           DB_USER="${7:-}"
           DB_PASSWORD="${8:-}"
+          SPRING_MAIL_USERNAME="${9:-}"
+          SPRING_MAIL_PASSWORD="${10:-}"
+          APP_MAIL_FROM="${11:-}"
+          APP_INFO_TASK_EMAIL_REMINDERS_ENABLED="${12:-}"
+          APP_TASK_TRACKING_EMAIL_REMINDERS_ENABLED="${13:-}"
 
           cd "$DEPLOY_PATH"
           git fetch --all --prune
           git reset --hard origin/main
           git clean -fd
+
+          if [ -n "$SPRING_MAIL_PASSWORD" ]; then
+            mkdir -p config
+            umask 077
+            SPRING_MAIL_PASSWORD_COMPACT="$(printf '%s' "$SPRING_MAIL_PASSWORD" | tr -d '[:space:]')"
+            {
+              printf 'spring.mail.username=%s\n' "${SPRING_MAIL_USERNAME:-noreply@global-vip.ca}"
+              printf 'spring.mail.password=%s\n' "$SPRING_MAIL_PASSWORD_COMPACT"
+              printf 'app.mail.from=%s\n' "${APP_MAIL_FROM:-noreply@global-vip.ca}"
+              printf 'app.info-task.email-reminders.enabled=%s\n' "${APP_INFO_TASK_EMAIL_REMINDERS_ENABLED:-true}"
+              printf 'app.task-tracking.email-reminders.enabled=%s\n' "${APP_TASK_TRACKING_EMAIL_REMINDERS_ENABLED:-true}"
+            } > config/local-secrets.properties
+          else
+            echo "SPRING_MAIL_PASSWORD secret is not configured; keeping any existing server mail secrets file."
+          fi
 
           PRECHECK_FILE="scripts/ops/preflight_release_20260330.sql"
 

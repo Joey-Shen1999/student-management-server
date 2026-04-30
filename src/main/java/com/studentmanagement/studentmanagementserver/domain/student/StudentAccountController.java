@@ -31,8 +31,8 @@ public class StudentAccountController {
 
     @GetMapping
     public ResponseEntity<Map<String, Object>> list(HttpServletRequest request) {
-        managementAccessService.requireStudentAccountManagementAccess(request);
-        List<StudentAccountService.StudentAccountItem> accounts = studentAccountService.listStudentAccounts();
+        User operator = managementAccessService.requireStudentAccountManagementAccess(request);
+        List<StudentAccountService.StudentAccountItem> accounts = studentAccountService.listStudentAccounts(operator);
         Map<String, Object> response = new HashMap<String, Object>();
         response.put("data", accounts);
         return ResponseEntity.ok(response);
@@ -43,9 +43,9 @@ public class StudentAccountController {
             @PathVariable Long studentId,
             @RequestBody(required = false) Map<String, Object> ignoredBody,
             HttpServletRequest request) {
-        managementAccessService.requireStudentAccountManagementAccess(request);
+        User operator = managementAccessService.requireStudentAccountManagementAccess(request);
         StudentAccountService.ResetStudentPasswordResponse response =
-                studentAccountService.resetStudentPassword(studentId);
+                studentAccountService.resetStudentPassword(studentId, operator);
         return ResponseEntity.ok(response);
     }
 

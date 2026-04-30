@@ -8,6 +8,7 @@ Configure in `Repository -> Settings -> Secrets and variables -> Actions`.
 
 ### Secrets
 - `AWS_SSH_KEY`: private key used by GitHub Actions to SSH to the server (`ubuntu` user).
+- `SPRING_MAIL_PASSWORD`: Google Workspace/Gmail app password for SMTP sending.
 
 ### Variables
 - `AWS_HOST`: `3.149.1.120`
@@ -20,6 +21,10 @@ Configure in `Repository -> Settings -> Secrets and variables -> Actions`.
 - `DB_PORT` (optional): `5432`
 - `DB_NAME` (optional): `uni_apply`
 - `DB_USER` (optional): `postgres`
+- `SPRING_MAIL_USERNAME` (optional): defaults to `noreply@global-vip.ca`
+- `APP_MAIL_FROM` (optional): defaults to `noreply@global-vip.ca`
+- `APP_INFO_TASK_EMAIL_REMINDERS_ENABLED` (optional): defaults to `true`
+- `APP_TASK_TRACKING_EMAIL_REMINDERS_ENABLED` (optional): defaults to `true`
 
 ### Optional DB Secret
 - `DB_PASSWORD` (optional): PostgreSQL password used by migration command.
@@ -187,6 +192,7 @@ On each push to `main`, `.github/workflows/deploy.yml` does:
    - `git fetch --all --prune`
    - `git reset --hard origin/main`
    - `git clean -fd`
+   - writes `config/local-secrets.properties` from GitHub Actions mail secrets/variables when `SPRING_MAIL_PASSWORD` is configured
    - run DB preflight (read-only):
      - `scripts/ops/preflight_release_20260330.sql`
      - deploy is blocked if preflight fails

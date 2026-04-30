@@ -4,6 +4,7 @@ import com.studentmanagement.studentmanagementserver.domain.enums.SchoolType;
 import com.studentmanagement.studentmanagementserver.domain.enums.TeacherStudentStatus;
 import com.studentmanagement.studentmanagementserver.domain.enums.UserAccountStatus;
 import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
+import com.studentmanagement.studentmanagementserver.domain.notification.EmailService;
 import com.studentmanagement.studentmanagementserver.domain.student.Student;
 import com.studentmanagement.studentmanagementserver.domain.student.StudentProfile;
 import com.studentmanagement.studentmanagementserver.domain.student.StudentSchoolRecord;
@@ -11,6 +12,8 @@ import com.studentmanagement.studentmanagementserver.domain.teacher.Teacher;
 import com.studentmanagement.studentmanagementserver.domain.teacher.TeacherStudent;
 import com.studentmanagement.studentmanagementserver.domain.user.User;
 import com.studentmanagement.studentmanagementserver.repo.GoalTaskRepository;
+import com.studentmanagement.studentmanagementserver.repo.InfoTaskRecipientRepository;
+import com.studentmanagement.studentmanagementserver.repo.InfoTaskRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentProfileRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentSchoolRecordRepository;
@@ -19,6 +22,9 @@ import com.studentmanagement.studentmanagementserver.repo.TeacherStudentReposito
 import com.studentmanagement.studentmanagementserver.service.ApiRequestException;
 import com.studentmanagement.studentmanagementserver.service.AuthSessionService;
 import com.studentmanagement.studentmanagementserver.service.TeacherBindingRequiredException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -46,6 +52,8 @@ import java.util.regex.Pattern;
 @Service
 public class TaskCenterService {
 
+    private static final Logger log = LoggerFactory.getLogger(TaskCenterService.class);
+
     private static final Pattern ISO_DATE_PATTERN = Pattern.compile("\\d{4}-\\d{2}-\\d{2}");
     private static final int STUDENT_DEFAULT_PAGE = 1;
     private static final int STUDENT_DEFAULT_SIZE = 20;
@@ -57,29 +65,45 @@ public class TaskCenterService {
     private static final int TASK_GROUP_ID_MAX_LENGTH = 64;
     private static final String STUDENT_NOT_ASSIGNABLE_CODE = "STUDENT_NOT_ASSIGNABLE";
     private static final String STUDENT_ARCHIVED_CODE = "STUDENT_ARCHIVED";
+    private static final String TRACKING_ASSIGNMENT_NOTICE_TITLE = "学习进度通知";
+    private static final String TRACKING_ASSIGNMENT_NOTICE_TAGS = "通知,学习记录";
+    private static final String TRACKING_ASSIGNMENT_EMAIL_SUBJECT = "学习进度通知";
 
     private final AuthSessionService authSessionService;
     private final GoalTaskRepository goalTaskRepository;
+    private final InfoTaskRepository infoTaskRepository;
+    private final InfoTaskRecipientRepository infoTaskRecipientRepository;
     private final StudentRepository studentRepository;
     private final TeacherRepository teacherRepository;
     private final TeacherStudentRepository teacherStudentRepository;
     private final StudentProfileRepository studentProfileRepository;
     private final StudentSchoolRecordRepository studentSchoolRecordRepository;
+    private final EmailService emailService;
+    private final boolean taskTrackingEmailRemindersEnabled;
 
     public TaskCenterService(AuthSessionService authSessionService,
                              GoalTaskRepository goalTaskRepository,
+                             InfoTaskRepository infoTaskRepository,
+                             InfoTaskRecipientRepository infoTaskRecipientRepository,
                              StudentRepository studentRepository,
                              TeacherRepository teacherRepository,
                              TeacherStudentRepository teacherStudentRepository,
                              StudentProfileRepository studentProfileRepository,
-                             StudentSchoolRecordRepository studentSchoolRecordRepository) {
+                             StudentSchoolRecordRepository studentSchoolRecordRepository,
+                             EmailService emailService,
+                             @Value("${app.task-tracking.email-reminders.enabled:true}")
+                             boolean taskTrackingEmailRemindersEnabled) {
         this.authSessionService = authSessionService;
         this.goalTaskRepository = goalTaskRepository;
+        this.infoTaskRepository = infoTaskRepository;
+        this.infoTaskRecipientRepository = infoTaskRecipientRepository;
         this.studentRepository = studentRepository;
         this.teacherRepository = teacherRepository;
         this.teacherStudentRepository = teacherStudentRepository;
         this.studentProfileRepository = studentProfileRepository;
         this.studentSchoolRecordRepository = studentSchoolRecordRepository;
+        this.emailService = emailService;
+        this.taskTrackingEmailRemindersEnabled = taskTrackingEmailRemindersEnabled;
     }
 
     @Transactional(readOnly = true)
@@ -202,6 +226,7 @@ public class TaskCenterService {
         String taskGroupId = generateTaskGroupId();
         GoalTask goalTask = new GoalTask(title, description, dueAt, student, teacher, taskGroupId);
         GoalTask saved = goalTaskRepository.save(goalTask);
+        sendTrackingAssignmentReminder(teacher, Collections.singletonList(student), title, taskGroupId);
         return toGoalTaskDto(saved);
     }
 
@@ -242,6 +267,7 @@ public class TaskCenterService {
         }
 
         List<GoalTask> savedGoals = goalTaskRepository.findByTaskGroupIdOrderByIdAsc(taskGroupId);
+        sendTrackingAssignmentReminder(teacher, students, title, taskGroupId);
         return toGoalGroupResponse(taskGroupId, savedGoals);
     }
 
@@ -307,11 +333,13 @@ public class TaskCenterService {
         }
 
         List<GoalTask> toSave = new ArrayList<GoalTask>();
+        List<Student> newlyAddedStudents = new ArrayList<Student>();
         for (Student student : targetStudents) {
             Long studentId = student.getId();
             GoalTask existing = existingByStudentId.remove(studentId);
             if (existing == null) {
                 toSave.add(new GoalTask(title, description, dueAt, student, ownerTeacher, taskGroupId));
+                newlyAddedStudents.add(student);
                 continue;
             }
             existing.updateGoal(title, description, dueAt, student);
@@ -326,6 +354,7 @@ public class TaskCenterService {
         }
 
         List<GoalTask> savedGoals = goalTaskRepository.findByTaskGroupIdOrderByIdAsc(taskGroupId);
+        sendTrackingAssignmentReminder(ownerTeacher, newlyAddedStudents, title, taskGroupId);
         return toGoalGroupResponse(taskGroupId, savedGoals);
     }
 
@@ -427,6 +456,38 @@ public class TaskCenterService {
                 totalAssigned - completedCount,
                 students
         );
+    }
+
+    @Transactional
+    public void deleteGoalGroup(String taskGroupIdRaw, HttpServletRequest request) {
+        String taskGroupId = requireTaskGroupId(taskGroupIdRaw, "taskGroupId");
+
+        User operator = authSessionService.requireAuthenticatedUser(request);
+        if (operator.getRole() != UserRole.TEACHER && operator.getRole() != UserRole.ADMIN) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: teacher/admin role required.");
+        }
+
+        Teacher teacher = null;
+        if (operator.getRole() == UserRole.TEACHER) {
+            teacher = requireTeacherByUser(operator);
+        }
+
+        List<GoalTask> goals = goalTaskRepository.findByTaskGroupIdOrderByIdAsc(taskGroupId);
+        if (goals.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Task group not found.");
+        }
+
+        if (teacher != null) {
+            for (GoalTask goal : goals) {
+                Teacher assignedByTeacher = goal.getAssignedByTeacher();
+                Long assignedByTeacherId = assignedByTeacher == null ? null : assignedByTeacher.getId();
+                if (!teacher.getId().equals(assignedByTeacherId)) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: task group is not assigned by current teacher.");
+                }
+            }
+        }
+
+        goalTaskRepository.deleteByTaskGroupId(taskGroupId);
     }
 
     @Transactional
@@ -681,6 +742,96 @@ public class TaskCenterService {
                 task.getCompletedAt() == null ? null : task.getCompletedAt().toString(),
                 task.getProgressNote() == null ? "" : task.getProgressNote()
         );
+    }
+
+    private void sendTrackingAssignmentReminder(Teacher teacher,
+                                                List<Student> students,
+                                                String trackingTitle,
+                                                String taskGroupId) {
+        if (teacher == null || students == null || students.isEmpty()) {
+            return;
+        }
+
+        String title = trimToNull(trackingTitle);
+        if (title == null) {
+            title = "学习进度记录";
+        }
+
+        String content = buildTrackingAssignmentNoticeContent();
+        InfoTask infoTask = new InfoTask(
+                TRACKING_ASSIGNMENT_NOTICE_TITLE,
+                content,
+                InfoTaskCategory.ACTIVITY,
+                TRACKING_ASSIGNMENT_NOTICE_TAGS,
+                students.size(),
+                teacher,
+                null,
+                trimToNull(taskGroupId)
+        );
+        infoTask = infoTaskRepository.save(infoTask);
+
+        List<InfoTaskRecipient> recipients = new ArrayList<InfoTaskRecipient>(students.size());
+        for (Student student : students) {
+            if (student != null && student.getId() != null) {
+                recipients.add(new InfoTaskRecipient(infoTask, student));
+            }
+        }
+        if (!recipients.isEmpty()) {
+            infoTaskRecipientRepository.saveAll(recipients);
+        }
+
+        if (!taskTrackingEmailRemindersEnabled) {
+            return;
+        }
+
+        List<String> emails = collectTrackingReminderEmails(students);
+        if (emails.isEmpty()) {
+            return;
+        }
+
+        try {
+            emailService.sendTextEmail(
+                    emails,
+                    TRACKING_ASSIGNMENT_EMAIL_SUBJECT,
+                    buildTrackingAssignmentEmailBody(buildTeacherDisplayName(teacher))
+            );
+        } catch (RuntimeException ex) {
+            log.warn("Failed to send tracking assignment reminder email for taskGroupId={}", taskGroupId, ex);
+        }
+    }
+
+    private String buildTrackingAssignmentNoticeContent() {
+        return "老师已更新你的学习状态，请登录学生平台查看通知。";
+    }
+
+    private String buildTrackingAssignmentEmailBody(String teacherName) {
+        return "老师已更新你的学习状态。\n\n"
+                + "老师：" + teacherName + "\n"
+                + "请登录学生管理平台查看通知。";
+    }
+
+    private List<String> collectTrackingReminderEmails(List<Student> students) {
+        if (students == null || students.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<Long> studentIds = new ArrayList<Long>(students.size());
+        for (Student student : students) {
+            if (student != null && student.getId() != null) {
+                studentIds.add(student.getId());
+            }
+        }
+        Map<Long, StudentProfile> profileByStudentId = findProfilesByStudentIds(studentIds);
+        LinkedHashSet<String> emails = new LinkedHashSet<String>();
+        for (Student student : students) {
+            Long studentId = student == null ? null : student.getId();
+            StudentProfile profile = studentId == null ? null : profileByStudentId.get(studentId);
+            String email = profile == null ? null : trimToNull(profile.getEmail());
+            if (email != null && email.contains("@")) {
+                emails.add(email);
+            }
+        }
+        return new ArrayList<String>(emails);
     }
 
     private String buildStudentDisplayName(Student student) {

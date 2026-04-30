@@ -34,4 +34,15 @@ public interface TeacherStudentRepository extends JpaRepository<TeacherStudent, 
             "where ts.teacher.id = :teacherId and ts.status = :status")
     List<Student> findDistinctStudentsByTeacherIdAndStatusWithUser(@Param("teacherId") Long teacherId,
                                                                    @Param("status") TeacherStudentStatus status);
+
+    @Query("select distinct s from TeacherStudent ts " +
+            "join ts.student s " +
+            "join fetch s.user " +
+            "where ts.teacher.user.id = :teacherUserId and ts.status = :status")
+    List<Student> findDistinctStudentsByTeacherUserIdAndStatusWithUser(@Param("teacherUserId") Long teacherUserId,
+                                                                       @Param("status") TeacherStudentStatus status);
+
+    boolean existsByTeacher_User_IdAndStudent_IdAndStatus(Long teacherUserId,
+                                                          Long studentId,
+                                                          TeacherStudentStatus status);
 }

@@ -5,11 +5,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.studentmanagement.studentmanagementserver.domain.enums.TeacherStudentStatus;
 import com.studentmanagement.studentmanagementserver.domain.enums.UserAccountStatus;
 import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
+import com.studentmanagement.studentmanagementserver.domain.notification.EmailService;
 import com.studentmanagement.studentmanagementserver.domain.student.Student;
+import com.studentmanagement.studentmanagementserver.domain.student.StudentProfile;
 import com.studentmanagement.studentmanagementserver.domain.teacher.Teacher;
 import com.studentmanagement.studentmanagementserver.domain.teacher.TeacherStudent;
 import com.studentmanagement.studentmanagementserver.domain.user.User;
 import com.studentmanagement.studentmanagementserver.repo.InfoVolunteerTaskItemRepository;
+import com.studentmanagement.studentmanagementserver.repo.StudentProfileRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentRepository;
 import com.studentmanagement.studentmanagementserver.repo.TeacherRepository;
 import com.studentmanagement.studentmanagementserver.repo.TeacherStudentRepository;
@@ -19,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
@@ -27,6 +31,7 @@ import org.springframework.test.web.servlet.MvcResult;
 
 import java.math.BigDecimal;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,13 +40,16 @@ import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
+@SpringBootTest(properties = "app.info-task.email-reminders.enabled=true")
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class TaskCenterInfoDllApiTest {
@@ -54,6 +62,9 @@ class TaskCenterInfoDllApiTest {
 
     @Autowired
     private StudentRepository studentRepository;
+
+    @Autowired
+    private StudentProfileRepository studentProfileRepository;
 
     @Autowired
     private TeacherRepository teacherRepository;
@@ -72,6 +83,9 @@ class TaskCenterInfoDllApiTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @MockBean
+    private EmailService emailService;
 
     @Test
     void teacherCreateInfoAndList_success() throws Exception {
@@ -114,6 +128,103 @@ class TaskCenterInfoDllApiTest {
                 .andExpect(jsonPath("$.items[*].id", hasItem((int) infoId)))
                 .andExpect(jsonPath("$.items[0].recipientStudentIds", hasItem(studentA.getId().intValue())))
                 .andExpect(jsonPath("$.items[0].recipientStudentIds", hasItem(studentB.getId().intValue())));
+    }
+
+    @Test
+    void teacherCreateInfo_sendsEmailReminderToStudentProfileEmails() throws Exception {
+        Teacher teacher = createTeacherAccount("info_teacher_email_create", "Info Email Teacher");
+        Student studentA = createStudentAccount("info_email_student_a", "Email", "A", "EA");
+        Student studentB = createStudentAccount("info_email_student_b", "Email", "B", "EB");
+        assignTeacherStudent(teacher, studentA, TeacherStudentStatus.ACTIVE);
+        assignTeacherStudent(teacher, studentB, TeacherStudentStatus.ACTIVE);
+        createStudentProfileWithEmail(studentA, "info.student.a@example.com");
+        createStudentProfileWithEmail(studentB, "info.student.b@example.com");
+
+        mockMvc.perform(post("/api/teacher/tasks/infos")
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createInfoPayload(
+                                "College checklist",
+                                "Please review the new checklist before Friday",
+                                "ACTIVITY",
+                                Arrays.asList("Checklist"),
+                                Arrays.asList(studentA.getId(), studentB.getId())
+                        )))
+                .andExpect(status().isOk());
+
+        verify(emailService).sendTextEmail(
+                argThat((Collection<String> recipients) ->
+                        recipients != null
+                                && recipients.contains("info.student.a@example.com")
+                                && recipients.contains("info.student.b@example.com")),
+                argThat((String subject) ->
+                        subject != null && subject.contains("College checklist")),
+                argThat((String body) ->
+                        body != null
+                                && body.contains("College checklist")
+                                && body.contains("Please review the new checklist")
+                                && body.contains("Info Email Teacher"))
+        );
+    }
+
+    @Test
+    void createInfoWithTaskGroupId_sendsEmailOnlyToNewStudentsOnOverwrite() throws Exception {
+        Teacher teacher = createTeacherAccount("info_teacher_email_overwrite", "Info Email Overwrite");
+        Student studentA = createStudentAccount("info_email_overwrite_student_a", "Email", "A", "EOA");
+        Student studentB = createStudentAccount("info_email_overwrite_student_b", "Email", "B", "EOB");
+        Student studentC = createStudentAccount("info_email_overwrite_student_c", "Email", "C", "EOC");
+        assignTeacherStudent(teacher, studentA, TeacherStudentStatus.ACTIVE);
+        assignTeacherStudent(teacher, studentB, TeacherStudentStatus.ACTIVE);
+        assignTeacherStudent(teacher, studentC, TeacherStudentStatus.ACTIVE);
+        createStudentProfileWithEmail(studentA, "info.overwrite.a@example.com");
+        createStudentProfileWithEmail(studentB, "info.overwrite.b@example.com");
+        createStudentProfileWithEmail(studentC, "info.overwrite.c@example.com");
+
+        String taskGroupId = "tg-email-overwrite";
+        mockMvc.perform(post("/api/teacher/tasks/infos")
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createInfoPayload(
+                                "Task group email v1",
+                                "first content",
+                                "ACTIVITY",
+                                Arrays.asList("Task", "Email"),
+                                Arrays.asList(studentA.getId(), studentB.getId()),
+                                taskGroupId,
+                                null
+                        )))
+                .andExpect(status().isOk());
+
+        clearInvocations(emailService);
+
+        mockMvc.perform(post("/api/teacher/tasks/infos")
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createInfoPayload(
+                                "Task group email v2",
+                                "second content",
+                                "ACTIVITY",
+                                Arrays.asList("Task", "Email", "Updated"),
+                                Arrays.asList(studentB.getId(), studentC.getId()),
+                                taskGroupId,
+                                null
+                        )))
+                .andExpect(status().isOk());
+
+        verify(emailService).sendTextEmail(
+                argThat((Collection<String> recipients) ->
+                        recipients != null
+                                && recipients.size() == 1
+                                && recipients.contains("info.overwrite.c@example.com")
+                                && !recipients.contains("info.overwrite.a@example.com")
+                                && !recipients.contains("info.overwrite.b@example.com")),
+                argThat((String subject) ->
+                        subject != null && subject.contains("Task group email v2")),
+                argThat((String body) ->
+                        body != null
+                                && body.contains("Task group email v2")
+                                && body.contains("second content"))
+        );
     }
 
     @Test
@@ -253,7 +364,12 @@ class TaskCenterInfoDllApiTest {
                         .param("page", "1")
                         .param("size", "20"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.items[*].id", hasItem((int) firstInfoId)));
+                .andExpect(jsonPath("$.items[*].id", hasItem((int) firstInfoId)))
+                .andExpect(jsonPath("$.items[0].goalId").isEmpty())
+                .andExpect(jsonPath("$.items[0].taskGroupId").isEmpty())
+                .andExpect(jsonPath("$.items[0].recipientStudentIds.length()").value(0))
+                .andExpect(jsonPath("$.items[0].targetStudentCount").value(0))
+                .andExpect(jsonPath("$.items[0].volunteer").isEmpty());
 
         mockMvc.perform(get("/api/student/tasks")
                         .header("Authorization", bearerFor(studentC.getUser()))
@@ -317,8 +433,7 @@ class TaskCenterInfoDllApiTest {
                         .param("size", "20"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items[0].id").value(infoId))
-                .andExpect(jsonPath("$.items[0].volunteer.totalHours").value(4.0))
-                .andExpect(jsonPath("$.items[0].volunteer.tasks.length()").value(2));
+                .andExpect(jsonPath("$.items[0].volunteer").isEmpty());
     }
 
     @Test
@@ -578,7 +693,12 @@ class TaskCenterInfoDllApiTest {
                         .param("page", "1")
                         .param("size", "20"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.items[*].id", hasItem((int) firstInfoId)));
+                .andExpect(jsonPath("$.items[*].id", hasItem((int) firstInfoId)))
+                .andExpect(jsonPath("$.items[0].goalId").isEmpty())
+                .andExpect(jsonPath("$.items[0].taskGroupId").isEmpty())
+                .andExpect(jsonPath("$.items[0].recipientStudentIds.length()").value(0))
+                .andExpect(jsonPath("$.items[0].targetStudentCount").value(0))
+                .andExpect(jsonPath("$.items[0].volunteer").isEmpty());
 
         mockMvc.perform(get("/api/student/tasks")
                         .header("Authorization", bearerFor(studentC.getUser()))
@@ -1017,6 +1137,12 @@ class TaskCenterInfoDllApiTest {
         Student student = studentRepository.save(new Student(user, firstName, lastName, nickName));
         assertTrue(student.getId() > 0);
         return student;
+    }
+
+    private void createStudentProfileWithEmail(Student student, String email) {
+        StudentProfile profile = new StudentProfile(student);
+        profile.setEmail(email);
+        studentProfileRepository.save(profile);
     }
 
     private void assignTeacherStudent(Teacher teacher, Student student, TeacherStudentStatus status) {

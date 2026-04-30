@@ -3,17 +3,22 @@ package com.studentmanagement.studentmanagementserver.api;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.studentmanagement.studentmanagementserver.domain.enums.SchoolType;
+import com.studentmanagement.studentmanagementserver.domain.enums.TeacherStudentStatus;
 import com.studentmanagement.studentmanagementserver.domain.enums.UserAccountStatus;
 import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
 import com.studentmanagement.studentmanagementserver.domain.student.Student;
 import com.studentmanagement.studentmanagementserver.domain.student.StudentProfile;
 import com.studentmanagement.studentmanagementserver.domain.student.StudentSchoolRecord;
+import com.studentmanagement.studentmanagementserver.domain.teacher.Teacher;
+import com.studentmanagement.studentmanagementserver.domain.teacher.TeacherStudent;
 import com.studentmanagement.studentmanagementserver.domain.user.User;
 import com.studentmanagement.studentmanagementserver.domain.volunteer.StudentVolunteerTracking;
 import com.studentmanagement.studentmanagementserver.repo.StudentProfileRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentSchoolRecordRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentVolunteerTrackingRepository;
+import com.studentmanagement.studentmanagementserver.repo.TeacherRepository;
+import com.studentmanagement.studentmanagementserver.repo.TeacherStudentRepository;
 import com.studentmanagement.studentmanagementserver.repo.UserRepository;
 import com.studentmanagement.studentmanagementserver.service.AuthSessionService;
 import com.studentmanagement.studentmanagementserver.service.PasswordPolicyValidator;
@@ -34,6 +39,7 @@ import java.util.Arrays;
 import static org.hamcrest.Matchers.hasItem;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -65,6 +71,12 @@ class StudentAccountsApiTest {
     private StudentVolunteerTrackingRepository studentVolunteerTrackingRepository;
 
     @Autowired
+    private TeacherRepository teacherRepository;
+
+    @Autowired
+    private TeacherStudentRepository teacherStudentRepository;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     @Autowired
@@ -79,14 +91,21 @@ class StudentAccountsApiTest {
     @Test
     void listStudentAccounts_teacherCanAccessAndSeeStatus() throws Exception {
         User teacherOperator = createTeacherUser("student_list_teacher");
-        createStudentAccount("student_list_target", "List", "Target", "LT", UserAccountStatus.ACTIVE);
+        Student assigned = createStudentAccount("student_list_target", "List", "Target", "LT", UserAccountStatus.ACTIVE);
+        createStudentAccount("student_list_unassigned", "List", "Unassigned", "LU", UserAccountStatus.ACTIVE);
+        assignTeacherStudent(teacherOperator, assigned);
 
-        mockMvc.perform(get("/api/teacher/student-accounts")
+        MvcResult result = mockMvc.perform(get("/api/teacher/student-accounts")
                         .header("Authorization", bearerFor(teacherOperator)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data").isArray())
-                .andExpect(jsonPath("$.data[*].username", hasItem("student_list_target")))
-                .andExpect(jsonPath("$.data[*].status", hasItem("ACTIVE")));
+                .andReturn();
+
+        JsonNode data = objectMapper.readTree(result.getResponse().getContentAsString()).path("data");
+        JsonNode assignedRow = findByUsername(data, "student_list_target");
+        assertNotNull(assignedRow);
+        assertEquals("ACTIVE", assignedRow.path("status").asText());
+        assertNull(findByUsername(data, "student_list_unassigned"));
     }
 
     @Test
@@ -104,6 +123,7 @@ class StudentAccountsApiTest {
     void listStudentAccounts_returnsUnifiedLocationFieldsAndVolunteerSummary() throws Exception {
         User teacherOperator = createTeacherUser("student_list_unified_teacher");
         Student student = createStudentAccount("student_list_unified_target", "Unified", "Target", "UT", UserAccountStatus.ACTIVE);
+        assignTeacherStudent(teacherOperator, student);
 
         StudentProfile profile = new StudentProfile(student);
         profile.setEmail("unified.target@example.com");
@@ -171,6 +191,9 @@ class StudentAccountsApiTest {
         Student s399 = createStudentAccount("student_list_threshold_399", "T", "399", "T399", UserAccountStatus.ACTIVE);
         Student s400 = createStudentAccount("student_list_threshold_400", "T", "400", "T400", UserAccountStatus.ACTIVE);
         Student s401 = createStudentAccount("student_list_threshold_401", "T", "401", "T401", UserAccountStatus.ACTIVE);
+        assignTeacherStudent(teacherOperator, s399);
+        assignTeacherStudent(teacherOperator, s400);
+        assignTeacherStudent(teacherOperator, s401);
 
         studentVolunteerTrackingRepository.save(new StudentVolunteerTracking(
                 s399,
@@ -235,6 +258,7 @@ class StudentAccountsApiTest {
     void resetStudentPassword_successByTeacher() throws Exception {
         User teacherOperator = createTeacherUser("student_reset_teacher");
         Student student = createStudentAccount("student_reset_target", "Reset", "Student", "RS", UserAccountStatus.ACTIVE);
+        assignTeacherStudent(teacherOperator, student);
         User targetUser = student.getUser();
         targetUser.setMustChangePassword(false);
         userRepository.save(targetUser);
@@ -283,9 +307,24 @@ class StudentAccountsApiTest {
     }
 
     @Test
+    void resetStudentPassword_unassignedTeacherForbidden() throws Exception {
+        User teacherOperator = createTeacherUser("student_reset_unassigned_teacher");
+        Student student = createStudentAccount("student_reset_unassigned_target", "Reset", "Unassigned", "RU", UserAccountStatus.ACTIVE);
+
+        mockMvc.perform(post("/api/teacher/student-accounts/{studentId}/reset-password", student.getId())
+                        .header("Authorization", bearerFor(teacherOperator))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("Forbidden: student not assigned to current teacher."))
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+    }
+
+    @Test
     void patchStatus_successByTeacher() throws Exception {
         User teacherOperator = createTeacherUser("student_status_teacher");
         Student student = createStudentAccount("student_status_target", "Status", "Student", "SS", UserAccountStatus.ACTIVE);
+        assignTeacherStudent(teacherOperator, student);
 
         mockMvc.perform(patch("/api/teacher/student-accounts/{studentId}/status", student.getId())
                         .header("Authorization", bearerFor(teacherOperator))
@@ -321,6 +360,20 @@ class StudentAccountsApiTest {
     }
 
     @Test
+    void patchStatus_unassignedTeacherForbidden() throws Exception {
+        User teacherOperator = createTeacherUser("student_status_unassigned_teacher");
+        Student student = createStudentAccount("student_status_unassigned_target", "Status", "Unassigned", "SU", UserAccountStatus.ACTIVE);
+
+        mockMvc.perform(patch("/api/teacher/student-accounts/{studentId}/status", student.getId())
+                        .header("Authorization", bearerFor(teacherOperator))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"ARCHIVED\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("Forbidden: student not assigned to current teacher."))
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+    }
+
+    @Test
     void patchStatus_studentForbidden() throws Exception {
         User studentOperator = createStudentUserOnly("student_status_forbidden");
         Student target = createStudentAccount("student_status_forbidden_target", "Forbidden", "Status", "FS", UserAccountStatus.ACTIVE);
@@ -350,6 +403,7 @@ class StudentAccountsApiTest {
     void archiveAndEnable_studentLoginFlow_matchesAcceptance() throws Exception {
         User teacherOperator = createTeacherUser("student_flow_teacher");
         Student student = createStudentAccount("student_flow_target", "Flow", "Student", "FlowNick", UserAccountStatus.ACTIVE);
+        assignTeacherStudent(teacherOperator, student);
 
         mockMvc.perform(patch("/api/teacher/student-accounts/{studentId}/status", student.getId())
                         .header("Authorization", bearerFor(teacherOperator))
@@ -387,7 +441,20 @@ class StudentAccountsApiTest {
     }
 
     private User createTeacherUser(String username) {
-        return userRepository.save(new User(username, passwordEncoder.encode("Teacher!234"), UserRole.TEACHER));
+        User user = userRepository.save(new User(username, passwordEncoder.encode("Teacher!234"), UserRole.TEACHER));
+        teacherRepository.save(new Teacher(user, username + " Teacher"));
+        return user;
+    }
+
+    private void assignTeacherStudent(User teacherUser, Student student) {
+        Teacher teacher = teacherRepository.findByUser_Id(teacherUser.getId())
+                .orElseThrow(() -> new RuntimeException("Teacher record not found"));
+        teacherStudentRepository.save(new TeacherStudent(
+                teacher,
+                student,
+                TeacherStudentStatus.ACTIVE,
+                "student-accounts-api-test-assignment"
+        ));
     }
 
     private User createStudentUserOnly(String username) {

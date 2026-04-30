@@ -32,3 +32,8 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Local secrets ###
+config/local-secrets.properties
+config/*.secret.properties
+config/*.secrets.properties

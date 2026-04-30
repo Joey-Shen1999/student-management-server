@@ -44,4 +44,12 @@ public class StudentInviteException extends RuntimeException {
                 "Invite token can only be used for STUDENT registration."
         );
     }
+
+    public static StudentInviteException locked() {
+        return new StudentInviteException(
+                HttpStatus.CONFLICT,
+                "INVITE_LOCKED",
+                "Invite registration is already being processed. Please try again shortly."
+        );
+    }
 }

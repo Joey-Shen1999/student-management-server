@@ -1,21 +1,27 @@
 package com.studentmanagement.studentmanagementserver.domain.task;
 
-import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
 import com.studentmanagement.studentmanagementserver.domain.enums.TeacherStudentStatus;
 import com.studentmanagement.studentmanagementserver.domain.enums.UserAccountStatus;
+import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
+import com.studentmanagement.studentmanagementserver.domain.notification.EmailService;
 import com.studentmanagement.studentmanagementserver.domain.student.Student;
+import com.studentmanagement.studentmanagementserver.domain.student.StudentProfile;
 import com.studentmanagement.studentmanagementserver.domain.teacher.Teacher;
 import com.studentmanagement.studentmanagementserver.domain.teacher.TeacherStudent;
 import com.studentmanagement.studentmanagementserver.domain.user.User;
 import com.studentmanagement.studentmanagementserver.repo.InfoTaskRecipientRepository;
 import com.studentmanagement.studentmanagementserver.repo.InfoTaskRepository;
 import com.studentmanagement.studentmanagementserver.repo.InfoVolunteerTaskItemRepository;
+import com.studentmanagement.studentmanagementserver.repo.StudentProfileRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentRepository;
 import com.studentmanagement.studentmanagementserver.repo.TeacherRepository;
 import com.studentmanagement.studentmanagementserver.repo.TeacherStudentRepository;
 import com.studentmanagement.studentmanagementserver.service.ApiRequestException;
 import com.studentmanagement.studentmanagementserver.service.AuthSessionService;
 import com.studentmanagement.studentmanagementserver.service.TeacherBindingRequiredException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
@@ -40,6 +46,8 @@ import java.util.Set;
 @Service
 public class InfoTaskCenterService {
 
+    private static final Logger log = LoggerFactory.getLogger(InfoTaskCenterService.class);
+
     private static final int STUDENT_DEFAULT_PAGE = 1;
     private static final int STUDENT_DEFAULT_SIZE = 20;
     private static final int TEACHER_DEFAULT_PAGE = 1;
@@ -51,6 +59,9 @@ public class InfoTaskCenterService {
     private static final int VOLUNTEER_TASK_NAME_MAX_LENGTH = 200;
     private static final int VOLUNTEER_TASK_DESCRIPTION_MAX_LENGTH = 2000;
     private static final int VOLUNTEER_VERIFIER_CONTACT_MAX_LENGTH = 255;
+    private static final int EMAIL_CONTENT_PREVIEW_MAX_LENGTH = 800;
+    private static final int EMAIL_SUBJECT_MAX_LENGTH = 200;
+    private static final String INFO_TASK_EMAIL_SUBJECT_PREFIX = "Task reminder: ";
     private static final String STUDENT_NOT_ASSIGNABLE_CODE = "STUDENT_NOT_ASSIGNABLE";
     private static final String STUDENT_ARCHIVED_CODE = "STUDENT_ARCHIVED";
 
@@ -59,23 +70,33 @@ public class InfoTaskCenterService {
     private final InfoTaskRecipientRepository infoTaskRecipientRepository;
     private final InfoVolunteerTaskItemRepository infoVolunteerTaskItemRepository;
     private final StudentRepository studentRepository;
+    private final StudentProfileRepository studentProfileRepository;
     private final TeacherRepository teacherRepository;
     private final TeacherStudentRepository teacherStudentRepository;
+    private final EmailService emailService;
+    private final boolean infoTaskEmailRemindersEnabled;
 
     public InfoTaskCenterService(AuthSessionService authSessionService,
                                  InfoTaskRepository infoTaskRepository,
                                  InfoTaskRecipientRepository infoTaskRecipientRepository,
                                  InfoVolunteerTaskItemRepository infoVolunteerTaskItemRepository,
                                  StudentRepository studentRepository,
+                                 StudentProfileRepository studentProfileRepository,
                                  TeacherRepository teacherRepository,
-                                 TeacherStudentRepository teacherStudentRepository) {
+                                 TeacherStudentRepository teacherStudentRepository,
+                                 EmailService emailService,
+                                 @Value("${app.info-task.email-reminders.enabled:true}")
+                                 boolean infoTaskEmailRemindersEnabled) {
         this.authSessionService = authSessionService;
         this.infoTaskRepository = infoTaskRepository;
         this.infoTaskRecipientRepository = infoTaskRecipientRepository;
         this.infoVolunteerTaskItemRepository = infoVolunteerTaskItemRepository;
         this.studentRepository = studentRepository;
+        this.studentProfileRepository = studentProfileRepository;
         this.teacherRepository = teacherRepository;
         this.teacherStudentRepository = teacherStudentRepository;
+        this.emailService = emailService;
+        this.infoTaskEmailRemindersEnabled = infoTaskEmailRemindersEnabled;
     }
 
     @Transactional(readOnly = true)
@@ -110,21 +131,12 @@ public class InfoTaskCenterService {
         );
 
         List<InfoTaskRecipient> studentRecipients = infoPage.getContent();
-        List<Long> infoTaskIds = collectInfoTaskIdsFromRecipients(studentRecipients);
-        Map<Long, List<Long>> recipientStudentIdsByInfoTaskId =
-                loadRecipientStudentIdsByInfoTaskIds(infoTaskIds);
-        Map<Long, InfoTaskVolunteerDto> volunteerByInfoTaskId =
-                loadVolunteerByInfoTaskIds(infoTaskIds);
-
         List<InfoTaskDto> items = new ArrayList<InfoTaskDto>(studentRecipients.size());
         for (InfoTaskRecipient recipient : studentRecipients) {
-            InfoTask infoTask = recipient.getInfoTask();
-            items.add(toInfoTaskDto(
-                    infoTask,
+            items.add(toStudentInfoTaskDto(
+                    recipient.getInfoTask(),
                     recipient.isRead(),
-                    recipient.getReadAt(),
-                    recipientStudentIdsByInfoTaskId.get(infoTask.getId()),
-                    volunteerByInfoTaskId.get(infoTask.getId())
+                    recipient.getReadAt()
             ));
         }
         return new InfoListResponseDto(items, infoPage.getTotalElements(), page, size);
@@ -221,8 +233,9 @@ public class InfoTaskCenterService {
         if (infoTask != null) {
             infoTask.overwrite(title, content, category, tagsText, targetCount, goalId, taskGroupId);
             infoTask = infoTaskRepository.save(infoTask);
-            overwriteRecipients(infoTask, targetStudents);
+            List<Student> newlyAddedStudents = overwriteRecipients(infoTask, targetStudents);
             overwriteVolunteerItems(infoTask, volunteerPayload);
+            sendInfoTaskEmailReminder(infoTask, newlyAddedStudents);
             return toInfoTaskDto(
                     infoTask,
                     false,
@@ -245,6 +258,7 @@ public class InfoTaskCenterService {
         infoTask = infoTaskRepository.save(infoTask);
         saveRecipients(infoTask, targetStudents);
         overwriteVolunteerItems(infoTask, volunteerPayload);
+        sendInfoTaskEmailReminder(infoTask, targetStudents);
         return toInfoTaskDto(
                 infoTask,
                 false,
@@ -269,12 +283,10 @@ public class InfoTaskCenterService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Info task not found."));
         recipient.markRead();
         InfoTaskRecipient saved = infoTaskRecipientRepository.save(recipient);
-        return toInfoTaskDto(
+        return toStudentInfoTaskDto(
                 saved.getInfoTask(),
                 saved.isRead(),
-                saved.getReadAt(),
-                findRecipientStudentIdsByInfoTaskId(saved.getInfoTask().getId()),
-                findVolunteerByInfoTaskId(saved.getInfoTask().getId())
+                saved.getReadAt()
         );
     }
 
@@ -421,7 +433,7 @@ public class InfoTaskCenterService {
         infoTaskRecipientRepository.saveAll(recipients);
     }
 
-    private void overwriteRecipients(InfoTask infoTask, List<Student> targetStudents) {
+    private List<Student> overwriteRecipients(InfoTask infoTask, List<Student> targetStudents) {
         List<InfoTaskRecipient> existingRecipients = infoTaskRecipientRepository.findByInfoTask_Id(infoTask.getId());
         Map<Long, InfoTaskRecipient> existingByStudentId = new HashMap<Long, InfoTaskRecipient>(existingRecipients.size());
         for (InfoTaskRecipient recipient : existingRecipients) {
@@ -433,6 +445,7 @@ public class InfoTaskCenterService {
 
         Set<Long> targetStudentIds = new LinkedHashSet<Long>();
         List<InfoTaskRecipient> recipientsToCreate = new ArrayList<InfoTaskRecipient>();
+        List<Student> newlyAddedStudents = new ArrayList<Student>();
         for (Student student : targetStudents) {
             if (student == null || student.getId() == null) {
                 continue;
@@ -442,6 +455,7 @@ public class InfoTaskCenterService {
             InfoTaskRecipient existing = existingByStudentId.remove(studentId);
             if (existing == null) {
                 recipientsToCreate.add(new InfoTaskRecipient(infoTask, student));
+                newlyAddedStudents.add(student);
             } else {
                 existing.markUnread();
             }
@@ -460,6 +474,126 @@ public class InfoTaskCenterService {
         if (!recipientsToCreate.isEmpty()) {
             infoTaskRecipientRepository.saveAll(recipientsToCreate);
         }
+        return newlyAddedStudents;
+    }
+
+    private void sendInfoTaskEmailReminder(InfoTask infoTask, List<Student> recipients) {
+        if (!infoTaskEmailRemindersEnabled || recipients == null || recipients.isEmpty()) {
+            return;
+        }
+
+        List<String> emails = collectInfoTaskReminderEmails(recipients);
+        if (emails.isEmpty()) {
+            return;
+        }
+
+        try {
+            emailService.sendTextEmail(
+                    emails,
+                    buildInfoTaskEmailSubject(infoTask),
+                    buildInfoTaskEmailBody(infoTask)
+            );
+        } catch (RuntimeException ex) {
+            Long infoTaskId = infoTask == null ? null : infoTask.getId();
+            log.warn("Failed to send info task reminder email for infoTaskId={}", infoTaskId, ex);
+        }
+    }
+
+    private List<String> collectInfoTaskReminderEmails(List<Student> students) {
+        if (students == null || students.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<Long> studentIds = new ArrayList<Long>(students.size());
+        for (Student student : students) {
+            if (student != null && student.getId() != null) {
+                studentIds.add(student.getId());
+            }
+        }
+        if (studentIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        Map<Long, StudentProfile> profileByStudentId = findProfilesByStudentIds(studentIds);
+        LinkedHashSet<String> emails = new LinkedHashSet<String>();
+        for (Student student : students) {
+            if (student == null || student.getId() == null) {
+                continue;
+            }
+            StudentProfile profile = profileByStudentId.get(student.getId());
+            String email = profile == null ? null : trimToNull(profile.getEmail());
+            if (email == null && student.getUser() != null) {
+                email = trimToNull(student.getUser().getUsername());
+            }
+            if (email != null && email.contains("@")) {
+                emails.add(email);
+            }
+        }
+        return new ArrayList<String>(emails);
+    }
+
+    private Map<Long, StudentProfile> findProfilesByStudentIds(List<Long> studentIds) {
+        if (studentIds == null || studentIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        List<StudentProfile> profiles = studentProfileRepository.findByStudentIdsWithStudent(studentIds);
+        Map<Long, StudentProfile> profileByStudentId = new HashMap<Long, StudentProfile>();
+        for (StudentProfile profile : profiles) {
+            if (profile != null && profile.getStudent() != null && profile.getStudent().getId() != null) {
+                profileByStudentId.put(profile.getStudent().getId(), profile);
+            }
+        }
+        return profileByStudentId;
+    }
+
+    private String buildInfoTaskEmailSubject(InfoTask infoTask) {
+        String title = infoTask == null ? null : trimToNull(infoTask.getTitle());
+        String subject = title == null ? "Task reminder" : INFO_TASK_EMAIL_SUBJECT_PREFIX + title;
+        return abbreviateForEmail(subject, EMAIL_SUBJECT_MAX_LENGTH);
+    }
+
+    private String buildInfoTaskEmailBody(InfoTask infoTask) {
+        String title = infoTask == null ? null : trimToNull(infoTask.getTitle());
+        String content = infoTask == null ? null : trimToNull(infoTask.getContent());
+        String category = infoTask == null || infoTask.getCategory() == null
+                ? null
+                : infoTask.getCategory().name();
+        String tags = infoTask == null ? null : trimToNull(infoTask.getTagsText());
+        String publisherName = infoTask == null || infoTask.getPublishedByTeacher() == null
+                ? null
+                : buildTeacherDisplayName(infoTask.getPublishedByTeacher());
+
+        StringBuilder body = new StringBuilder();
+        body.append("Hello,\n\n");
+        body.append("A task has been assigned to you in the Student Management Platform.\n\n");
+        if (title != null) {
+            body.append("Title: ").append(title).append("\n");
+        }
+        if (category != null) {
+            body.append("Category: ").append(category).append("\n");
+        }
+        if (tags != null) {
+            body.append("Tags: ").append(tags).append("\n");
+        }
+        if (publisherName != null) {
+            body.append("Published by: ").append(publisherName).append("\n");
+        }
+        if (content != null) {
+            body.append("\nContent:\n");
+            body.append(abbreviateForEmail(content, EMAIL_CONTENT_PREVIEW_MAX_LENGTH)).append("\n");
+        }
+        body.append("\nPlease sign in to the student portal to view the full task details.");
+        return body.toString();
+    }
+
+    private String abbreviateForEmail(String value, int maxLength) {
+        if (value == null || value.length() <= maxLength) {
+            return value;
+        }
+        if (maxLength <= 3) {
+            return value.substring(0, maxLength);
+        }
+        return value.substring(0, maxLength - 3) + "...";
     }
 
     private Map<Long, List<Long>> loadRecipientStudentIdsByInfoTaskIds(List<Long> infoTaskIds) {
@@ -693,6 +827,31 @@ public class InfoTaskCenterService {
                 volunteer,
                 recipientStudentIds == null ? Collections.<Long>emptyList() : recipientStudentIds,
                 infoTask.getTargetStudentCount(),
+                publisher.getId(),
+                buildTeacherDisplayName(publisher),
+                infoTask.getCreatedAt() == null ? null : infoTask.getCreatedAt().toString(),
+                infoTask.getUpdatedAt() == null ? null : infoTask.getUpdatedAt().toString(),
+                read,
+                readAt == null ? null : readAt.toString()
+        );
+    }
+
+    private InfoTaskDto toStudentInfoTaskDto(InfoTask infoTask,
+                                             boolean read,
+                                             LocalDateTime readAt) {
+        Teacher publisher = infoTask.getPublishedByTeacher();
+        return new InfoTaskDto(
+                infoTask.getId(),
+                "INFO",
+                infoTask.getTitle(),
+                infoTask.getContent(),
+                infoTask.getCategory(),
+                Collections.<String>emptyList(),
+                null,
+                null,
+                null,
+                Collections.<Long>emptyList(),
+                0,
                 publisher.getId(),
                 buildTeacherDisplayName(publisher),
                 infoTask.getCreatedAt() == null ? null : infoTask.getCreatedAt().toString(),

@@ -4,6 +4,7 @@ import com.studentmanagement.studentmanagementserver.service.ApiRequestException
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -43,15 +44,12 @@ public class TaskCenterController {
             @RequestParam(value = "page", required = false) String page,
             @RequestParam(value = "size", required = false) String size,
             HttpServletRequest request) {
-        if ("GOAL".equalsIgnoreCase(type)) {
-            return ResponseEntity.ok(goalTaskCenterService.listMyGoals(type, status, keyword, page, size, request));
-        }
         if ("INFO".equalsIgnoreCase(type)) {
             return ResponseEntity.ok(
                     infoTaskCenterService.listMyInfos(category, tag, keyword, unreadOnly, page, size, request)
             );
         }
-        throw badRequest("type must be GOAL or INFO");
+        throw badRequest("type must be INFO");
     }
 
     @PatchMapping("/api/student/tasks/{taskId}/status")
@@ -59,7 +57,7 @@ public class TaskCenterController {
             @PathVariable Long taskId,
             @RequestBody(required = false) UpdateGoalStatusRequestDto requestBody,
             HttpServletRequest request) {
-        return ResponseEntity.ok(goalTaskCenterService.updateMyGoalStatus(taskId, requestBody, request));
+        throw new ApiRequestException(HttpStatus.FORBIDDEN, "FORBIDDEN", "Student task access is disabled.");
     }
 
     @PatchMapping("/api/student/tasks/{infoId}/read")
@@ -123,6 +121,14 @@ public class TaskCenterController {
             @PathVariable String taskGroupId,
             HttpServletRequest request) {
         return ResponseEntity.ok(goalTaskCenterService.getGoalGroupStudentStatuses(taskGroupId, request));
+    }
+
+    @DeleteMapping("/api/teacher/tasks/goal-groups/{taskGroupId}")
+    public ResponseEntity<Void> deleteGoalGroup(
+            @PathVariable String taskGroupId,
+            HttpServletRequest request) {
+        goalTaskCenterService.deleteGoalGroup(taskGroupId, request);
+        return ResponseEntity.noContent().build();
     }
 
     @PatchMapping("/api/teacher/tasks/goals/{goalId}")

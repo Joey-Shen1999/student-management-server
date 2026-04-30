@@ -1,6 +1,7 @@
 package com.studentmanagement.studentmanagementserver.domain.student;
 
 import com.studentmanagement.studentmanagementserver.domain.enums.SchoolType;
+import com.studentmanagement.studentmanagementserver.domain.enums.TeacherStudentStatus;
 import com.studentmanagement.studentmanagementserver.domain.enums.UserAccountStatus;
 import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
 import com.studentmanagement.studentmanagementserver.domain.user.User;
@@ -9,6 +10,7 @@ import com.studentmanagement.studentmanagementserver.repo.StudentProfileReposito
 import com.studentmanagement.studentmanagementserver.repo.StudentRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentSchoolRecordRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentVolunteerTrackingRepository;
+import com.studentmanagement.studentmanagementserver.repo.TeacherStudentRepository;
 import com.studentmanagement.studentmanagementserver.repo.UserRepository;
 import com.studentmanagement.studentmanagementserver.repo.UserSessionRepository;
 import com.studentmanagement.studentmanagementserver.service.TemporaryPasswordGenerator;
@@ -38,6 +40,7 @@ public class StudentAccountService {
     private final StudentProfileRepository studentProfileRepository;
     private final StudentSchoolRecordRepository studentSchoolRecordRepository;
     private final StudentVolunteerTrackingRepository studentVolunteerTrackingRepository;
+    private final TeacherStudentRepository teacherStudentRepository;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final TemporaryPasswordGenerator temporaryPasswordGenerator;
@@ -47,6 +50,7 @@ public class StudentAccountService {
                                  StudentProfileRepository studentProfileRepository,
                                  StudentSchoolRecordRepository studentSchoolRecordRepository,
                                  StudentVolunteerTrackingRepository studentVolunteerTrackingRepository,
+                                 TeacherStudentRepository teacherStudentRepository,
                                  UserRepository userRepository,
                                  PasswordEncoder passwordEncoder,
                                  TemporaryPasswordGenerator temporaryPasswordGenerator,
@@ -55,6 +59,7 @@ public class StudentAccountService {
         this.studentProfileRepository = studentProfileRepository;
         this.studentSchoolRecordRepository = studentSchoolRecordRepository;
         this.studentVolunteerTrackingRepository = studentVolunteerTrackingRepository;
+        this.teacherStudentRepository = teacherStudentRepository;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.temporaryPasswordGenerator = temporaryPasswordGenerator;
@@ -63,7 +68,29 @@ public class StudentAccountService {
 
     @Transactional(readOnly = true)
     public List<StudentAccountItem> listStudentAccounts() {
-        List<Student> students = studentRepository.findAllWithUser();
+        return buildStudentAccountItems(studentRepository.findAllWithUser());
+    }
+
+    @Transactional(readOnly = true)
+    public List<StudentAccountItem> listStudentAccounts(User operator) {
+        if (operator == null) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: teacher/admin role required.");
+        }
+        if (operator.getRole() == UserRole.ADMIN) {
+            return buildStudentAccountItems(studentRepository.findAllWithUser());
+        }
+        if (operator.getRole() == UserRole.TEACHER) {
+            return buildStudentAccountItems(
+                    teacherStudentRepository.findDistinctStudentsByTeacherUserIdAndStatusWithUser(
+                            operator.getId(),
+                            TeacherStudentStatus.ACTIVE
+                    )
+            );
+        }
+        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: teacher/admin role required.");
+    }
+
+    private List<StudentAccountItem> buildStudentAccountItems(List<Student> students) {
         if (students.isEmpty()) {
             return Collections.emptyList();
         }
@@ -309,12 +336,13 @@ public class StudentAccountService {
     }
 
     @Transactional
-    public ResetStudentPasswordResponse resetStudentPassword(Long studentId) {
+    public ResetStudentPasswordResponse resetStudentPassword(Long studentId, User operator) {
         Student student = studentRepository.findById(studentId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "Student account not found: " + studentId
                 ));
+        ensureCanManageStudentAccount(operator, studentId);
 
         User targetUser = student.getUser();
         String tempPassword = temporaryPasswordGenerator.generate(targetUser.getUsername());
@@ -340,6 +368,7 @@ public class StudentAccountService {
                         HttpStatus.NOT_FOUND,
                         "Student account not found: " + studentId
                 ));
+        ensureCanManageStudentAccount(operator, studentId);
 
         User targetUser = student.getUser();
         targetUser.updateStatus(targetStatus, operator == null ? null : operator.getId());
@@ -364,6 +393,24 @@ public class StudentAccountService {
         } catch (IllegalArgumentException ex) {
             throw new IllegalArgumentException("Invalid account status. Expected ACTIVE or ARCHIVED.");
         }
+    }
+
+    private void ensureCanManageStudentAccount(User operator, Long studentId) {
+        if (operator == null) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: teacher/admin role required.");
+        }
+        if (operator.getRole() == UserRole.ADMIN) {
+            return;
+        }
+        if (operator.getRole() == UserRole.TEACHER &&
+                teacherStudentRepository.existsByTeacher_User_IdAndStudent_IdAndStatus(
+                        operator.getId(),
+                        studentId,
+                        TeacherStudentStatus.ACTIVE
+                )) {
+            return;
+        }
+        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: student not assigned to current teacher.");
     }
 
     public static class StudentAccountItem {

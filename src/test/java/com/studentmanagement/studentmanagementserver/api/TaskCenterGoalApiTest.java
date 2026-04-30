@@ -4,12 +4,15 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.studentmanagement.studentmanagementserver.domain.enums.TeacherStudentStatus;
 import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
+import com.studentmanagement.studentmanagementserver.domain.notification.EmailService;
 import com.studentmanagement.studentmanagementserver.domain.student.Student;
+import com.studentmanagement.studentmanagementserver.domain.student.StudentProfile;
 import com.studentmanagement.studentmanagementserver.domain.task.GoalTask;
 import com.studentmanagement.studentmanagementserver.domain.teacher.Teacher;
 import com.studentmanagement.studentmanagementserver.domain.teacher.TeacherStudent;
 import com.studentmanagement.studentmanagementserver.domain.user.User;
 import com.studentmanagement.studentmanagementserver.repo.GoalTaskRepository;
+import com.studentmanagement.studentmanagementserver.repo.StudentProfileRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentRepository;
 import com.studentmanagement.studentmanagementserver.repo.TeacherRepository;
 import com.studentmanagement.studentmanagementserver.repo.TeacherStudentRepository;
@@ -19,23 +22,30 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import java.util.Collection;
+
 import static org.hamcrest.Matchers.hasItem;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
+@SpringBootTest(properties = "app.task-tracking.email-reminders.enabled=true")
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class TaskCenterGoalApiTest {
@@ -48,6 +58,9 @@ class TaskCenterGoalApiTest {
 
     @Autowired
     private StudentRepository studentRepository;
+
+    @Autowired
+    private StudentProfileRepository studentProfileRepository;
 
     @Autowired
     private TeacherRepository teacherRepository;
@@ -66,6 +79,9 @@ class TaskCenterGoalApiTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @MockBean
+    private EmailService emailService;
 
     @Test
     void teacherCreateListAndUpdateGoal_success() throws Exception {
@@ -111,7 +127,7 @@ class TaskCenterGoalApiTest {
     }
 
     @Test
-    void studentListAndUpdateStatus_successAndInvalidTransition400() throws Exception {
+    void studentGoalEndpointsAreHiddenFromStudentSide() throws Exception {
         Teacher teacher = createTeacherAccount("task_teacher_student_flow", "Teacher Flow");
         Student student = createStudentAccount("task_student_flow", "Lily", "Wang", "Lily");
         assignTeacherStudent(teacher, student, TeacherStudentStatus.ACTIVE);
@@ -129,26 +145,18 @@ class TaskCenterGoalApiTest {
                         .param("status", "ALL")
                         .param("page", "1")
                         .param("size", "8"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.items.length()").value(1))
-                .andExpect(jsonPath("$.items[0].id").value(goalId));
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("BAD_REQUEST"))
+                .andExpect(jsonPath("$.message").value("type must be INFO"));
 
         mockMvc.perform(patch("/api/student/tasks/{taskId}/status", goalId)
                         .header("Authorization", bearerFor(student.getUser()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"status\":\"IN_PROGRESS\",\"progressNote\":\"已开始\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("IN_PROGRESS"))
-                .andExpect(jsonPath("$.progressNote").value("已开始"))
-                .andExpect(jsonPath("$.completedAt").isEmpty());
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"))
+                .andExpect(jsonPath("$.message").value("Student task access is disabled."));
 
-        mockMvc.perform(patch("/api/student/tasks/{taskId}/status", goalId)
-                        .header("Authorization", bearerFor(student.getUser()))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"status\":\"NOT_STARTED\"}"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("BAD_REQUEST"))
-                .andExpect(jsonPath("$.message").value("status transition not allowed"));
     }
 
     @Test
@@ -172,7 +180,8 @@ class TaskCenterGoalApiTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"status\":\"IN_PROGRESS\"}"))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"))
+                .andExpect(jsonPath("$.message").value("Student task access is disabled."));
     }
 
     @Test
@@ -456,6 +465,49 @@ class TaskCenterGoalApiTest {
     }
 
     @Test
+    void teacherCreateGoalGroup_createsStudentNoticeAndSendsEmailReminder() throws Exception {
+        Teacher teacher = createTeacherAccount("task_group_notice_teacher", "Task Group Notice");
+        Student student = createStudentAccount("task_group_notice_student", "Notice", "Student", "NoticeStudent");
+        assignTeacherStudent(teacher, student, TeacherStudentStatus.ACTIVE);
+        createStudentProfileWithEmail(student, "tracking.notice@example.com");
+
+        mockMvc.perform(post("/api/teacher/tasks/goal-groups")
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"Weekly reading log\"," +
+                                "\"description\":\"Teacher-side tracking only\"," +
+                                "\"dueAt\":\"2026-05-02\"," +
+                                "\"studentIds\":[" + student.getId() + "]}"))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        mockMvc.perform(get("/api/student/tasks")
+                        .header("Authorization", bearerFor(student.getUser()))
+                        .param("type", "INFO")
+                        .param("page", "1")
+                        .param("size", "10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].title").value("学习进度通知"))
+                .andExpect(jsonPath("$.items[0].content").value("老师已更新你的学习状态，请登录学生平台查看通知。"))
+                .andExpect(jsonPath("$.items[0].goalId").isEmpty())
+                .andExpect(jsonPath("$.items[0].taskGroupId").isEmpty())
+                .andExpect(jsonPath("$.items[0].recipientStudentIds.length()").value(0))
+                .andExpect(jsonPath("$.items[0].targetStudentCount").value(0))
+                .andExpect(jsonPath("$.items[0].volunteer").isEmpty());
+
+        verify(emailService).sendTextEmail(
+                argThat((Collection<String> recipients) ->
+                        recipients != null && recipients.contains("tracking.notice@example.com")),
+                eq("学习进度通知"),
+                argThat((String body) ->
+                        body != null
+                                && body.contains("请登录学生管理平台查看通知。")
+                                && !body.contains("Weekly reading log"))
+        );
+    }
+
+    @Test
     void teacherCanViewGoalGroupStudentStatuses_success() throws Exception {
         Teacher teacher = createTeacherAccount("task_group_status_teacher", "Task Group Status Teacher");
         Student studentA = createStudentAccount("task_group_status_student_a", "Status", "A", "StatusA");
@@ -505,6 +557,41 @@ class TaskCenterGoalApiTest {
                 .andExpect(jsonPath("$.students[1].completed").value(true))
                 .andExpect(jsonPath("$.students[1].completedAt").isNotEmpty())
                 .andExpect(jsonPath("$.students[1].progressNote").value("status-done"));
+    }
+
+    @Test
+    void teacherCanDeleteOwnGoalGroup_success() throws Exception {
+        Teacher teacher = createTeacherAccount("task_group_delete_teacher", "Task Group Delete");
+        Student studentA = createStudentAccount("task_group_delete_student_a", "Delete", "A", "DeleteA");
+        Student studentB = createStudentAccount("task_group_delete_student_b", "Delete", "B", "DeleteB");
+        assignTeacherStudent(teacher, studentA, TeacherStudentStatus.ACTIVE);
+        assignTeacherStudent(teacher, studentB, TeacherStudentStatus.ACTIVE);
+
+        MvcResult createGroupResult = mockMvc.perform(post("/api/teacher/tasks/goal-groups")
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"Delete group\"," +
+                                "\"description\":\"Delete group description\"," +
+                                "\"dueAt\":\"2026-05-01\"," +
+                                "\"studentIds\":[" + studentA.getId() + "," + studentB.getId() + "]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(2))
+                .andReturn();
+
+        String taskGroupId = objectMapper.readTree(createGroupResult.getResponse().getContentAsString())
+                .path("taskGroupId")
+                .asText();
+
+        mockMvc.perform(delete("/api/teacher/tasks/goal-groups/{taskGroupId}", taskGroupId)
+                        .header("Authorization", bearerFor(teacher.getUser())))
+                .andExpect(status().isNoContent());
+
+        assertTrue(goalTaskRepository.findByTaskGroupIdOrderByIdAsc(taskGroupId).isEmpty());
+
+        mockMvc.perform(get("/api/teacher/tasks/goal-groups/{taskGroupId}/students/status", taskGroupId)
+                        .header("Authorization", bearerFor(teacher.getUser())))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
     }
 
     @Test
@@ -595,6 +682,12 @@ class TaskCenterGoalApiTest {
         Student student = studentRepository.save(new Student(user, firstName, lastName, nickName));
         assertTrue(student.getId() > 0);
         return student;
+    }
+
+    private void createStudentProfileWithEmail(Student student, String email) {
+        StudentProfile profile = new StudentProfile(student);
+        profile.setEmail(email);
+        studentProfileRepository.save(profile);
     }
 
     private void assignTeacherStudent(Teacher teacher, Student student, TeacherStudentStatus status) {
