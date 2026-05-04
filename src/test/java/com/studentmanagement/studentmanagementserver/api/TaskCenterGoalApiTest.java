@@ -29,13 +29,17 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import java.time.LocalDate;
 import java.util.Collection;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -477,6 +481,9 @@ class TaskCenterGoalApiTest {
                         .content("{\"title\":\"Weekly reading log\"," +
                                 "\"description\":\"Teacher-side tracking only\"," +
                                 "\"dueAt\":\"2026-05-02\"," +
+                                "\"cycleType\":\"ROUTINE\"," +
+                                "\"cycleFrequency\":\"WEEKLY\"," +
+                                "\"cycleLabel\":\"Week 1\"," +
                                 "\"studentIds\":[" + student.getId() + "]}"))
                 .andExpect(status().isOk())
                 .andReturn();
@@ -489,7 +496,13 @@ class TaskCenterGoalApiTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items.length()").value(1))
                 .andExpect(jsonPath("$.items[0].title").value("学习进度通知"))
-                .andExpect(jsonPath("$.items[0].content").value("老师已更新你的学习状态，请登录学生平台查看通知。"))
+                .andExpect(jsonPath("$.items[0].content", containsString("任务名称：Weekly reading log")))
+                .andExpect(jsonPath("$.items[0].content", containsString("任务内容：")))
+                .andExpect(jsonPath("$.items[0].content", containsString("Teacher-side tracking only")))
+                .andExpect(jsonPath("$.items[0].content", containsString("发布老师：Task Group Notice")))
+                .andExpect(jsonPath("$.items[0].content", containsString("周期：Week 1（每周）")))
+                .andExpect(jsonPath("$.items[0].content", containsString("开始时间：2026-05-02")))
+                .andExpect(jsonPath("$.items[0].content", not(containsString("请登录学生管理平台"))))
                 .andExpect(jsonPath("$.items[0].goalId").isEmpty())
                 .andExpect(jsonPath("$.items[0].taskGroupId").isEmpty())
                 .andExpect(jsonPath("$.items[0].recipientStudentIds.length()").value(0))
@@ -502,8 +515,62 @@ class TaskCenterGoalApiTest {
                 eq("学习进度通知"),
                 argThat((String body) ->
                         body != null
-                                && body.contains("请登录学生管理平台查看通知。")
-                                && !body.contains("Weekly reading log"))
+                                && body.contains("任务名称：Weekly reading log")
+                                && body.contains("任务内容：\nTeacher-side tracking only")
+                                && body.contains("发布老师：Task Group Notice")
+                                && body.contains("周期：Week 1（每周）")
+                                && body.contains("开始时间：2026-05-02")
+                                && !body.contains("请登录学生管理平台"))
+        );
+    }
+
+    @Test
+    void teacherOverwriteGoalGroup_sendsEmailReminderOnlyToNewStudents() throws Exception {
+        Teacher teacher = createTeacherAccount("task_group_new_student_teacher", "New Student Teacher");
+        Student existingStudent = createStudentAccount("task_group_existing_student", "Existing", "Student", "ExistingStudent");
+        Student newStudent = createStudentAccount("task_group_added_student", "Added", "Student", "AddedStudent");
+        assignTeacherStudent(teacher, existingStudent, TeacherStudentStatus.ACTIVE);
+        assignTeacherStudent(teacher, newStudent, TeacherStudentStatus.ACTIVE);
+        createStudentProfileWithEmail(existingStudent, "existing.tracking@example.com");
+        createStudentProfileWithEmail(newStudent, "new.tracking@example.com");
+
+        MvcResult createResult = mockMvc.perform(post("/api/teacher/tasks/goal-groups")
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"Initial task\"," +
+                                "\"description\":\"Initial description\"," +
+                                "\"dueAt\":\"2026-05-05\"," +
+                                "\"studentIds\":[" + existingStudent.getId() + "]}"))
+                .andExpect(status().isOk())
+                .andReturn();
+        String taskGroupId = objectMapper.readTree(createResult.getResponse().getContentAsString())
+                .path("taskGroupId")
+                .asText();
+
+        clearInvocations(emailService);
+
+        mockMvc.perform(put("/api/teacher/tasks/goal-groups/{taskGroupId}", taskGroupId)
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"Updated task\"," +
+                                "\"description\":\"Updated description\"," +
+                                "\"dueAt\":\"2026-05-06\"," +
+                                "\"studentIds\":[" + existingStudent.getId() + "," + newStudent.getId() + "]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(2));
+
+        verify(emailService).sendTextEmail(
+                argThat((Collection<String> recipients) ->
+                        recipients != null
+                                && recipients.size() == 1
+                                && recipients.contains("new.tracking@example.com")
+                                && !recipients.contains("existing.tracking@example.com")),
+                eq("学习进度通知"),
+                argThat((String body) ->
+                        body != null
+                                && body.contains("任务名称：Updated task")
+                                && body.contains("开始时间：2026-05-06")
+                                && !body.contains("请登录学生管理平台"))
         );
     }
 
@@ -557,6 +624,91 @@ class TaskCenterGoalApiTest {
                 .andExpect(jsonPath("$.students[1].completed").value(true))
                 .andExpect(jsonPath("$.students[1].completedAt").isNotEmpty())
                 .andExpect(jsonPath("$.students[1].progressNote").value("status-done"));
+    }
+
+    @Test
+    void recurringGoalGroupTracksOccurrencesPerStudentAndKeepsRemovedHistory() throws Exception {
+        Teacher teacher = createTeacherAccount("task_group_recurring_teacher", "Recurring Teacher");
+        Student studentA = createStudentAccount("task_group_recurring_student_a", "Recurring", "A", "RecurringA");
+        Student studentB = createStudentAccount("task_group_recurring_student_b", "Recurring", "B", "RecurringB");
+        assignTeacherStudent(teacher, studentA, TeacherStudentStatus.ACTIVE);
+        assignTeacherStudent(teacher, studentB, TeacherStudentStatus.ACTIVE);
+
+        String start = LocalDate.now().toString();
+        String end = LocalDate.now().plusDays(2L).toString();
+
+        MvcResult createGroupResult = mockMvc.perform(post("/api/teacher/tasks/goal-groups")
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"Daily recurring task\"," +
+                                "\"description\":\"Track each day independently\"," +
+                                "\"dueAt\":\"" + start + "\"," +
+                                "\"cycleType\":\"ROUTINE\"," +
+                                "\"cycleFrequency\":\"DAILY\"," +
+                                "\"cycleNoEnd\":false," +
+                                "\"cycleEndAt\":\"" + end + "\"," +
+                                "\"studentIds\":[" + studentA.getId() + "," + studentB.getId() + "]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(2))
+                .andReturn();
+
+        JsonNode createdGroupJson = objectMapper.readTree(createGroupResult.getResponse().getContentAsString());
+        String taskGroupId = createdGroupJson.path("taskGroupId").asText();
+        long goalAId = 0L;
+        for (JsonNode item : createdGroupJson.path("items")) {
+            if (item.path("assignedStudentId").asLong() == studentA.getId()) {
+                goalAId = item.path("id").asLong();
+            }
+        }
+        assertTrue(goalAId > 0L);
+
+        mockMvc.perform(patch("/api/teacher/tasks/goals/{goalId}/completions", goalAId)
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"occurrenceKey\":\"" + start + "\"," +
+                                "\"completed\":true," +
+                                "\"progressNote\":\"day one done\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.occurrenceKey").value(start))
+                .andExpect(jsonPath("$.completed").value(true));
+
+        MvcResult statusResult = mockMvc.perform(get("/api/teacher/tasks/goal-groups/{taskGroupId}/students/status", taskGroupId)
+                        .header("Authorization", bearerFor(teacher.getUser())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.completionColumns.length()").value(3))
+                .andExpect(jsonPath("$.completedCount").value(0))
+                .andReturn();
+
+        JsonNode statusJson = objectMapper.readTree(statusResult.getResponse().getContentAsString());
+        JsonNode studentAStatus = findStudentStatus(statusJson, studentA.getId());
+        assertEquals("IN_PROGRESS", studentAStatus.path("status").asText());
+        assertEquals(1, studentAStatus.path("completedOccurrences").asInt());
+        assertEquals(3, studentAStatus.path("totalOccurrences").asInt());
+        assertTrue(studentAStatus.path("completions").get(0).path("completed").asBoolean());
+
+        mockMvc.perform(put("/api/teacher/tasks/goal-groups/{taskGroupId}", taskGroupId)
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"Daily recurring task\"," +
+                                "\"description\":\"Track each day independently\"," +
+                                "\"dueAt\":\"" + start + "\"," +
+                                "\"cycleType\":\"ROUTINE\"," +
+                                "\"cycleFrequency\":\"DAILY\"," +
+                                "\"cycleNoEnd\":false," +
+                                "\"cycleEndAt\":\"" + end + "\"," +
+                                "\"studentIds\":[" + studentA.getId() + "]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(1));
+
+        MvcResult removedStatusResult = mockMvc.perform(get("/api/teacher/tasks/goal-groups/{taskGroupId}/students/status", taskGroupId)
+                        .header("Authorization", bearerFor(teacher.getUser())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.students.length()").value(2))
+                .andReturn();
+        JsonNode removedStatusJson = objectMapper.readTree(removedStatusResult.getResponse().getContentAsString());
+        JsonNode studentBStatus = findStudentStatus(removedStatusJson, studentB.getId());
+        assertEquals(false, studentBStatus.path("active").asBoolean());
+        assertEquals(start, studentBStatus.path("enrollmentEndAt").asText());
     }
 
     @Test
@@ -641,6 +793,15 @@ class TaskCenterGoalApiTest {
                                 "\"studentIds\":[" + student.getId() + "]}"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("NOT_FOUND"));
+    }
+
+    private JsonNode findStudentStatus(JsonNode statusJson, long studentId) {
+        for (JsonNode studentNode : statusJson.path("students")) {
+            if (studentNode.path("studentId").asLong() == studentId) {
+                return studentNode;
+            }
+        }
+        throw new AssertionError("student status not found: " + studentId);
     }
 
     private long createGoalAsTeacher(User teacherUser,

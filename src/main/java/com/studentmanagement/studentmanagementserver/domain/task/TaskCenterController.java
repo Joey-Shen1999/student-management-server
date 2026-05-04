@@ -169,6 +169,14 @@ public class TaskCenterController {
         return ResponseEntity.ok(goalTaskCenterService.updateTeacherGoalStatus(taskId, requestBody, request));
     }
 
+    @PatchMapping("/api/teacher/tasks/goals/{goalId}/completions")
+    public ResponseEntity<GoalTaskCompletionDto> updateTeacherGoalCompletion(
+            @PathVariable Long goalId,
+            @RequestBody(required = false) UpdateGoalCompletionRequestDto requestBody,
+            HttpServletRequest request) {
+        return ResponseEntity.ok(goalTaskCenterService.updateTeacherGoalCompletion(goalId, requestBody, request));
+    }
+
     @GetMapping("/api/teacher/tasks/assignable-students")
     public ResponseEntity<List<AssignableStudentDto>> listAssignableStudents(
             @RequestParam(value = "country", required = false) String country,

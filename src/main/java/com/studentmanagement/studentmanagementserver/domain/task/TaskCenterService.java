@@ -11,6 +11,7 @@ import com.studentmanagement.studentmanagementserver.domain.student.StudentSchoo
 import com.studentmanagement.studentmanagementserver.domain.teacher.Teacher;
 import com.studentmanagement.studentmanagementserver.domain.teacher.TeacherStudent;
 import com.studentmanagement.studentmanagementserver.domain.user.User;
+import com.studentmanagement.studentmanagementserver.repo.GoalTaskCompletionRepository;
 import com.studentmanagement.studentmanagementserver.repo.GoalTaskRepository;
 import com.studentmanagement.studentmanagementserver.repo.InfoTaskRecipientRepository;
 import com.studentmanagement.studentmanagementserver.repo.InfoTaskRepository;
@@ -62,6 +63,7 @@ public class TaskCenterService {
     private static final int TITLE_MAX_LENGTH = 200;
     private static final int DESCRIPTION_MAX_LENGTH = 2000;
     private static final int PROGRESS_NOTE_MAX_LENGTH = 2000;
+    private static final int MAX_COMPLETION_OCCURRENCES = 120;
     private static final int TASK_GROUP_ID_MAX_LENGTH = 64;
     private static final String STUDENT_NOT_ASSIGNABLE_CODE = "STUDENT_NOT_ASSIGNABLE";
     private static final String STUDENT_ARCHIVED_CODE = "STUDENT_ARCHIVED";
@@ -71,6 +73,7 @@ public class TaskCenterService {
 
     private final AuthSessionService authSessionService;
     private final GoalTaskRepository goalTaskRepository;
+    private final GoalTaskCompletionRepository goalTaskCompletionRepository;
     private final InfoTaskRepository infoTaskRepository;
     private final InfoTaskRecipientRepository infoTaskRecipientRepository;
     private final StudentRepository studentRepository;
@@ -83,6 +86,7 @@ public class TaskCenterService {
 
     public TaskCenterService(AuthSessionService authSessionService,
                              GoalTaskRepository goalTaskRepository,
+                             GoalTaskCompletionRepository goalTaskCompletionRepository,
                              InfoTaskRepository infoTaskRepository,
                              InfoTaskRecipientRepository infoTaskRecipientRepository,
                              StudentRepository studentRepository,
@@ -95,6 +99,7 @@ public class TaskCenterService {
                              boolean taskTrackingEmailRemindersEnabled) {
         this.authSessionService = authSessionService;
         this.goalTaskRepository = goalTaskRepository;
+        this.goalTaskCompletionRepository = goalTaskCompletionRepository;
         this.infoTaskRepository = infoTaskRepository;
         this.infoTaskRecipientRepository = infoTaskRecipientRepository;
         this.studentRepository = studentRepository;
@@ -211,6 +216,7 @@ public class TaskCenterService {
         String title = requireNonBlank(requestBody.getTitle(), "title", TITLE_MAX_LENGTH);
         String description = requireNonBlank(requestBody.getDescription(), "description", DESCRIPTION_MAX_LENGTH);
         LocalDate dueAt = parseDueAt(requestBody.getDueAt());
+        GoalCycleConfig cycleConfig = buildCycleConfig(requestBody, dueAt);
 
         Student student = studentRepository.findById(studentId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Student not found: " + studentId));
@@ -225,8 +231,18 @@ public class TaskCenterService {
 
         String taskGroupId = generateTaskGroupId();
         GoalTask goalTask = new GoalTask(title, description, dueAt, student, teacher, taskGroupId);
+        applyCycleConfig(goalTask, cycleConfig);
+        goalTask.activate(resolveEnrollmentStartDate(dueAt));
         GoalTask saved = goalTaskRepository.save(goalTask);
-        sendTrackingAssignmentReminder(teacher, Collections.singletonList(student), title, taskGroupId);
+        sendTrackingAssignmentReminder(
+                teacher,
+                Collections.singletonList(student),
+                title,
+                description,
+                dueAt,
+                buildCycleSummary(requestBody),
+                taskGroupId
+        );
         return toGoalTaskDto(saved);
     }
 
@@ -243,6 +259,7 @@ public class TaskCenterService {
         String title = requireNonBlank(requestBody.getTitle(), "title", TITLE_MAX_LENGTH);
         String description = requireNonBlank(requestBody.getDescription(), "description", DESCRIPTION_MAX_LENGTH);
         LocalDate dueAt = parseDueAt(requestBody.getDueAt());
+        GoalCycleConfig cycleConfig = buildCycleConfig(requestBody, dueAt);
         List<Long> studentIds = normalizeStudentIds(requestBody.getStudentIds());
 
         String taskGroupId = normalizeTaskGroupIdForCreate(requestBody.getTaskGroupId());
@@ -260,14 +277,25 @@ public class TaskCenterService {
         List<Student> students = resolveStudentsForGoalWrite(operator, teacher, studentIds);
         List<GoalTask> toCreate = new ArrayList<GoalTask>(students.size());
         for (Student student : students) {
-            toCreate.add(new GoalTask(title, description, dueAt, student, teacher, taskGroupId));
+            GoalTask goalTask = new GoalTask(title, description, dueAt, student, teacher, taskGroupId);
+            applyCycleConfig(goalTask, cycleConfig);
+            goalTask.activate(resolveEnrollmentStartDate(dueAt));
+            toCreate.add(goalTask);
         }
         if (!toCreate.isEmpty()) {
             goalTaskRepository.saveAll(toCreate);
         }
 
         List<GoalTask> savedGoals = goalTaskRepository.findByTaskGroupIdOrderByIdAsc(taskGroupId);
-        sendTrackingAssignmentReminder(teacher, students, title, taskGroupId);
+        sendTrackingAssignmentReminder(
+                teacher,
+                students,
+                title,
+                description,
+                dueAt,
+                buildCycleSummary(requestBody),
+                taskGroupId
+        );
         return toGoalGroupResponse(taskGroupId, savedGoals);
     }
 
@@ -293,6 +321,7 @@ public class TaskCenterService {
         String title = requireNonBlank(requestBody.getTitle(), "title", TITLE_MAX_LENGTH);
         String description = requireNonBlank(requestBody.getDescription(), "description", DESCRIPTION_MAX_LENGTH);
         LocalDate dueAt = parseDueAt(requestBody.getDueAt());
+        GoalCycleConfig cycleConfig = buildCycleConfig(requestBody, dueAt);
         List<Long> studentIds = normalizeStudentIds(requestBody.getStudentIds());
 
         List<GoalTask> existingGoals = goalTaskRepository.findByTaskGroupIdOrderByIdAsc(taskGroupId);
@@ -334,27 +363,45 @@ public class TaskCenterService {
 
         List<GoalTask> toSave = new ArrayList<GoalTask>();
         List<Student> newlyAddedStudents = new ArrayList<Student>();
+        LocalDate today = LocalDate.now();
         for (Student student : targetStudents) {
             Long studentId = student.getId();
             GoalTask existing = existingByStudentId.remove(studentId);
             if (existing == null) {
-                toSave.add(new GoalTask(title, description, dueAt, student, ownerTeacher, taskGroupId));
+                GoalTask goalTask = new GoalTask(title, description, dueAt, student, ownerTeacher, taskGroupId);
+                applyCycleConfig(goalTask, cycleConfig);
+                goalTask.activate(resolveEnrollmentStartDate(dueAt));
+                toSave.add(goalTask);
                 newlyAddedStudents.add(student);
                 continue;
             }
             existing.updateGoal(title, description, dueAt, student);
+            applyCycleConfig(existing, cycleConfig);
+            existing.activate(resolveEnrollmentStartDate(dueAt));
             toSave.add(existing);
+        }
+
+        for (GoalTask removed : existingByStudentId.values()) {
+            removed.updateGoal(title, description, dueAt, removed.getAssignedStudent());
+            applyCycleConfig(removed, cycleConfig);
+            removed.deactivate(today);
+            toSave.add(removed);
         }
 
         if (!toSave.isEmpty()) {
             goalTaskRepository.saveAll(toSave);
         }
-        if (!existingByStudentId.isEmpty()) {
-            goalTaskRepository.deleteAll(existingByStudentId.values());
-        }
 
         List<GoalTask> savedGoals = goalTaskRepository.findByTaskGroupIdOrderByIdAsc(taskGroupId);
-        sendTrackingAssignmentReminder(ownerTeacher, newlyAddedStudents, title, taskGroupId);
+        sendTrackingAssignmentReminder(
+                ownerTeacher,
+                newlyAddedStudents,
+                title,
+                description,
+                dueAt,
+                buildCycleSummary(requestBody),
+                taskGroupId
+        );
         return toGoalGroupResponse(taskGroupId, savedGoals);
     }
 
@@ -418,13 +465,50 @@ public class TaskCenterService {
         }
         Map<Long, StudentProfile> profileByStudentId = findProfilesByStudentIds(studentIds);
 
+        List<Long> goalIds = new ArrayList<Long>(sortedGoals.size());
+        for (GoalTask goal : sortedGoals) {
+            if (goal.getId() != null) {
+                goalIds.add(goal.getId());
+            }
+        }
+        Map<Long, Map<String, GoalTaskCompletionEntry>> completionByGoalId = findCompletionsByGoalId(goalIds);
+        Map<String, GoalTaskCompletionColumnDto> columnsByKey = new LinkedHashMap<String, GoalTaskCompletionColumnDto>();
+
         long completedCount = 0L;
         List<GoalGroupStudentStatusDto> students = new ArrayList<GoalGroupStudentStatusDto>(sortedGoals.size());
         for (GoalTask goal : sortedGoals) {
             Student student = goal.getAssignedStudent();
             Long studentId = student == null ? null : student.getId();
             StudentProfile profile = studentId == null ? null : profileByStudentId.get(studentId);
-            boolean completed = goal.getStatus() == GoalTaskStatus.COMPLETED;
+            List<OccurrenceSpec> occurrenceSpecs = buildOccurrenceSpecs(goal);
+            Map<String, GoalTaskCompletionEntry> completionByKey =
+                    goal.getId() == null ? Collections.<String, GoalTaskCompletionEntry>emptyMap() : completionByGoalId.get(goal.getId());
+            if (completionByKey == null) {
+                completionByKey = Collections.emptyMap();
+            }
+            List<GoalTaskCompletionDto> completions = new ArrayList<GoalTaskCompletionDto>(occurrenceSpecs.size());
+            int completedOccurrences = 0;
+            boolean useLegacyWholeTaskStatus = completionByKey.isEmpty() && goal.getStatus() == GoalTaskStatus.COMPLETED;
+            for (OccurrenceSpec occurrenceSpec : occurrenceSpecs) {
+                if (!columnsByKey.containsKey(occurrenceSpec.key)) {
+                    columnsByKey.put(occurrenceSpec.key, toCompletionColumnDto(occurrenceSpec));
+                }
+                GoalTaskCompletionEntry completionEntry = completionByKey.get(occurrenceSpec.key);
+                boolean occurrenceCompleted =
+                        completionEntry == null ? useLegacyWholeTaskStatus : completionEntry.isCompleted();
+                if (occurrenceCompleted) {
+                    completedOccurrences += 1;
+                }
+                completions.add(toCompletionDto(
+                        completionEntry,
+                        occurrenceSpec,
+                        useLegacyWholeTaskStatus,
+                        goal.getCompletedAt() == null ? null : goal.getCompletedAt().toString(),
+                        goal.getUpdatedAt() == null ? null : goal.getUpdatedAt().toString(),
+                        goal.getProgressNote() == null ? "" : goal.getProgressNote()
+                ));
+            }
+            boolean completed = !occurrenceSpecs.isEmpty() && completedOccurrences == occurrenceSpecs.size();
             if (completed) {
                 completedCount += 1L;
             }
@@ -436,11 +520,17 @@ public class TaskCenterService {
                     student == null ? null : buildStudentDisplayName(student),
                     student == null || student.getUser() == null ? null : trimToNull(student.getUser().getUsername()),
                     profile == null ? null : trimToNull(profile.getEmail()),
-                    goal.getStatus(),
+                    resolveGoalStatusFromCompletionCounts(completedOccurrences, occurrenceSpecs.size(), goal.getStatus()),
                     completed,
+                    goal.isActive(),
+                    goal.getEnrollmentStartAt() == null ? null : goal.getEnrollmentStartAt().toString(),
+                    goal.getEnrollmentEndAt() == null ? null : goal.getEnrollmentEndAt().toString(),
+                    completedOccurrences,
+                    occurrenceSpecs.size(),
                     goal.getCompletedAt() == null ? null : goal.getCompletedAt().toString(),
                     goal.getUpdatedAt() == null ? null : goal.getUpdatedAt().toString(),
-                    goal.getProgressNote() == null ? "" : goal.getProgressNote()
+                    goal.getProgressNote() == null ? "" : goal.getProgressNote(),
+                    completions
             ));
         }
 
@@ -451,9 +541,17 @@ public class TaskCenterService {
                 representative.getTitle(),
                 representative.getDescription(),
                 representative.getDueAt() == null ? null : representative.getDueAt().toString(),
+                valueOrDefault(representative.getCycleType(), "ONE_TIME"),
+                representative.getCycleFrequency(),
+                representative.getCycleInterval(),
+                representative.getCycleUnit(),
+                representative.getCycleLabel(),
+                representative.getCycleEndAt() == null ? null : representative.getCycleEndAt().toString(),
+                representative.isCycleNoEnd(),
                 totalAssigned,
                 completedCount,
                 totalAssigned - completedCount,
+                new ArrayList<GoalTaskCompletionColumnDto>(columnsByKey.values()),
                 students
         );
     }
@@ -566,6 +664,52 @@ public class TaskCenterService {
         task.updateStatus(nextStatus, progressNote, overwriteProgressNote);
         GoalTask saved = goalTaskRepository.save(task);
         return toGoalTaskDto(saved);
+    }
+
+    @Transactional
+    public GoalTaskCompletionDto updateTeacherGoalCompletion(Long goalId,
+                                                             UpdateGoalCompletionRequestDto requestBody,
+                                                             HttpServletRequest request) {
+        Long normalizedGoalId = requirePositiveId(goalId, "goalId");
+        if (requestBody == null) {
+            throw badRequest("request body is required");
+        }
+        String occurrenceKey = requireNonBlank(requestBody.getOccurrenceKey(), "occurrenceKey", 40);
+        boolean completed = requestBody.getCompleted() != null && requestBody.getCompleted().booleanValue();
+        String progressNote = normalizeProgressNote(requestBody.getProgressNote());
+
+        User operator = authSessionService.requireAuthenticatedUser(request);
+        if (operator.getRole() != UserRole.TEACHER && operator.getRole() != UserRole.ADMIN) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: teacher/admin role required.");
+        }
+
+        Teacher teacher = null;
+        if (operator.getRole() == UserRole.TEACHER) {
+            teacher = requireTeacherByUser(operator);
+        }
+
+        GoalTask task = goalTaskRepository.findByIdWithRelations(normalizedGoalId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found."));
+        if (teacher != null && !task.getAssignedByTeacher().getId().equals(teacher.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: task is not assigned by current teacher.");
+        }
+
+        OccurrenceSpec occurrenceSpec = findOccurrenceSpec(task, occurrenceKey);
+        GoalTaskCompletionEntry completionEntry = goalTaskCompletionRepository
+                .findByGoalTask_IdAndOccurrenceKey(task.getId(), occurrenceKey)
+                .orElseGet(() -> new GoalTaskCompletionEntry(
+                        task,
+                        occurrenceSpec.key,
+                        occurrenceSpec.label,
+                        occurrenceSpec.startAt,
+                        occurrenceSpec.endAt
+                ));
+        completionEntry.syncOccurrence(occurrenceSpec.label, occurrenceSpec.startAt, occurrenceSpec.endAt);
+        completionEntry.updateCompleted(completed, progressNote, teacher);
+        GoalTaskCompletionEntry savedCompletion = goalTaskCompletionRepository.save(completionEntry);
+        refreshGoalStatusFromCompletions(task);
+        goalTaskRepository.save(task);
+        return toCompletionDto(savedCompletion, occurrenceSpec);
     }
 
     @Transactional(readOnly = true)
@@ -717,6 +861,9 @@ public class TaskCenterService {
     private GoalGroupResponseDto toGoalGroupResponse(String taskGroupId, List<GoalTask> goals) {
         List<GoalTaskDto> items = new ArrayList<GoalTaskDto>(goals.size());
         for (GoalTask task : goals) {
+            if (task == null || !task.isActive()) {
+                continue;
+            }
             items.add(toGoalTaskDto(task));
         }
         return new GoalGroupResponseDto(taskGroupId, items, items.size());
@@ -733,6 +880,16 @@ public class TaskCenterService {
                 task.getStatus(),
                 task.getDueAt() == null ? null : task.getDueAt().toString(),
                 task.getTaskGroupId(),
+                valueOrDefault(task.getCycleType(), "ONE_TIME"),
+                task.getCycleFrequency(),
+                task.getCycleInterval(),
+                task.getCycleUnit(),
+                task.getCycleLabel(),
+                task.getCycleEndAt() == null ? null : task.getCycleEndAt().toString(),
+                task.isCycleNoEnd(),
+                task.getEnrollmentStartAt() == null ? null : task.getEnrollmentStartAt().toString(),
+                task.getEnrollmentEndAt() == null ? null : task.getEnrollmentEndAt().toString(),
+                task.isActive(),
                 student.getId(),
                 buildStudentDisplayName(student),
                 teacher.getId(),
@@ -744,9 +901,190 @@ public class TaskCenterService {
         );
     }
 
+    private Map<Long, Map<String, GoalTaskCompletionEntry>> findCompletionsByGoalId(List<Long> goalIds) {
+        Map<Long, Map<String, GoalTaskCompletionEntry>> result = new HashMap<Long, Map<String, GoalTaskCompletionEntry>>();
+        if (goalIds == null || goalIds.isEmpty()) {
+            return result;
+        }
+        List<GoalTaskCompletionEntry> entries = goalTaskCompletionRepository.findByGoalTask_IdIn(goalIds);
+        for (GoalTaskCompletionEntry entry : entries) {
+            if (entry == null || entry.getGoalTask() == null || entry.getGoalTask().getId() == null) {
+                continue;
+            }
+            Long goalId = entry.getGoalTask().getId();
+            Map<String, GoalTaskCompletionEntry> byKey = result.get(goalId);
+            if (byKey == null) {
+                byKey = new HashMap<String, GoalTaskCompletionEntry>();
+                result.put(goalId, byKey);
+            }
+            byKey.put(entry.getOccurrenceKey(), entry);
+        }
+        return result;
+    }
+
+    private GoalTaskCompletionColumnDto toCompletionColumnDto(OccurrenceSpec occurrenceSpec) {
+        return new GoalTaskCompletionColumnDto(
+                occurrenceSpec.key,
+                occurrenceSpec.label,
+                occurrenceSpec.startAt == null ? null : occurrenceSpec.startAt.toString(),
+                occurrenceSpec.endAt == null ? null : occurrenceSpec.endAt.toString()
+        );
+    }
+
+    private GoalTaskCompletionDto toCompletionDto(GoalTaskCompletionEntry entry, OccurrenceSpec occurrenceSpec) {
+        return toCompletionDto(entry, occurrenceSpec, false, null, null, "");
+    }
+
+    private GoalTaskCompletionDto toCompletionDto(GoalTaskCompletionEntry entry,
+                                                  OccurrenceSpec occurrenceSpec,
+                                                  boolean fallbackCompleted,
+                                                  String fallbackCompletedAt,
+                                                  String fallbackUpdatedAt,
+                                                  String fallbackProgressNote) {
+        return new GoalTaskCompletionDto(
+                entry == null ? null : entry.getId(),
+                occurrenceSpec.key,
+                occurrenceSpec.label,
+                occurrenceSpec.startAt == null ? null : occurrenceSpec.startAt.toString(),
+                occurrenceSpec.endAt == null ? null : occurrenceSpec.endAt.toString(),
+                entry == null ? fallbackCompleted : entry.isCompleted(),
+                entry == null || entry.getCompletedAt() == null ? fallbackCompletedAt : entry.getCompletedAt().toString(),
+                entry == null || entry.getUpdatedAt() == null ? fallbackUpdatedAt : entry.getUpdatedAt().toString(),
+                entry == null || entry.getProgressNote() == null ? valueOrDefault(fallbackProgressNote, "") : entry.getProgressNote()
+        );
+    }
+
+    private GoalTaskStatus resolveGoalStatusFromCompletionCounts(int completedOccurrences,
+                                                                 int totalOccurrences,
+                                                                 GoalTaskStatus fallback) {
+        if (totalOccurrences <= 0) {
+            return fallback == null ? GoalTaskStatus.NOT_STARTED : fallback;
+        }
+        if (completedOccurrences <= 0) {
+            return GoalTaskStatus.NOT_STARTED;
+        }
+        if (completedOccurrences >= totalOccurrences) {
+            return GoalTaskStatus.COMPLETED;
+        }
+        return GoalTaskStatus.IN_PROGRESS;
+    }
+
+    private void refreshGoalStatusFromCompletions(GoalTask task) {
+        List<OccurrenceSpec> occurrenceSpecs = buildOccurrenceSpecs(task);
+        if (occurrenceSpecs.isEmpty()) {
+            task.updateStatus(GoalTaskStatus.NOT_STARTED, task.getProgressNote(), false);
+            return;
+        }
+        Map<String, GoalTaskCompletionEntry> completionByKey = new HashMap<String, GoalTaskCompletionEntry>();
+        List<GoalTaskCompletionEntry> entries = goalTaskCompletionRepository.findByGoalTask_IdIn(
+                Collections.singletonList(task.getId())
+        );
+        for (GoalTaskCompletionEntry entry : entries) {
+            completionByKey.put(entry.getOccurrenceKey(), entry);
+        }
+        int completedOccurrences = 0;
+        for (OccurrenceSpec occurrenceSpec : occurrenceSpecs) {
+            GoalTaskCompletionEntry entry = completionByKey.get(occurrenceSpec.key);
+            if (entry != null && entry.isCompleted()) {
+                completedOccurrences += 1;
+            }
+        }
+        GoalTaskStatus nextStatus = resolveGoalStatusFromCompletionCounts(
+                completedOccurrences,
+                occurrenceSpecs.size(),
+                task.getStatus()
+        );
+        task.updateStatus(nextStatus, task.getProgressNote(), false);
+    }
+
+    private OccurrenceSpec findOccurrenceSpec(GoalTask task, String occurrenceKey) {
+        List<OccurrenceSpec> occurrenceSpecs = buildOccurrenceSpecs(task);
+        for (OccurrenceSpec occurrenceSpec : occurrenceSpecs) {
+            if (occurrenceSpec.key.equals(occurrenceKey)) {
+                return occurrenceSpec;
+            }
+        }
+        throw badRequest("occurrenceKey is not available for this task");
+    }
+
+    private List<OccurrenceSpec> buildOccurrenceSpecs(GoalTask task) {
+        LocalDate start = firstNonNull(task.getEnrollmentStartAt(), task.getDueAt(), today());
+        LocalDate enrollmentEnd = task.getEnrollmentEndAt();
+        LocalDate cycleEnd = task.isCycleNoEnd() ? null : task.getCycleEndAt();
+        LocalDate end = cycleEnd == null ? today() : cycleEnd;
+        if (enrollmentEnd != null && enrollmentEnd.isBefore(end)) {
+            end = enrollmentEnd;
+        }
+        if (end.isBefore(start)) {
+            end = start;
+        }
+
+        String cycleType = valueOrDefault(task.getCycleType(), "ONE_TIME").toUpperCase(Locale.ROOT);
+        List<OccurrenceSpec> result = new ArrayList<OccurrenceSpec>();
+        if (!"ROUTINE".equals(cycleType)) {
+            result.add(new OccurrenceSpec("once", "Single", start, start));
+            return result;
+        }
+
+        int stepDays = resolveCycleStepDays(task);
+        LocalDate cursor = start;
+        int index = 1;
+        while (!cursor.isAfter(end) && result.size() < MAX_COMPLETION_OCCURRENCES) {
+            LocalDate occurrenceEnd = cursor.plusDays(stepDays - 1L);
+            if (occurrenceEnd.isAfter(end)) {
+                occurrenceEnd = end;
+            }
+            String key = cursor.toString();
+            String label = buildOccurrenceLabel(task, cursor, index);
+            result.add(new OccurrenceSpec(key, label, cursor, occurrenceEnd));
+            cursor = cursor.plusDays(stepDays);
+            index += 1;
+        }
+        if (result.isEmpty()) {
+            result.add(new OccurrenceSpec(start.toString(), buildOccurrenceLabel(task, start, 1), start, start));
+        }
+        return result;
+    }
+
+    private int resolveCycleStepDays(GoalTask task) {
+        String frequency = valueOrDefault(task.getCycleFrequency(), "DAILY").toUpperCase(Locale.ROOT);
+        if ("WEEKLY".equals(frequency)) {
+            return 7;
+        }
+        if ("CUSTOM".equals(frequency)) {
+            int interval = task.getCycleInterval() == null || task.getCycleInterval().intValue() <= 0
+                    ? 1
+                    : task.getCycleInterval().intValue();
+            String unit = valueOrDefault(task.getCycleUnit(), "DAYS").toUpperCase(Locale.ROOT);
+            return "WEEKS".equals(unit) ? interval * 7 : interval;
+        }
+        return 1;
+    }
+
+    private String buildOccurrenceLabel(GoalTask task, LocalDate start, int index) {
+        String label = trimToNull(task.getCycleLabel());
+        if (label != null) {
+            return label + " #" + index;
+        }
+        return start.toString();
+    }
+
+    private LocalDate firstNonNull(LocalDate first, LocalDate second, LocalDate third) {
+        if (first != null) return first;
+        if (second != null) return second;
+        return third;
+    }
+
+    private LocalDate today() {
+        return LocalDate.now();
+    }
+
     private void sendTrackingAssignmentReminder(Teacher teacher,
                                                 List<Student> students,
                                                 String trackingTitle,
+                                                String trackingDescription,
+                                                LocalDate startDate,
+                                                String cycleSummary,
                                                 String taskGroupId) {
         if (teacher == null || students == null || students.isEmpty()) {
             return;
@@ -757,7 +1095,14 @@ public class TaskCenterService {
             title = "学习进度记录";
         }
 
-        String content = buildTrackingAssignmentNoticeContent();
+        String teacherName = buildTeacherDisplayName(teacher);
+        String content = buildTrackingAssignmentDetails(
+                title,
+                trackingDescription,
+                teacherName,
+                cycleSummary,
+                startDate
+        );
         InfoTask infoTask = new InfoTask(
                 TRACKING_ASSIGNMENT_NOTICE_TITLE,
                 content,
@@ -793,21 +1138,232 @@ public class TaskCenterService {
             emailService.sendTextEmail(
                     emails,
                     TRACKING_ASSIGNMENT_EMAIL_SUBJECT,
-                    buildTrackingAssignmentEmailBody(buildTeacherDisplayName(teacher))
+                    buildTrackingAssignmentEmailBody(
+                            title,
+                            trackingDescription,
+                            teacherName,
+                            cycleSummary,
+                            startDate
+                    )
             );
         } catch (RuntimeException ex) {
             log.warn("Failed to send tracking assignment reminder email for taskGroupId={}", taskGroupId, ex);
         }
     }
 
-    private String buildTrackingAssignmentNoticeContent() {
-        return "老师已更新你的学习状态，请登录学生平台查看通知。";
+    private String buildTrackingAssignmentEmailBody(String title,
+                                                    String description,
+                                                    String teacherName,
+                                                    String cycleSummary,
+                                                    LocalDate startDate) {
+        return buildTrackingAssignmentDetails(title, description, teacherName, cycleSummary, startDate);
     }
 
-    private String buildTrackingAssignmentEmailBody(String teacherName) {
-        return "老师已更新你的学习状态。\n\n"
-                + "老师：" + teacherName + "\n"
-                + "请登录学生管理平台查看通知。";
+    private String buildTrackingAssignmentDetails(String title,
+                                                  String description,
+                                                  String teacherName,
+                                                  String cycleSummary,
+                                                  LocalDate startDate) {
+        StringBuilder body = new StringBuilder();
+        body.append("你收到一个新的任务。").append("\n\n");
+        body.append("任务名称：").append(valueOrUnset(title)).append("\n");
+        body.append("任务内容：").append("\n");
+        body.append(valueOrUnset(description)).append("\n\n");
+        body.append("发布老师：").append(valueOrUnset(teacherName)).append("\n");
+        body.append("周期：").append(valueOrUnset(cycleSummary)).append("\n");
+        body.append("开始时间：").append(formatDateOrUnset(startDate));
+        return body.toString();
+    }
+
+    private String buildCycleSummary(CreateGoalRequestDto requestBody) {
+        if (requestBody == null) {
+            return "一次性任务";
+        }
+        return buildCycleSummary(
+                requestBody.getCycleType(),
+                requestBody.getCycleFrequency(),
+                requestBody.getCycleInterval(),
+                requestBody.getCycleUnit(),
+                requestBody.getCycleLabel()
+        );
+    }
+
+    private String buildCycleSummary(GoalGroupUpsertRequestDto requestBody) {
+        if (requestBody == null) {
+            return "一次性任务";
+        }
+        return buildCycleSummary(
+                requestBody.getCycleType(),
+                requestBody.getCycleFrequency(),
+                requestBody.getCycleInterval(),
+                requestBody.getCycleUnit(),
+                requestBody.getCycleLabel()
+        );
+    }
+
+    private GoalCycleConfig buildCycleConfig(CreateGoalRequestDto requestBody, LocalDate startDate) {
+        if (requestBody == null) {
+            return buildCycleConfig(null, null, null, null, null, null, null, startDate);
+        }
+        return buildCycleConfig(
+                requestBody.getCycleType(),
+                requestBody.getCycleFrequency(),
+                requestBody.getCycleInterval(),
+                requestBody.getCycleUnit(),
+                requestBody.getCycleLabel(),
+                requestBody.getCycleEndAt(),
+                requestBody.getCycleNoEnd(),
+                startDate
+        );
+    }
+
+    private GoalCycleConfig buildCycleConfig(GoalGroupUpsertRequestDto requestBody, LocalDate startDate) {
+        if (requestBody == null) {
+            return buildCycleConfig(null, null, null, null, null, null, null, startDate);
+        }
+        return buildCycleConfig(
+                requestBody.getCycleType(),
+                requestBody.getCycleFrequency(),
+                requestBody.getCycleInterval(),
+                requestBody.getCycleUnit(),
+                requestBody.getCycleLabel(),
+                requestBody.getCycleEndAt(),
+                requestBody.getCycleNoEnd(),
+                startDate
+        );
+    }
+
+    private GoalCycleConfig buildCycleConfig(String cycleTypeRaw,
+                                             String cycleFrequencyRaw,
+                                             Integer cycleIntervalRaw,
+                                             String cycleUnitRaw,
+                                             String cycleLabelRaw,
+                                             String cycleEndAtRaw,
+                                             Boolean cycleNoEndRaw,
+                                             LocalDate startDate) {
+        String cycleType = trimToNull(cycleTypeRaw);
+        cycleType = cycleType == null ? "ONE_TIME" : cycleType.toUpperCase(Locale.ROOT);
+        if (!"ROUTINE".equals(cycleType)) {
+            return new GoalCycleConfig("ONE_TIME", null, null, null, trimToNull(cycleLabelRaw), null, true);
+        }
+
+        String frequency = trimToNull(cycleFrequencyRaw);
+        frequency = frequency == null ? "DAILY" : frequency.toUpperCase(Locale.ROOT);
+        if (!"DAILY".equals(frequency) && !"WEEKLY".equals(frequency) && !"CUSTOM".equals(frequency)) {
+            frequency = "DAILY";
+        }
+
+        Integer cycleInterval = null;
+        String cycleUnit = null;
+        if ("CUSTOM".equals(frequency)) {
+            int normalizedInterval = cycleIntervalRaw == null || cycleIntervalRaw.intValue() <= 0
+                    ? 1
+                    : Math.min(cycleIntervalRaw.intValue(), 99);
+            cycleInterval = Integer.valueOf(normalizedInterval);
+            cycleUnit = "WEEKS".equalsIgnoreCase(trimToNull(cycleUnitRaw)) ? "WEEKS" : "DAYS";
+        }
+
+        boolean cycleNoEnd = cycleNoEndRaw == null || cycleNoEndRaw.booleanValue();
+        LocalDate cycleEndAt = cycleNoEnd ? null : parseOptionalDate(cycleEndAtRaw, "cycleEndAt");
+        if (!cycleNoEnd && cycleEndAt == null) {
+            throw badRequest("cycleEndAt is required when cycleNoEnd is false");
+        }
+        if (cycleEndAt != null && startDate != null && cycleEndAt.isBefore(startDate)) {
+            throw badRequest("cycleEndAt must be on or after dueAt");
+        }
+
+        return new GoalCycleConfig(
+                cycleType,
+                frequency,
+                cycleInterval,
+                cycleUnit,
+                trimToNull(cycleLabelRaw),
+                cycleEndAt,
+                cycleNoEnd
+        );
+    }
+
+    private void applyCycleConfig(GoalTask task, GoalCycleConfig cycleConfig) {
+        task.updateCycle(
+                cycleConfig.cycleType,
+                cycleConfig.cycleFrequency,
+                cycleConfig.cycleInterval,
+                cycleConfig.cycleUnit,
+                cycleConfig.cycleLabel,
+                cycleConfig.cycleEndAt,
+                cycleConfig.cycleNoEnd
+        );
+    }
+
+    private LocalDate resolveEnrollmentStartDate(LocalDate taskStartDate) {
+        LocalDate now = LocalDate.now();
+        if (taskStartDate == null || taskStartDate.isBefore(now)) {
+            return now;
+        }
+        return taskStartDate;
+    }
+
+    private String buildCycleSummary(String cycleTypeRaw,
+                                     String cycleFrequencyRaw,
+                                     Integer cycleInterval,
+                                     String cycleUnitRaw,
+                                     String cycleLabelRaw) {
+        String label = trimToNull(cycleLabelRaw);
+        String cycleType = trimToNull(cycleTypeRaw);
+        String cadence = null;
+        if (cycleType != null && "ROUTINE".equals(cycleType.toUpperCase(Locale.ROOT))) {
+            cadence = resolveRoutineCadence(cycleFrequencyRaw, cycleInterval, cycleUnitRaw);
+        } else if (cycleType != null && "ONE_TIME".equals(cycleType.toUpperCase(Locale.ROOT))) {
+            cadence = "一次性任务";
+        }
+
+        if (label != null && cadence != null) {
+            return label + "（" + cadence + "）";
+        }
+        if (label != null) {
+            return label;
+        }
+        return cadence == null ? "一次性任务" : cadence;
+    }
+
+    private String resolveRoutineCadence(String cycleFrequencyRaw,
+                                         Integer cycleInterval,
+                                         String cycleUnitRaw) {
+        String frequency = trimToNull(cycleFrequencyRaw);
+        if (frequency == null) {
+            return "周期任务";
+        }
+        String normalizedFrequency = frequency.toUpperCase(Locale.ROOT);
+        if ("DAILY".equals(normalizedFrequency)) {
+            return "每日";
+        }
+        if ("WEEKLY".equals(normalizedFrequency)) {
+            return "每周";
+        }
+        if ("CUSTOM".equals(normalizedFrequency)) {
+            int interval = cycleInterval == null || cycleInterval.intValue() <= 0
+                    ? 1
+                    : cycleInterval.intValue();
+            String unit = trimToNull(cycleUnitRaw);
+            String normalizedUnit = unit == null ? "DAYS" : unit.toUpperCase(Locale.ROOT);
+            String unitText = "WEEKS".equals(normalizedUnit) ? "周" : "天";
+            return "每 " + interval + " " + unitText;
+        }
+        return "周期任务";
+    }
+
+    private String valueOrUnset(String value) {
+        String normalized = trimToNull(value);
+        return normalized == null ? "未设置" : normalized;
+    }
+
+    private String valueOrDefault(String value, String defaultValue) {
+        String normalized = trimToNull(value);
+        return normalized == null ? defaultValue : normalized;
+    }
+
+    private String formatDateOrUnset(LocalDate value) {
+        return value == null ? "未设置" : value.toString();
     }
 
     private List<String> collectTrackingReminderEmails(List<Student> students) {
@@ -1386,6 +1942,21 @@ public class TaskCenterService {
         }
     }
 
+    private LocalDate parseOptionalDate(String rawValue, String fieldName) {
+        String normalized = trimToNull(rawValue);
+        if (normalized == null) {
+            return null;
+        }
+        if (!ISO_DATE_PATTERN.matcher(normalized).matches()) {
+            throw badRequest(fieldName + " must be yyyy-mm-dd");
+        }
+        try {
+            return LocalDate.parse(normalized);
+        } catch (DateTimeParseException ex) {
+            throw badRequest(fieldName + " must be yyyy-mm-dd");
+        }
+    }
+
     private String normalizeKeyword(String keywordRaw) {
         String normalized = trimToNull(keywordRaw);
         return normalized == null ? null : normalized.toLowerCase(Locale.ROOT);
@@ -1412,5 +1983,45 @@ public class TaskCenterService {
 
     private ApiRequestException badRequest(String message) {
         return new ApiRequestException(HttpStatus.BAD_REQUEST, "BAD_REQUEST", message);
+    }
+
+    private static final class OccurrenceSpec {
+        private final String key;
+        private final String label;
+        private final LocalDate startAt;
+        private final LocalDate endAt;
+
+        private OccurrenceSpec(String key, String label, LocalDate startAt, LocalDate endAt) {
+            this.key = key;
+            this.label = label;
+            this.startAt = startAt;
+            this.endAt = endAt;
+        }
+    }
+
+    private static final class GoalCycleConfig {
+        private final String cycleType;
+        private final String cycleFrequency;
+        private final Integer cycleInterval;
+        private final String cycleUnit;
+        private final String cycleLabel;
+        private final LocalDate cycleEndAt;
+        private final boolean cycleNoEnd;
+
+        private GoalCycleConfig(String cycleType,
+                                String cycleFrequency,
+                                Integer cycleInterval,
+                                String cycleUnit,
+                                String cycleLabel,
+                                LocalDate cycleEndAt,
+                                boolean cycleNoEnd) {
+            this.cycleType = cycleType;
+            this.cycleFrequency = cycleFrequency;
+            this.cycleInterval = cycleInterval;
+            this.cycleUnit = cycleUnit;
+            this.cycleLabel = cycleLabel;
+            this.cycleEndAt = cycleEndAt;
+            this.cycleNoEnd = cycleNoEnd;
+        }
     }
 }

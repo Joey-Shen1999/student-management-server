@@ -23,6 +23,7 @@ public interface GoalTaskRepository extends JpaRepository<GoalTask, Long> {
     })
     @Query("select g from GoalTask g " +
             "where g.assignedStudent.id = :studentId " +
+            "and g.active = true " +
             "and (:status is null or g.status = :status) " +
             "and (:keyword is null " +
             "or lower(g.title) like concat('%', :keyword, '%') " +
@@ -41,6 +42,7 @@ public interface GoalTaskRepository extends JpaRepository<GoalTask, Long> {
     })
     @Query("select g from GoalTask g " +
             "where (:assignedByTeacherId is null or g.assignedByTeacher.id = :assignedByTeacherId) " +
+            "and g.active = true " +
             "and (:studentId is null or g.assignedStudent.id = :studentId) " +
             "and (:status is null or g.status = :status) " +
             "and (:keyword is null " +

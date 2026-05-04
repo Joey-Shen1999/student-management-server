@@ -53,6 +53,36 @@ public class GoalTask extends BaseEntity {
     @Column(name = "due_at")
     private LocalDate dueAt;
 
+    @Column(name = "cycle_type", nullable = false, length = 20)
+    private String cycleType;
+
+    @Column(name = "cycle_frequency", length = 20)
+    private String cycleFrequency;
+
+    @Column(name = "cycle_interval")
+    private Integer cycleInterval;
+
+    @Column(name = "cycle_unit", length = 20)
+    private String cycleUnit;
+
+    @Column(name = "cycle_label", length = 120)
+    private String cycleLabel;
+
+    @Column(name = "cycle_end_at")
+    private LocalDate cycleEndAt;
+
+    @Column(name = "cycle_no_end", nullable = false)
+    private boolean cycleNoEnd;
+
+    @Column(name = "enrollment_start_at")
+    private LocalDate enrollmentStartAt;
+
+    @Column(name = "enrollment_end_at")
+    private LocalDate enrollmentEndAt;
+
+    @Column(name = "active", nullable = false)
+    private boolean active;
+
     @Column(name = "task_group_id", nullable = false, length = 64)
     private String taskGroupId;
 
@@ -95,6 +125,9 @@ public class GoalTask extends BaseEntity {
         this.assignedByTeacher = assignedByTeacher;
         this.status = GoalTaskStatus.NOT_STARTED;
         this.progressNote = "";
+        this.cycleType = "ONE_TIME";
+        this.cycleNoEnd = true;
+        this.active = true;
     }
 
     @PrePersist
@@ -105,8 +138,14 @@ public class GoalTask extends BaseEntity {
         if (this.progressNote == null) {
             this.progressNote = "";
         }
+        if (this.cycleType == null || this.cycleType.trim().isEmpty()) {
+            this.cycleType = "ONE_TIME";
+        }
         if (this.status == GoalTaskStatus.COMPLETED && this.completedAt == null) {
             this.completedAt = LocalDateTime.now();
+        }
+        if (this.enrollmentStartAt == null) {
+            this.enrollmentStartAt = this.dueAt;
         }
         if (this.taskGroupId == null || this.taskGroupId.trim().isEmpty()) {
             this.taskGroupId = "auto-" + UUID.randomUUID().toString();
@@ -134,6 +173,35 @@ public class GoalTask extends BaseEntity {
         this.assignedStudent = assignedStudent;
     }
 
+    public void updateCycle(String cycleType,
+                            String cycleFrequency,
+                            Integer cycleInterval,
+                            String cycleUnit,
+                            String cycleLabel,
+                            LocalDate cycleEndAt,
+                            boolean cycleNoEnd) {
+        this.cycleType = cycleType == null || cycleType.trim().isEmpty() ? "ONE_TIME" : cycleType;
+        this.cycleFrequency = cycleFrequency;
+        this.cycleInterval = cycleInterval;
+        this.cycleUnit = cycleUnit;
+        this.cycleLabel = cycleLabel;
+        this.cycleEndAt = cycleEndAt;
+        this.cycleNoEnd = cycleNoEnd;
+    }
+
+    public void activate(LocalDate enrollmentStartAt) {
+        this.active = true;
+        this.enrollmentEndAt = null;
+        if (this.enrollmentStartAt == null) {
+            this.enrollmentStartAt = enrollmentStartAt;
+        }
+    }
+
+    public void deactivate(LocalDate enrollmentEndAt) {
+        this.active = false;
+        this.enrollmentEndAt = enrollmentEndAt;
+    }
+
     public Long getId() {
         return super.getId();
     }
@@ -152,6 +220,46 @@ public class GoalTask extends BaseEntity {
 
     public LocalDate getDueAt() {
         return dueAt;
+    }
+
+    public String getCycleType() {
+        return cycleType;
+    }
+
+    public String getCycleFrequency() {
+        return cycleFrequency;
+    }
+
+    public Integer getCycleInterval() {
+        return cycleInterval;
+    }
+
+    public String getCycleUnit() {
+        return cycleUnit;
+    }
+
+    public String getCycleLabel() {
+        return cycleLabel;
+    }
+
+    public LocalDate getCycleEndAt() {
+        return cycleEndAt;
+    }
+
+    public boolean isCycleNoEnd() {
+        return cycleNoEnd;
+    }
+
+    public LocalDate getEnrollmentStartAt() {
+        return enrollmentStartAt;
+    }
+
+    public LocalDate getEnrollmentEndAt() {
+        return enrollmentEndAt;
+    }
+
+    public boolean isActive() {
+        return active;
     }
 
     public String getTaskGroupId() {
