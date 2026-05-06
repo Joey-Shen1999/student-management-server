@@ -135,6 +135,23 @@ jobs:
           DB_USER="${DB_USER:-postgres}"
           DB_PASSWORD="${DB_PASSWORD:-postgres}"
 
+          sudo install -d -m 750 -o root -g ubuntu /etc/student-management/env
+          tmp_env="$(mktemp)"
+          {
+            printf 'SPRING_DATASOURCE_URL=jdbc:postgresql://%s:%s/%s\n' "$DB_HOST" "$DB_PORT" "$DB_NAME"
+            printf 'SPRING_DATASOURCE_USERNAME=%s\n' "$DB_USER"
+            printf 'SPRING_DATASOURCE_PASSWORD=%s\n' "$DB_PASSWORD"
+            printf 'SERVER_PORT=8080\n'
+          } > "$tmp_env"
+          sudo install -m 640 -o root -g ubuntu "$tmp_env" /etc/student-management/env/test.env
+          rm -f "$tmp_env"
+
+          if ! grep -q '^EnvironmentFile=/etc/student-management/env/test.env$' /etc/systemd/system/"$SERVICE_NAME".service; then
+            sudo cp /etc/systemd/system/"$SERVICE_NAME".service /etc/systemd/system/"$SERVICE_NAME".service.bak.$(date +%Y%m%d%H%M%S)
+            sudo sed -i '/^Environment=JAVA_OPTS=/a EnvironmentFile=/etc/student-management/env/test.env' /etc/systemd/system/"$SERVICE_NAME".service
+            sudo systemctl daemon-reload
+          fi
+
           run_sql_file() {
             local sql_file="$1"
             local sql_mode="$2"

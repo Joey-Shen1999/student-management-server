@@ -1,0 +1,19 @@
+[Unit]
+Description=Student Management Server (Spring Boot) - Test
+After=network.target postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/student-management-server
+Environment=SPRING_PROFILES_ACTIVE=prod
+Environment=JAVA_OPTS=
+EnvironmentFile=/etc/student-management/env/test.env
+ExecStart=/usr/bin/java $JAVA_OPTS -jar /home/ubuntu/student-management-server/target/student-management-server-latest.jar
+Restart=always
+RestartSec=5
+SuccessExitStatus=143
+
+[Install]
+WantedBy=multi-user.target
