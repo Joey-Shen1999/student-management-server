@@ -11,7 +11,7 @@ Configure in `Repository -> Settings -> Secrets and variables -> Actions`.
 - `SPRING_MAIL_PASSWORD`: Google Workspace/Gmail app password for SMTP sending.
 
 ### Variables
-- `AWS_HOST`: `3.149.1.120`
+- `AWS_HOST`: `3.23.21.144`
 - `AWS_USER`: `ubuntu`
 - `AWS_PORT`: `22`
 - `DEPLOY_PATH`: `/home/ubuntu/student-management-server`
@@ -33,7 +33,7 @@ Configure in `Repository -> Settings -> Secrets and variables -> Actions`.
 ## 2. Critical Prerequisite (Server must be able to fetch GitHub code)
 The workflow SSHes into the server and runs:
 - `git fetch --all --prune`
-- `git reset --hard origin/main`
+- `git reset --hard origin/master`
 
 So the server itself must have repository access.
 
@@ -190,7 +190,7 @@ On each push to `main`, `.github/workflows/deploy.yml` does:
 4. SSH to server and run:
    - `cd $DEPLOY_PATH`
    - `git fetch --all --prune`
-   - `git reset --hard origin/main`
+   - `git reset --hard origin/master`
    - `git clean -fd`
    - writes `config/local-secrets.properties` from GitHub Actions mail secrets/variables when `SPRING_MAIL_PASSWORD` is configured
    - run DB preflight (read-only):
