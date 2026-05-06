@@ -183,7 +183,11 @@ sudo chmod 440 /etc/sudoers.d/student-management-server
 ```
 
 ## 6. Workflow Behavior
-On each push to `main`, `.github/workflows/deploy.yml` does:
+Production changes should flow through `feature/*` -> PR to `main` -> test on `main` -> manual merge from `main` to `master`.
+
+On each push to `master`, `.github/workflows/deploy-production.yml` builds and deploys the production jar to EC2. The legacy `.github/workflows/deploy.yml` is manual-only and should not be used for normal production releases.
+
+The legacy manual workflow does:
 1. Checkout workflow repo
 2. Validate vars
 3. Configure SSH private key + known_hosts
