@@ -1,0 +1,131 @@
+name: Deploy Production
+
+on:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-production
+  cancel-in-progress: false
+
+env:
+  JAR_NAME: student-management-server-latest.jar
+
+jobs:
+  deploy:
+    name: Build and Deploy Backend
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate required secrets
+        shell: bash
+        env:
+          PROD_HOST: ${{ secrets.PROD_HOST }}
+          PROD_USER: ${{ secrets.PROD_USER }}
+          PROD_PORT: ${{ secrets.PROD_PORT }}
+          PROD_SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+          PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
+          PROD_SERVICE_NAME: ${{ secrets.PROD_SERVICE_NAME }}
+        run: |
+          set -euo pipefail
+          missing=()
+          for name in PROD_HOST PROD_USER PROD_PORT PROD_SSH_KEY PROD_DEPLOY_PATH PROD_SERVICE_NAME; do
+            if [[ -z "${!name:-}" ]]; then
+              missing+=("${name}")
+            fi
+          done
+          if (( ${#missing[@]} > 0 )); then
+            printf 'Missing required GitHub Secrets: %s\n' "${missing[*]}" >&2
+            exit 1
+          fi
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Run backend tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x ./mvnw
+          ./mvnw -B test
+
+      - name: Build Spring Boot jar
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x ./mvnw
+          ./mvnw -B package -DskipTests
+          mkdir -p build
+          jar_file="$(find target -maxdepth 1 -type f -name '*.jar' ! -name 'original-*.jar' ! -name '*sources.jar' ! -name '*javadoc.jar' | sort | tail -n 1)"
+          if [[ -z "${jar_file}" ]]; then
+            echo "No runnable jar produced under target/." >&2
+            exit 1
+          fi
+          cp "${jar_file}" "build/${JAR_NAME}"
+
+      - name: Configure SSH
+        shell: bash
+        env:
+          PROD_HOST: ${{ secrets.PROD_HOST }}
+          PROD_PORT: ${{ secrets.PROD_PORT }}
+          PROD_SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p "${HOME}/.ssh"
+          chmod 700 "${HOME}/.ssh"
+          SSH_KEY_PATH="${RUNNER_TEMP}/prod_deploy_key"
+          umask 077
+          printf '%s\n' "${PROD_SSH_KEY}" > "${SSH_KEY_PATH}"
+          chmod 600 "${SSH_KEY_PATH}"
+          ssh-keyscan -p "${PROD_PORT}" -H "${PROD_HOST}" >> "${HOME}/.ssh/known_hosts" 2>/dev/null
+          echo "SSH_KEY_PATH=${SSH_KEY_PATH}" >> "${GITHUB_ENV}"
+
+      - name: Deploy jar to EC2
+        shell: bash
+        env:
+          PROD_HOST: ${{ secrets.PROD_HOST }}
+          PROD_USER: ${{ secrets.PROD_USER }}
+          PROD_PORT: ${{ secrets.PROD_PORT }}
+          PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
+        run: |
+          set -euo pipefail
+          release_jar="${GITHUB_SHA}.jar"
+          ssh -i "${SSH_KEY_PATH}" -p "${PROD_PORT}" "${PROD_USER}@${PROD_HOST}" \
+            "mkdir -p '${PROD_DEPLOY_PATH}/releases'"
+          rsync -az -e "ssh -i ${SSH_KEY_PATH} -p ${PROD_PORT}" \
+            "build/${JAR_NAME}" \
+            "${PROD_USER}@${PROD_HOST}:${PROD_DEPLOY_PATH}/releases/${release_jar}"
+          ssh -i "${SSH_KEY_PATH}" -p "${PROD_PORT}" "${PROD_USER}@${PROD_HOST}" \
+            "cd '${PROD_DEPLOY_PATH}' && ln -sfn 'releases/${release_jar}' '${JAR_NAME}' && chmod 600 '${PROD_DEPLOY_PATH}/releases/${release_jar}'"
+
+      - name: Restart and verify service
+        shell: bash
+        env:
+          PROD_HOST: ${{ secrets.PROD_HOST }}
+          PROD_USER: ${{ secrets.PROD_USER }}
+          PROD_PORT: ${{ secrets.PROD_PORT }}
+          PROD_SERVICE_NAME: ${{ secrets.PROD_SERVICE_NAME }}
+        run: |
+          set -euo pipefail
+          ssh -i "${SSH_KEY_PATH}" -p "${PROD_PORT}" "${PROD_USER}@${PROD_HOST}" \
+            "sudo systemctl daemon-reload && sudo systemctl restart '${PROD_SERVICE_NAME}' && sudo systemctl is-active --quiet '${PROD_SERVICE_NAME}'"
+
+      - name: Cleanup SSH key
+        if: always()
+        shell: bash
+        run: |
+          if [[ -n "${SSH_KEY_PATH:-}" && -f "${SSH_KEY_PATH}" ]]; then
+            shred -u "${SSH_KEY_PATH}" 2>/dev/null || rm -f "${SSH_KEY_PATH}"
+          fi

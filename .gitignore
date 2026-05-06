@@ -37,3 +37,14 @@ build/
 config/local-secrets.properties
 config/*.secret.properties
 config/*.secrets.properties
+
+### Production secrets and private keys ###
+*.pem
+*.ppk
+*.key
+*_openssh
+id_rsa
+id_ed25519
+.env
+.env.*
+application-prod.properties

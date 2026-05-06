@@ -1,17 +1,24 @@
 [Unit]
 Description=Student Management Server (Spring Boot)
-After=network.target
+After=network-online.target postgresql.service
+Wants=network-online.target
+Requires=postgresql.service
 
 [Service]
 Type=simple
 User=ubuntu
+Group=ubuntu
 WorkingDirectory=/home/ubuntu/student-management-server
-Environment=SPRING_PROFILES_ACTIVE=prod
-Environment=JAVA_OPTS=
-ExecStart=/usr/bin/java $JAVA_OPTS -jar /home/ubuntu/student-management-server/target/student-management-server-latest.jar
+EnvironmentFile=-/home/ubuntu/student-management-server/application-prod.env
+ExecStart=/usr/bin/java -jar /home/ubuntu/student-management-server/student-management-server-latest.jar --spring.profiles.active=prod --spring.config.additional-location=optional:file:/home/ubuntu/student-management-server/application-prod.properties
 Restart=always
-RestartSec=5
+RestartSec=10
 SuccessExitStatus=143
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+ReadWritePaths=/home/ubuntu/student-management-server
 
 [Install]
 WantedBy=multi-user.target
