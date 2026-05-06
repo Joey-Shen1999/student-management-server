@@ -1,0 +1,21 @@
+[Unit]
+Description=Student Management Server (Production)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/student-management-server
+EnvironmentFile=/etc/student-management/env/production.env
+ExecStart=/usr/bin/java -jar /home/ubuntu/student-management-server/student-management-server-latest.jar --spring.profiles.active=prod --spring.config.location=file:/home/ubuntu/student-management-server/application-prod.properties
+Restart=always
+RestartSec=5
+SuccessExitStatus=143
+NoNewPrivileges=true
+PrivateTmp=true
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target
