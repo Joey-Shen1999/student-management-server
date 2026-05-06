@@ -1,10 +1,12 @@
-name: Legacy Manual Deploy to AWS Ubuntu
+name: Deploy Test to AWS Ubuntu
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - main
 
 concurrency:
-  group: legacy-deploy-master
+  group: deploy-main
   cancel-in-progress: true
 
 jobs:
@@ -100,7 +102,7 @@ jobs:
 
           cd "$DEPLOY_PATH"
           git fetch --all --prune
-          git reset --hard origin/master
+          git reset --hard origin/main
           git clean -fd
 
           if [ -n "$SPRING_MAIL_PASSWORD" ]; then
