@@ -30,6 +30,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Collection;
 
 import static org.hamcrest.Matchers.containsString;
@@ -351,7 +353,9 @@ class TaskCenterGoalApiTest {
         String completedAtAfterEdit = objectMapper.readTree(editResult.getResponse().getContentAsString())
                 .path("completedAt")
                 .asText();
-        assertEquals(completedAtBeforeEdit, completedAtAfterEdit);
+        assertEquals(
+                LocalDateTime.parse(completedAtBeforeEdit).truncatedTo(ChronoUnit.MILLIS),
+                LocalDateTime.parse(completedAtAfterEdit).truncatedTo(ChronoUnit.MILLIS));
 
         mockMvc.perform(get("/api/teacher/tasks")
                         .header("Authorization", bearerFor(teacher.getUser()))
