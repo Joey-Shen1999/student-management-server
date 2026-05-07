@@ -10,6 +10,13 @@ Set these in `Settings -> Secrets and variables -> Actions -> Secrets`:
 - `PROD_SERVICE_NAME=student-management-server`
 - `PROD_SSH_KEY=<contents of gedu.joey.openssh>`
 
+Public site URL:
+
+- `https://globalvip-studentportal.ca`
+- `https://www.globalvip-studentportal.ca`
+
+Production SSH deployment should continue to use the Elastic IP through `PROD_HOST=3.23.21.144`.
+
 Set this in `Settings -> Secrets and variables -> Actions -> Variables`:
 
 - `PROD_FRONTEND_REPOSITORY=<owner>/student-management-frontend`
@@ -86,6 +93,31 @@ sudo nginx -t
 sudo systemctl reload nginx
 sudo systemctl status nginx --no-pager
 ```
+
+The production Nginx `server_name` should be:
+
+```nginx
+server_name globalvip-studentportal.ca www.globalvip-studentportal.ca;
+```
+
+Keep `/api` proxied without stripping the `/api` prefix:
+
+```nginx
+proxy_pass http://127.0.0.1:8080;
+```
+
+## 7.1) HTTPS
+
+After Porkbun DNS points both root and `www` A records to `3.23.21.144`, run on the production EC2:
+
+```bash
+sudo apt update
+sudo apt install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d globalvip-studentportal.ca -d www.globalvip-studentportal.ca
+sudo certbot renew --dry-run
+```
+
+Choose the Certbot option to redirect HTTP to HTTPS.
 
 ## 8) Verification checklist
 

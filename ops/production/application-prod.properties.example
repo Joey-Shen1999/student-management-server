@@ -22,4 +22,4 @@ spring.flyway.baseline-on-migrate=false
 spring.flyway.validate-on-migrate=true
 spring.flyway.clean-disabled=true
 
-app.cors.allowed-origins=http://3.23.21.144
+app.cors.allowed-origins=https://globalvip-studentportal.ca,https://www.globalvip-studentportal.ca
