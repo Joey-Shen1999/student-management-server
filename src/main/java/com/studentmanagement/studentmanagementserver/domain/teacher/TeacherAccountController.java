@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -33,6 +34,16 @@ public class TeacherAccountController {
     public ResponseEntity<Map<String, Object>> list(HttpServletRequest request) {
         managementAccessService.requireTeacherManagementAccess(request);
         List<TeacherAccountService.TeacherAccountItem> accounts = teacherAccountService.listTeacherAccounts();
+
+        Map<String, Object> response = new HashMap<String, Object>();
+        response.put("data", accounts);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/advisors")
+    public ResponseEntity<Map<String, Object>> listAdvisors(HttpServletRequest request) {
+        managementAccessService.requireStudentAccountManagementAccess(request);
+        List<TeacherAccountService.TeacherAccountItem> accounts = teacherAccountService.listEnabledAdvisors();
 
         Map<String, Object> response = new HashMap<String, Object>();
         response.put("data", accounts);
@@ -74,6 +85,16 @@ public class TeacherAccountController {
         return ResponseEntity.ok(response);
     }
 
+    @PutMapping("/{teacherId}/advisor-enabled")
+    public ResponseEntity<TeacherAccountService.UpdateTeacherAdvisorEnabledResponse> updateAdvisorEnabled(
+            @PathVariable Long teacherId,
+            @RequestBody(required = false) UpdateTeacherAdvisorEnabledRequest req,
+            HttpServletRequest request) {
+        managementAccessService.requireTeacherManagementAccess(request);
+        Boolean advisorEnabled = req == null ? null : req.getAdvisorEnabled();
+        return ResponseEntity.ok(teacherAccountService.updateAdvisorEnabled(teacherId, advisorEnabled));
+    }
+
     public static class UpdateTeacherRoleRequest {
         private String role;
 
@@ -95,6 +116,18 @@ public class TeacherAccountController {
 
         public void setStatus(String status) {
             this.status = status;
+        }
+    }
+
+    public static class UpdateTeacherAdvisorEnabledRequest {
+        private Boolean advisorEnabled;
+
+        public Boolean getAdvisorEnabled() {
+            return advisorEnabled;
+        }
+
+        public void setAdvisorEnabled(Boolean advisorEnabled) {
+            this.advisorEnabled = advisorEnabled;
         }
     }
 }
