@@ -14,4 +14,7 @@ public interface TeacherRepository extends JpaRepository<Teacher, Long> {
     @Query("select t from Teacher t join fetch t.user")
     List<Teacher> findAllWithUser();
 
+    @Query("select t from Teacher t join fetch t.user where t.advisorEnabled = true order by t.name asc, t.id asc")
+    List<Teacher> findEnabledAdvisorsWithUser();
+
 }

@@ -54,6 +54,7 @@ public class TeacherAccountService {
                     teacher.getUser().getRole(),
                     teacher.getUser().getStatus(),
                     teacher.getName(),
+                    teacher.isAdvisorEnabled(),
                     null,
                     null,
                     null
@@ -134,6 +135,45 @@ public class TeacherAccountService {
         );
     }
 
+    @Transactional(readOnly = true)
+    public List<TeacherAccountItem> listEnabledAdvisors() {
+        List<Teacher> teachers = teacherRepository.findEnabledAdvisorsWithUser();
+        List<TeacherAccountItem> result = new ArrayList<TeacherAccountItem>(teachers.size());
+        for (Teacher teacher : teachers) {
+            result.add(new TeacherAccountItem(
+                    teacher.getId(),
+                    teacher.getUser().getUsername(),
+                    teacher.getUser().getRole(),
+                    teacher.getUser().getStatus(),
+                    teacher.getName(),
+                    teacher.isAdvisorEnabled(),
+                    null,
+                    null,
+                    null
+            ));
+        }
+        return result;
+    }
+
+    @Transactional
+    public UpdateTeacherAdvisorEnabledResponse updateAdvisorEnabled(Long teacherId, Boolean advisorEnabled) {
+        if (advisorEnabled == null) {
+            throw new IllegalArgumentException("advisorEnabled is required");
+        }
+        Teacher teacher = teacherRepository.findById(teacherId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Teacher account not found: " + teacherId
+                ));
+        teacher.setAdvisorEnabled(advisorEnabled.booleanValue());
+        teacherRepository.save(teacher);
+        return new UpdateTeacherAdvisorEnabledResponse(
+                teacher.getId(),
+                teacher.getUser().getUsername(),
+                teacher.isAdvisorEnabled()
+        );
+    }
+
     private UserRole parseTeacherManagementRole(String roleRaw) {
         if (roleRaw == null || roleRaw.trim().isEmpty()) {
             throw new IllegalArgumentException("role is required");
@@ -170,6 +210,7 @@ public class TeacherAccountService {
         private UserRole role;
         private UserAccountStatus status;
         private String displayName;
+        private boolean advisorEnabled;
         private String firstName;
         private String lastName;
         private String email;
@@ -179,6 +220,7 @@ public class TeacherAccountService {
                                   UserRole role,
                                   UserAccountStatus status,
                                   String displayName,
+                                  boolean advisorEnabled,
                                   String firstName,
                                   String lastName,
                                   String email) {
@@ -187,6 +229,7 @@ public class TeacherAccountService {
             this.role = role;
             this.status = status;
             this.displayName = displayName;
+            this.advisorEnabled = advisorEnabled;
             this.firstName = firstName;
             this.lastName = lastName;
             this.email = email;
@@ -210,6 +253,10 @@ public class TeacherAccountService {
 
         public String getDisplayName() {
             return displayName;
+        }
+
+        public boolean isAdvisorEnabled() {
+            return advisorEnabled;
         }
 
         public String getFirstName() {
@@ -306,6 +353,30 @@ public class TeacherAccountService {
 
         public UserAccountStatus getStatus() {
             return status;
+        }
+    }
+
+    public static class UpdateTeacherAdvisorEnabledResponse {
+        private Long teacherId;
+        private String username;
+        private boolean advisorEnabled;
+
+        public UpdateTeacherAdvisorEnabledResponse(Long teacherId, String username, boolean advisorEnabled) {
+            this.teacherId = teacherId;
+            this.username = username;
+            this.advisorEnabled = advisorEnabled;
+        }
+
+        public Long getTeacherId() {
+            return teacherId;
+        }
+
+        public String getUsername() {
+            return username;
+        }
+
+        public boolean isAdvisorEnabled() {
+            return advisorEnabled;
         }
     }
 }
