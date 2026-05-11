@@ -140,6 +140,9 @@ public class TeacherAccountService {
         List<Teacher> teachers = teacherRepository.findEnabledAdvisorsWithUser();
         List<TeacherAccountItem> result = new ArrayList<TeacherAccountItem>(teachers.size());
         for (Teacher teacher : teachers) {
+            if (teacher.getUser().getStatus() == UserAccountStatus.ARCHIVED) {
+                continue;
+            }
             result.add(new TeacherAccountItem(
                     teacher.getId(),
                     teacher.getUser().getUsername(),
