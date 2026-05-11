@@ -75,12 +75,19 @@ public class UniversityCatalogSeedService {
 
                 University university = universityRepository.findFirstByNameIgnoreCase(name).orElse(null);
                 if (university == null) {
+                    university = findLegacyUniversityForSeedName(name, website);
+                }
+                if (university == null) {
                     universityRepository.save(new University(name, province, city, country, website));
                     upserted++;
                     continue;
                 }
 
                 boolean changed = false;
+                if (!same(university.getName(), name)) {
+                    university.setName(name);
+                    changed = true;
+                }
                 if (!same(university.getProvince(), province)) {
                     university.setProvince(province);
                     changed = true;
@@ -110,6 +117,22 @@ public class UniversityCatalogSeedService {
             throw new IllegalStateException("Failed to load " + UNIVERSITY_SEED_FILE, e);
         }
         return upserted;
+    }
+
+    private University findLegacyUniversityForSeedName(String name, String website) {
+        if (!sameKey(name, "University of Toronto – St. George Campus")) {
+            return null;
+        }
+        University legacy = universityRepository.findFirstByNameIgnoreCase("University of Toronto").orElse(null);
+        if (legacy == null) {
+            return null;
+        }
+        String legacyWebsite = legacy.getWebsite() == null ? "" : legacy.getWebsite().trim().toLowerCase(Locale.ROOT);
+        String seedWebsite = website == null ? "" : website.trim().toLowerCase(Locale.ROOT);
+        if (legacyWebsite.contains("toronto-st-george") || seedWebsite.contains("toronto-st-george")) {
+            return legacy;
+        }
+        return null;
     }
 
     private int seedPrograms() {
