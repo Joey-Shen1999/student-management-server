@@ -16,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Optional;
 
 @Component
-@Profile("!test")
+@Profile("!test & !prod")
 public class StudentTestDataInitializer {
 
     private final UserRepository userRepository;
