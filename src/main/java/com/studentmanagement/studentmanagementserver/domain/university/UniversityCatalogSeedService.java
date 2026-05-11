@@ -161,7 +161,12 @@ public class UniversityCatalogSeedService {
         List<UniversityProgram> existing =
                 universityProgramRepository.findByUniversity_IdOrderByProgramNameAscFacultyNameAscDegreeTypeAsc(university.getId());
         for (UniversityProgram program : existing) {
-            if (sameKey(program.getProgramName(), programName)
+            boolean sameProgramName = sameKey(program.getProgramName(), programName);
+            boolean incomingHasDetails = normalize(facultyName) != null || normalize(degreeType) != null;
+            if (sameProgramName && !incomingHasDetails) {
+                return true;
+            }
+            if (sameProgramName
                     && sameKey(program.getFacultyName(), facultyName)
                     && sameKey(program.getDegreeType(), degreeType)) {
                 return true;

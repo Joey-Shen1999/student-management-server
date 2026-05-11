@@ -1,13 +1,38 @@
 name,province,city,country,website
-University of Toronto,Ontario,Toronto,Canada,https://www.utoronto.ca
-University of Waterloo,Ontario,Waterloo,Canada,https://uwaterloo.ca
-McMaster University,Ontario,Hamilton,Canada,https://www.mcmaster.ca
-Western University,Ontario,London,Canada,https://www.uwo.ca
-Queen's University,Ontario,Kingston,Canada,https://www.queensu.ca
-University of Ottawa,Ontario,Ottawa,Canada,https://www.uottawa.ca
-York University,Ontario,Toronto,Canada,https://www.yorku.ca
-Toronto Metropolitan University,Ontario,Toronto,Canada,https://www.torontomu.ca
-University of Guelph,Ontario,Guelph,Canada,https://www.uoguelph.ca
-Carleton University,Ontario,Ottawa,Canada,https://carleton.ca
-University of British Columbia,British Columbia,Vancouver,Canada,https://www.ubc.ca
+Algoma University,Ontario,,Canada,https://www.ouinfo.ca/universities/algoma
+Brock University,Ontario,,Canada,https://www.ouinfo.ca/universities/brock
+Carleton University,Ontario,,Canada,https://www.ouinfo.ca/universities/carleton
+Lakehead University,Ontario,,Canada,https://www.ouinfo.ca/universities/lakehead
+Laurentian University,Ontario,,Canada,https://www.ouinfo.ca/universities/laurentian
 McGill University,Quebec,Montreal,Canada,https://www.mcgill.ca
+McMaster University,Ontario,,Canada,https://www.ouinfo.ca/universities/mcmaster
+Nipissing University,Ontario,,Canada,https://www.ouinfo.ca/universities/nipissing
+OCAD University,Ontario,,Canada,https://www.ouinfo.ca/universities/ocad-u
+Ontario Tech University,Ontario,,Canada,https://www.ouinfo.ca/universities/ontario-tech
+Queen's University,Ontario,,Canada,https://www.ouinfo.ca/universities/queens
+Royal Military College of Canada,Ontario,,Canada,https://www.ouinfo.ca/universities/rmc
+Toronto Metropolitan University (formerly Ryerson University),Ontario,,Canada,https://www.ouinfo.ca/universities/toronto-metropolitan
+Trent University,Ontario,,Canada,https://www.ouinfo.ca/universities/trent
+Trent University – Durham Greater Toronto Area,Ontario,,Canada,https://www.ouinfo.ca/universities/trent-durham-gta
+Université de Hearst,Ontario,,Canada,https://www.ouinfo.ca/universities/hearst
+Université de l'Ontario français,Ontario,,Canada,https://www.ouinfo.ca/universities/uof
+University of British Columbia,British Columbia,Vancouver,Canada,https://www.ubc.ca
+University of Guelph,Ontario,,Canada,https://www.ouinfo.ca/universities/guelph
+University of Guelph-Humber,Ontario,,Canada,https://www.ouinfo.ca/universities/guelph-humber
+University of Ottawa,Ontario,,Canada,https://www.ouinfo.ca/universities/ottawa
+University of Ottawa – Saint Paul University,Ontario,,Canada,https://www.ouinfo.ca/universities/ottawa-saint-paul
+University of Toronto,Ontario,,Canada,https://www.ouinfo.ca/universities/toronto-st-george
+University of Toronto Mississauga,Ontario,,Canada,https://www.ouinfo.ca/universities/toronto-mississauga
+University of Toronto Scarborough,Ontario,,Canada,https://www.ouinfo.ca/universities/toronto-scarborough
+University of Waterloo,Ontario,,Canada,https://www.ouinfo.ca/universities/waterloo
+University of Waterloo – St. Jerome's University,Ontario,,Canada,https://www.ouinfo.ca/universities/waterloo-st-jeromes
+University of Windsor,Ontario,,Canada,https://www.ouinfo.ca/universities/windsor
+Western University,Ontario,,Canada,https://www.ouinfo.ca/universities/western
+Western University – Huron University College,Ontario,,Canada,https://www.ouinfo.ca/universities/western-huron
+Western University – King's University College,Ontario,,Canada,https://www.ouinfo.ca/universities/western-kings
+Wilfrid Laurier University,Ontario,,Canada,https://www.ouinfo.ca/universities/laurier-waterloo
+Wilfrid Laurier University – Brantford Campus,Ontario,,Canada,https://www.ouinfo.ca/universities/laurier-brantford
+Wilfrid Laurier University – Milton Campus,Ontario,,Canada,https://www.ouinfo.ca/universities/laurier-milton
+York University,Ontario,,Canada,https://www.ouinfo.ca/universities/york
+York University – Glendon Campus,Ontario,,Canada,https://www.ouinfo.ca/universities/york-glendon
+York University – Markham Campus,Ontario,,Canada,https://www.ouinfo.ca/universities/york-markham
