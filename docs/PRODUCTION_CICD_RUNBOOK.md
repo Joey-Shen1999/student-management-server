@@ -100,6 +100,8 @@ The production Nginx `server_name` should be:
 server_name globalvip-studentportal.ca www.globalvip-studentportal.ca;
 ```
 
+Direct browser access by Elastic IP should stay closed. The HTTP default server may return `444` for `3.23.21.144` and `_`, while the domain server handles public traffic.
+
 Keep `/api` proxied without stripping the `/api` prefix:
 
 ```nginx
