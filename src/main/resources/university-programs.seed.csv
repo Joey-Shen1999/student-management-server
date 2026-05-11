@@ -1,34 +1,2023 @@
 universityName,programName,facultyName,degreeType
-University of Toronto,Computer Science,Faculty of Arts and Science,BSc
-University of Toronto,Life Sciences,Faculty of Arts and Science,BSc
-University of Toronto,Rotman Commerce,Rotman School of Management,BCom
-University of Toronto,Engineering Science,Faculty of Applied Science and Engineering,BASc
-University of Waterloo,Computer Science,Faculty of Mathematics,BCS
-University of Waterloo,Computer Engineering,Faculty of Engineering,BASc
-University of Waterloo,Software Engineering,Faculty of Engineering,BSE
-University of Waterloo,Accounting and Financial Management,Faculty of Arts,BAFM
-McMaster University,Health Sciences,Faculty of Health Sciences,BHSc
-McMaster University,Engineering,Faculty of Engineering,BEng
-McMaster University,Computer Science,Faculty of Engineering,BSc
-Western University,Medical Sciences,Schulich School of Medicine and Dentistry,BMSc
-Western University,Ivey Advanced Entry Opportunity,Ivey Business School,HBA
-Western University,Computer Science,Faculty of Science,BSc
-Queen's University,Commerce,Smith School of Business,BCom
-Queen's University,Computing,Faculty of Arts and Science,BCmp
-Queen's University,Engineering and Applied Science,Faculty of Engineering and Applied Science,BASc
-University of Ottawa,Computer Science,Faculty of Engineering,BSc
-University of Ottawa,Biomedical Science,Faculty of Science,BSc
-York University,Computer Science,Lassonde School of Engineering,BSc
-York University,Schulich Business Administration,Schulich School of Business,BBA
-Toronto Metropolitan University,Computer Science,Faculty of Science,BSc
-Toronto Metropolitan University,Business Management,Ted Rogers School of Management,BCom
-University of Guelph,Biological Science,College of Biological Science,BSc
-University of Guelph,Computer Science,College of Engineering and Physical Sciences,BComp
-Carleton University,Computer Science,Faculty of Science,BCS
-Carleton University,Engineering,Faculty of Engineering and Design,BEng
-University of British Columbia,Computer Science,Faculty of Science,BSc
-University of British Columbia,Commerce,Sauder School of Business,BCom
-University of British Columbia,Engineering,Faculty of Applied Science,BASc
-McGill University,Computer Science,Faculty of Science,BSc
-McGill University,Life Sciences,Faculty of Science,BSc
+Acadia University,Arts,Faculty of Arts,BA
+Acadia University,Biology,Faculty of Science,BSc
+Acadia University,Business Administration,Faculty of Business,BBA/BCom
+Acadia University,Chemistry,Faculty of Science,BSc
+Acadia University,Commerce,Faculty of Business,BCom
+Acadia University,Communication Studies,Faculty of Arts,BA
+Acadia University,Computer Science,Faculty of Science,BSc
+Acadia University,Economics,Faculty of Arts,BA
+Acadia University,Education,Faculty of Education,BEd
+Acadia University,Engineering,Faculty of Engineering,BEng/BASc
+Acadia University,English,Faculty of Arts,BA
+Acadia University,Environmental Science,Faculty of Science,BSc
+Acadia University,History,Faculty of Arts,BA
+Acadia University,Kinesiology,Faculty of Health,BKin/BSc
+Acadia University,Mathematics,Faculty of Science,BSc
+Acadia University,Nursing,Faculty of Health,BN/BScN
+Acadia University,Physics,Faculty of Science,BSc
+Acadia University,Political Science,Faculty of Arts,BA
+Acadia University,Psychology,Faculty of Arts and Science,BA/BSc
+Acadia University,Sociology,Faculty of Arts,BA
+Acadia University,Statistics,Faculty of Science,BSc
+Algoma University,Accounting (BA 3 year),,
+Algoma University,Anishinaabe Studies (BA 3 year),,
+Algoma University,Anishinaabemowin (BA 3 year),,
+Algoma University,Biology (BSc 3 year),,
+Algoma University,Biology (BSc 4 year),,
+Algoma University,Business Administration - Aviation Management (Brampton) (BBA 4 Year),,
+Algoma University,Business Administration - Economics (Brampton) (BBA 4-year),,
+Algoma University,Business Administration - The Business of Esports (BBA 4-year),,
+Algoma University,Business Administration - The Business of Esports (Brampton) (BBA 4 Year),,
+Algoma University,Business Administration – Accounting (BBA 4 year),,
+Algoma University,Business Administration – Accounting (Brampton) (BBA 4 year),,
+Algoma University,Business Administration – Economics (BBA 4 year),,
+Algoma University,Business Administration – Human Resources Management (BBA 4 year),,
+Algoma University,Business Administration – Human Resources Management (Brampton) (BBA 4 year),,
+Algoma University,Business Administration – Marketing (BBA 4 year),,
+Algoma University,Business Administration – Marketing (Brampton) (BBA 4 year),,
+Algoma University,Business Administration (BBA 4 year),,
+Algoma University,Business Administration (Brampton) (BBA 4 year),,
+Algoma University,Community Development (BA 3 year),,
+Algoma University,Community Economic and Social Development (BA 3 year),,
+Algoma University,Community Economic and Social Development (BA 4 year),,
+Algoma University,Community Economic and Social Development (Brampton) (BA 3 year),,
+Algoma University,Community Economic and Social Development (Brampton) (BA 4 year),,
+Algoma University,Computer Science - Co-op Stream (BCOSC 4-year),,
+Algoma University,Computer Science - Co-op Stream (Brampton) (BCOSC 4 Year),,
+Algoma University,Computer Science - Data Science and AI (BCOSC 4 Year),,
+Algoma University,Computer Science - Data Science and AI (Brampton) (BCOSC 4 Year),,
+Algoma University,Computer Science - Mobile Software Engineering (BCOSC 4 Year),,
+Algoma University,Computer Science - Online (BCOSC 3 Year),,
+Algoma University,Computer Science – Computer Games Technology (BCOSC 4 year),,
+Algoma University,Computer Science – Computer Games Technology/Creative Arts (BCOSC 4 year),,
+Algoma University,Computer Science (BCOSC 3 year),,
+Algoma University,Computer Science (BCOSC 4 year),,
+Algoma University,Computer Science (Brampton) (BCOSC 3 year),,
+Algoma University,Computer Science (Brampton) (BCOSC 4 year),,
+Algoma University,Computer Science (BSc 3 year),,
+Algoma University,Computer Science (BSc 4 year),,
+Algoma University,Economics (BA 3 year),,
+Algoma University,Economics (Brampton) (BA 3 year),,
+Algoma University,English (BA 3 year),,
+Algoma University,English (BA 4 year),,
+Algoma University,Environmental Science (BSc 4 Year),,
+Algoma University,Finance and Economics (BA 4 year),,
+Algoma University,Finance and Economics (Brampton) (BA 4 year),,
+Algoma University,Fine Arts (Visual Arts) (BFA 4 year),,
+Algoma University,Geography (BA 3 year),,
+Algoma University,Geography (BA 4 year),,
+Algoma University,History (BA 3 year),,
+Algoma University,History (BA 4 year),,
+Algoma University,Law and Justice (BA 3 year),,
+Algoma University,Law and Justice (BA 4 year),,
+Algoma University,Political Science (BA 3 year),,
+Algoma University,Political Science (BA 4 year),,
+Algoma University,Psychology (BA 3 year),,
+Algoma University,Psychology (BA 4 Year Honours),,
+Algoma University,Psychology (Brampton) (BA 3 Year General),,
+Algoma University,Psychology (Brampton) (BA 4 Year Honours),,
+Algoma University,Psychology (Brampton) (BA 4 year Non-Honours),,
+Algoma University,Psychology (BSc 4 year),,
+Algoma University,Social Work (Brampton) (BSW 4 year),,
+Algoma University,Social Work (BSW 4 year),,
+Algoma University,Sociology (BA 3 year),,
+Algoma University,Sociology (BA 4 year),,
+Algoma University,Undeclared Major (BA 4 Year),,
+Algoma University,Visual Arts (BA 3 year),,
+Brock University,Accounting,,
+Brock University,Applied Grape and Wine Science,,
+Brock University,Applied Linguistics,,
+Brock University,Arts Leadership,,
+Brock University,Biochemistry,,
+Brock University,Biological Sciences,,
+Brock University,Biomedical Sciences,,
+Brock University,Biophysics,,
+Brock University,Biotechnology,,
+Brock University,Business Administration,,
+Brock University,Business Administration Co-op International Dual Degree,,
+Brock University,Business Communication,,
+Brock University,Business Economics,,
+Brock University,Canadian Studies,,
+Brock University,Chemistry,,
+Brock University,Child and Youth Studies,,
+Brock University,Child Health,,
+Brock University,Classics,,
+Brock University,Community Health,,
+Brock University,Computer Science,,
+Brock University,Computer Science and Mathematics Co-op,,
+Brock University,Computer Science International Double Degree,,
+Brock University,Computing and Business,,
+Brock University,Concurrent BA (Honours) Child and Youth Studies/BEd – Primary/Junior,,
+Brock University,Concurrent BA (Honours) Educational Studies/BEd – Primary/Junior,,
+Brock University,Concurrent BA (Honours) in Educational Studies/BEd Junior/​Intermediate,,
+Brock University,Concurrent BA (Honours) in Interactive Arts and Digital Media/BEd - Junior/Intermediate,,
+Brock University,Concurrent BA (Honours) Integrated Studies/BEd - Junior/Intermediate,,
+Brock University,Concurrent BA (Honours)/BEd – Intermediate/Senior,,
+Brock University,Concurrent BPhEd (Honours)/BEd - Junior/Intermediate,,
+Brock University,Concurrent BPhEd (Honours)/BEd – Intermediate/Senior,,
+Brock University,Concurrent BRLS (Honours) in Recreation and Leisure Studies/BEd - Junior/​Intermediate,,
+Brock University,Concurrent BSc (Honours) Integrated Studies/BEd - Junior/Intermediate,,
+Brock University,Concurrent BSc (Honours)/BEd – Intermediate/Senior,,
+Brock University,Critical Criminology,,
+Brock University,Data Science and Analytics – Computational Data Sciences,,
+Brock University,Data Science and Analytics – Financial Analytics,,
+Brock University,Dramatic Arts,,
+Brock University,Earth and Planetary Science Communication,,
+Brock University,Earth Sciences,,
+Brock University,Economics,,
+Brock University,Educational Studies,,
+Brock University,English Language and Literature,,
+Brock University,Film Studies,,
+Brock University,Forensic Psychology and Criminal Justice,,
+Brock University,Game Design,,
+Brock University,Game Programming,,
+Brock University,General Humanities,,
+Brock University,Geography (BA),,
+Brock University,Geography (BSc),,
+Brock University,History,,
+Brock University,Integrated Engineering,,
+Brock University,Interactive Arts and Digital Media,,
+Brock University,Kinesiology (BKin),,
+Brock University,Kinesiology (BKin) and Master of Professional Kinesiology,,
+Brock University,Kinesiology (BScKin),,
+Brock University,Kinesiology International Double Degree,,
+Brock University,Labour Studies,,
+Brock University,Mathematics and Statistics,,
+Brock University,Media and Communication Studies,,
+Brock University,Medical Sciences,,
+Brock University,Medieval and Renaissance Studies,,
+Brock University,Modern Languages: French Studies; Hispanic & Latin American Studies; Italian Studies,,
+Brock University,Music (BA),,
+Brock University,Music (BMus),,
+Brock University,Neuroscience,,
+Brock University,Nursing,,
+Brock University,Philosophy,,
+Brock University,Physical Education,,
+Brock University,Physics,,
+Brock University,Political Science,,
+Brock University,Psychology (BA),,
+Brock University,Psychology (BSc),,
+Brock University,Public Health,,
+Brock University,Public Health and Master of Public Health,,
+Brock University,Recreation and Leisure Studies,,
+Brock University,Sciences,,
+Brock University,Social Sciences,,
+Brock University,Sociology,,
+Brock University,Sport Management,,
+Brock University,Therapeutic Recreation,,
+Brock University,Tourism Studies,,
+Brock University,Visual Arts,,
+Brock University,Women's and Gender Studies,,
+Carleton University,Accounting,,
+Carleton University,Architectural Studies – Conservation and Sustainability,,
+Carleton University,Architectural Studies – Design,,
+Carleton University,Architectural Studies – Urbanism,,
+Carleton University,Bachelor of Arts (BA) – Honours (4 years),,
+Carleton University,Bachelor of Arts (BA) – Non-Honours (3 years),,
+Carleton University,Cognitive Science – Honours (4 years),,
+Carleton University,Cognitive Science – Non-Honours (3 years),,
+Carleton University,Commerce,,
+Carleton University,Communication and Media Studies,,
+Carleton University,Computer Science,,
+Carleton University,Cybersecurity,,
+Carleton University,Data Science,,
+Carleton University,Economics,,
+Carleton University,Engineering – Aerospace,,
+Carleton University,Engineering – Architectural Conservation and Sustainability,,
+Carleton University,Engineering – Biomedical and Electrical,,
+Carleton University,Engineering – Biomedical and Mechanical,,
+Carleton University,Engineering – Civil,,
+Carleton University,Engineering – Communications,,
+Carleton University,Engineering – Computer Systems,,
+Carleton University,Engineering – Electrical,,
+Carleton University,Engineering – Engineering Physics,,
+Carleton University,Engineering – Environmental,,
+Carleton University,Engineering – Mechanical,,
+Carleton University,Engineering – Mechatronics,,
+Carleton University,Engineering – Software,,
+Carleton University,Engineering – Sustainable and Renewable Energy,,
+Carleton University,Global and International Studies,,
+Carleton University,Health Sciences,,
+Carleton University,Humanities,,
+Carleton University,Industrial Design,,
+Carleton University,Information Technology – Information Resource Management (with Algonquin College),,
+Carleton University,Information Technology – Interactive Multimedia and Design (with Algonquin College),,
+Carleton University,Information Technology – Network Technology (with Algonquin College),,
+Carleton University,International Business,,
+Carleton University,Journalism,,
+Carleton University,Journalism and Humanities,,
+Carleton University,Mathematics – Honours (4 years),,
+Carleton University,Mathematics – Non-Honours (3 years),,
+Carleton University,Media Production and Design,,
+Carleton University,Music,,
+Carleton University,Nursing with RN Prescribing,,
+Carleton University,Public Affairs and Policy Management,,
+Carleton University,Science – Honours (4 years),,
+Carleton University,Science – Major (4 years),,
+Carleton University,Science – Non-Honours (3 years),,
+Carleton University,Social Work,,
+Concordia University,Accountancy,John Molson School of Business,BComm
+Concordia University,Biology,Faculty of Arts and Science,BSc
+Concordia University,Business Technology Management,John Molson School of Business,BComm
+Concordia University,Communication Studies,Faculty of Arts and Science,BA
+Concordia University,Computer Engineering,Gina Cody School of Engineering and Computer Science,BEng
+Concordia University,Computer Science,Gina Cody School of Engineering and Computer Science,BCompSc
+Concordia University,Design,Faculty of Fine Arts,BFA
+Concordia University,Economics,Faculty of Arts and Science,BA
+Concordia University,Film Production,Faculty of Fine Arts,BFA
+Concordia University,Finance,John Molson School of Business,BComm
+Concordia University,Marketing,John Molson School of Business,BComm
+Concordia University,Mechanical Engineering,Gina Cody School of Engineering and Computer Science,BEng
+Concordia University,Psychology,Faculty of Arts and Science,BA/BSc
+Concordia University,Software Engineering,Gina Cody School of Engineering and Computer Science,BEng
+Dalhousie University,Agriculture,Faculty of Agriculture,BScAgr
+Dalhousie University,Applied Computer Science,Faculty of Computer Science,BACS
+Dalhousie University,Biology,Faculty of Science,BSc
+Dalhousie University,Chemical Engineering,Faculty of Engineering,BEng
+Dalhousie University,Civil Engineering,Faculty of Engineering,BEng
+Dalhousie University,Commerce,Faculty of Management,BCom
+Dalhousie University,Computer Science,Faculty of Computer Science,BCS/BSc
+Dalhousie University,Electrical Engineering,Faculty of Engineering,BEng
+Dalhousie University,Engineering,Faculty of Engineering,BEng
+Dalhousie University,Health Promotion,Faculty of Health,BSc
+Dalhousie University,Kinesiology,Faculty of Health,BSc
+Dalhousie University,Management,Faculty of Management,BMgmt
+Dalhousie University,Marine Biology,Faculty of Science,BSc
+Dalhousie University,Mechanical Engineering,Faculty of Engineering,BEng
+Dalhousie University,Nursing,Faculty of Health,BScN
+Lakehead University,Anthropology (Thunder Bay and Orillia),,
+Lakehead University,Applied Life Sciences (Thunder Bay and Orillia),,
+Lakehead University,Arts One (Thunder Bay),,
+Lakehead University,Bioinformatics (Thunder Bay),,
+Lakehead University,"Biology (includes Environmental Science, Animal Sciences, Plant Sciences, and Biodiversity and Conservation) (Thunder Bay)",,
+Lakehead University,Business - International Dual Degree (Thunder Bay and Orillia),,
+Lakehead University,Business (Thunder Bay and Orillia),,
+Lakehead University,Chemistry (includes Medical Sciences) (Thunder Bay),,
+Lakehead University,Computer Science (co-op available) (Thunder Bay and Barrie),,
+Lakehead University,Concurrent Education (Intermediate/Senior – Teach Grades 7 to 12) (Thunder Bay),,
+Lakehead University,Concurrent Education (Primary/Junior) (Thunder Bay and Orillia),,
+Lakehead University,Criminology (Orillia),,
+Lakehead University,Earth Science (includes Environmental Science) (Thunder Bay),,
+Lakehead University,Economics (Thunder Bay),,
+Lakehead University,Engineering (co-op available) (Thunder Bay and Barrie),,
+Lakehead University,English (Thunder Bay and Orillia),,
+Lakehead University,Environmental Management (co-op available) (Thunder Bay),,
+Lakehead University,Environmental Sustainability (co-op available) (Orillia),,
+Lakehead University,Forestry (co-op available) (Thunder Bay),,
+Lakehead University,French (Thunder Bay),,
+Lakehead University,Gender and Women’s Studies (Thunder Bay),,
+Lakehead University,"General (Arts or Science) (Thunder Bay, Orillia & Online)",,
+Lakehead University,Geoarchaeology (Thunder Bay),,
+Lakehead University,Geography and the Environment (includes Environmental Science and Studies) (Thunder Bay and Orillia),,
+Lakehead University,Geology (Thunder Bay),,
+Lakehead University,History (Thunder Bay and Orillia),,
+Lakehead University,Indigenous Learning (Thunder Bay),,
+Lakehead University,Interdisciplinary Studies (Orillia Campus),,
+Lakehead University,Kinesiology (co-op available) (Thunder Bay),,
+Lakehead University,Mathematics (Thunder Bay),,
+Lakehead University,"Media, Film & Communications (Orillia Campus only)",,
+Lakehead University,Music (Thunder Bay),,
+Lakehead University,Natural Science (Thunder Bay),,
+Lakehead University,Nursing (Thunder Bay),,
+Lakehead University,"Outdoor Recreation, Parks & Tourism (Thunder Bay)",,
+Lakehead University,Philosophy (Thunder Bay),,
+Lakehead University,Physics (Thunder Bay),,
+Lakehead University,Political Science/Pre-Law (Thunder Bay and Orillia),,
+Lakehead University,Psychology (Thunder Bay and Orillia),,
+Lakehead University,Science One (Thunder Bay and Orillia Campuses),,
+Lakehead University,Social Work (Thunder Bay and Orillia),,
+Lakehead University,Sociology (Thunder Bay),,
+Lakehead University,Visual Arts (Thunder Bay),,
+Lakehead University,Water Science (Thunder Bay),,
+Laurentian University,Administration des affaires,,
+Laurentian University,Administration des affaires – Comptabilité,,
+Laurentian University,Administration des affaires – Entrepreneuriat,,
+Laurentian University,Administration des affaires – Finance,,
+Laurentian University,Administration des affaires – Gestion internationale,,
+Laurentian University,Architectural Studies,,
+Laurentian University,Behavioural Neuroscience,,
+Laurentian University,Biochemistry,,
+Laurentian University,Biochimie,,
+Laurentian University,Biologie biomédicale,,
+Laurentian University,Biomedical Biology,,
+Laurentian University,Business Administration,,
+Laurentian University,Business Administration – Accounting,,
+Laurentian University,Business Administration – Finance,,
+Laurentian University,Business Administration – Human Resources Management,,
+Laurentian University,Business Administration – Marketing,,
+Laurentian University,Chemistry,,
+Laurentian University,Chimie Pharmaceutique,,
+Laurentian University,Computer Science,,
+Laurentian University,Computer Science – Game Design,,
+Laurentian University,Concurrent Education with Arts – Junior/Intermediate,,
+Laurentian University,Concurrent Education with Business Administration – Junior/Intermediate,,
+Laurentian University,Concurrent Education with Health Promotion – Junior/Intermediate,,
+Laurentian University,Concurrent Education with Indigenous Social Work – Junior/​Intermediate,,
+Laurentian University,Concurrent Education with Kinesiology (B.Sc.) – Junior/Intermediate,,
+Laurentian University,Concurrent Education with Kinesiology (BPHE) – Junior/Intermediate,,
+Laurentian University,Concurrent Education with Outdoor Adventure Leadership – Junior/Intermediate,,
+Laurentian University,Concurrent Education with Science – Junior/Intermediate,,
+Laurentian University,Concurrent Education with Social Work - Junior/Intermediate,,
+Laurentian University,Concurrent Education with Sport Psychology – Junior/Intermediate,,
+Laurentian University,Concurrent Education with Sports Administration – Junior/Intermediate,,
+Laurentian University,Criminologie,,
+Laurentian University,Droit et justice,,
+Laurentian University,Earth Sciences,,
+Laurentian University,Economics,,
+Laurentian University,Éducation concurrente avec Arts - moyen/intermédiaire,,
+Laurentian University,Éducation concurrente avec Kinésiologie (B.Sc.) – moyen/​intermédiaire,,
+Laurentian University,Éducation concurrente avec Kinésiologie (BÉPS) – moyen/​intermédiaire,,
+Laurentian University,Éducation concurrente avec Orthophonie – moyen/​intermédiaire,,
+Laurentian University,Éducation concurrente avec Psychologie du sport – moyen/intermédiaire,,
+Laurentian University,Éducation concurrente avec Science – moyen/​intermédiaire,,
+Laurentian University,Éducation concurrente avec Service social – moyen/​intermédiaire,,
+Laurentian University,Éducation concurrente avec Sports Administration – moyen/​intermédiare,,
+Laurentian University,Éducation concurrente et Administration des affaires – moyen/​intermédiare,,
+Laurentian University,Éducation concurrente et Outdoor Adventure Leadership – moyen-intermédiaire,,
+Laurentian University,Engineering – Chemical,,
+Laurentian University,Engineering – Mechanical,,
+Laurentian University,Engineering – Mining,,
+Laurentian University,"English Literature, Media, and Writing",,
+Laurentian University,Environmental Solutions,,
+Laurentian University,"Équité, diversité et droits de la personne",,
+Laurentian University,Forensic Science,,
+Laurentian University,Forensic Science and Biology,,
+Laurentian University,Forensic Science and Chemistry,,
+Laurentian University,French as a Second Language,,
+Laurentian University,Gerontology,,
+Laurentian University,Health Promotion,,
+Laurentian University,History,,
+Laurentian University,Indigenous Social Work,,
+Laurentian University,Interdisciplinary Science,,
+Laurentian University,Kinésiologie (B.Sc.),,
+Laurentian University,Kinésiologie (BÉPS),,
+Laurentian University,Kinesiology (B.Sc.),,
+Laurentian University,Kinesiology (BPHE),,
+Laurentian University,Law and Justice,,
+Laurentian University,Nursing,,
+Laurentian University,Orthophonie,,
+Laurentian University,Outdoor Adventure Leadership,,
+Laurentian University,Pharmaceutical Chemistry,,
+Laurentian University,Psychologie (B.A.),,
+Laurentian University,Psychologie (B.Sc.),,
+Laurentian University,Psychologie du sport,,
+Laurentian University,Psychology (B.A.),,
+Laurentian University,Psychology (B.Sc.),,
+Laurentian University,Sciences infirmières,,
+Laurentian University,Sciences pluridisciplinaires,,
+Laurentian University,Service social,,
+Laurentian University,Social Work,,
+Laurentian University,Sociologie,,
+Laurentian University,Sociology,,
+Laurentian University,Sport Psychology,,
+Laurentian University,Sports Administration,,
+Laurentian University,Zoology,,
+McGill University,Architecture,Peter Guo-hua Fu School of Architecture,BSc(Arch)
+McGill University,Arts,Faculty of Arts,BA
+McGill University,Biology,Faculty of Science,BSc
+McGill University,Chemistry,Faculty of Science,BSc
 McGill University,Commerce,Desautels Faculty of Management,BCom
+McGill University,Computer Science,Faculty of Science,BSc
+McGill University,Education,Faculty of Education,BEd
+McGill University,Engineering,Faculty of Engineering,BEng
+McGill University,Life Sciences,Faculty of Science,BSc
+McGill University,Mathematics,Faculty of Science,BSc
+McGill University,Music,Schulich School of Music,BMus
+McGill University,Nursing,Ingram School of Nursing,BN
+McGill University,Physics,Faculty of Science,BSc
+McGill University,Psychology,Faculty of Arts/Science,BA/BSc
+McGill University,Science,Faculty of Science,BSc
+McGill University,Software Engineering,Faculty of Engineering,BEng
+McMaster University,Arts and Science I,,
+McMaster University,Automation Systems Engineering Technology (Bachelor of Technology),,
+McMaster University,Automotive & Vehicle Engineering Technology I (Bachelor of Technology),,
+McMaster University,Biotechnology I (Bachelor of Technology),,
+McMaster University,Business I,,
+McMaster University,Chemical & Physical Sciences Gateway,,
+McMaster University,Computer Science Co-op I,,
+McMaster University,Computer Science I,,
+McMaster University,Economics I,,
+McMaster University,Engineering Co-op I,,
+McMaster University,Engineering I,,
+McMaster University,Environmental and Earth Sciences Gateway,,
+McMaster University,Health & Society I,,
+McMaster University,Honours Health Sciences,,
+McMaster University,Honours Integrated Science,,
+McMaster University,Honours Kinesiology,,
+McMaster University,Honours Medical Radiation Sciences,,
+McMaster University,Humanities I,,
+McMaster University,iArts (Integrated Arts),,
+McMaster University,Integrated Biomedical Engineering & Health Sciences,,
+McMaster University,Integrated Biomedical Engineering & Health Sciences (Co-op),,
+McMaster University,Integrated Business & Humanities I,,
+McMaster University,Life Sciences Gateway,,
+McMaster University,Mathematics and Statistics Gateway,,
+McMaster University,Midwifery I,,
+McMaster University,Nursing I (McMaster University Site),,
+McMaster University,Nursing I (Mohawk College Site),,
+McMaster University,Social Sciences I,,
+McMaster University,Wilson College of Leadership and Civic Engagement,,
+Memorial University of Newfoundland,Arts,Faculty of Arts,BA
+Memorial University of Newfoundland,Biology,Faculty of Science,BSc
+Memorial University of Newfoundland,Business Administration,Faculty of Business,BBA/BCom
+Memorial University of Newfoundland,Chemistry,Faculty of Science,BSc
+Memorial University of Newfoundland,Commerce,Faculty of Business,BCom
+Memorial University of Newfoundland,Communication Studies,Faculty of Arts,BA
+Memorial University of Newfoundland,Computer Science,Faculty of Science,BSc
+Memorial University of Newfoundland,Economics,Faculty of Arts,BA
+Memorial University of Newfoundland,Education,Faculty of Education,BEd
+Memorial University of Newfoundland,Engineering,Faculty of Engineering,BEng/BASc
+Memorial University of Newfoundland,English,Faculty of Arts,BA
+Memorial University of Newfoundland,Environmental Science,Faculty of Science,BSc
+Memorial University of Newfoundland,History,Faculty of Arts,BA
+Memorial University of Newfoundland,Kinesiology,Faculty of Health,BKin/BSc
+Memorial University of Newfoundland,Mathematics,Faculty of Science,BSc
+Memorial University of Newfoundland,Nursing,Faculty of Health,BN/BScN
+Memorial University of Newfoundland,Physics,Faculty of Science,BSc
+Memorial University of Newfoundland,Political Science,Faculty of Arts,BA
+Memorial University of Newfoundland,Psychology,Faculty of Arts and Science,BA/BSc
+Memorial University of Newfoundland,Sociology,Faculty of Arts,BA
+Memorial University of Newfoundland,Statistics,Faculty of Science,BSc
+Mount Allison University,Arts,Faculty of Arts,BA
+Mount Allison University,Biology,Faculty of Science,BSc
+Mount Allison University,Business Administration,Faculty of Business,BBA/BCom
+Mount Allison University,Chemistry,Faculty of Science,BSc
+Mount Allison University,Commerce,Faculty of Business,BCom
+Mount Allison University,Communication Studies,Faculty of Arts,BA
+Mount Allison University,Computer Science,Faculty of Science,BSc
+Mount Allison University,Economics,Faculty of Arts,BA
+Mount Allison University,Education,Faculty of Education,BEd
+Mount Allison University,Engineering,Faculty of Engineering,BEng/BASc
+Mount Allison University,English,Faculty of Arts,BA
+Mount Allison University,Environmental Science,Faculty of Science,BSc
+Mount Allison University,History,Faculty of Arts,BA
+Mount Allison University,Kinesiology,Faculty of Health,BKin/BSc
+Mount Allison University,Mathematics,Faculty of Science,BSc
+Mount Allison University,Nursing,Faculty of Health,BN/BScN
+Mount Allison University,Physics,Faculty of Science,BSc
+Mount Allison University,Political Science,Faculty of Arts,BA
+Mount Allison University,Psychology,Faculty of Arts and Science,BA/BSc
+Mount Allison University,Sociology,Faculty of Arts,BA
+Mount Allison University,Statistics,Faculty of Science,BSc
+Nipissing University,Bachelor of Arts,,
+Nipissing University,Bachelor of Arts (Liberal Arts),,
+Nipissing University,Bachelor of Arts in Criminal Justice,,
+Nipissing University,Bachelor of Arts in History with Orientation to a Master of Arts in History,,
+Nipissing University,Bachelor of Arts in Social Welfare and Social Development/Social Service Worker Diploma (joint program with Canadore College),,
+Nipissing University,Bachelor of Arts/Bachelor of Commerce,,
+Nipissing University,Bachelor of Business Administration,,
+Nipissing University,Bachelor of Commerce (Distance),,
+Nipissing University,Bachelor of Fine Arts,,
+Nipissing University,Bachelor of Physical and Health Education,,
+Nipissing University,Bachelor of Science,,
+Nipissing University,Bachelor of Science (Liberal Science),,
+Nipissing University,Bachelor of Science in Nursing,,
+Nipissing University,Bachelor of Science/Bachelor of Commerce,,
+Nipissing University,Bachelor of Social Work,,
+Nipissing University,Concurrent Bachelor of Arts Criminal Justice/Bachelor of Education Intermediate/Senior,,
+Nipissing University,Concurrent Bachelor of Arts Criminal Justice/Bachelor of Education Junior/Intermediate,,
+Nipissing University,Concurrent Bachelor of Arts Criminal Justice/Bachelor of Education Primary/Junior,,
+Nipissing University,Concurrent Bachelor of Arts/Bachelor of Education Intermediate/Senior,,
+Nipissing University,Concurrent Bachelor of Arts/Bachelor of Education Junior/Intermediate,,
+Nipissing University,Concurrent Bachelor of Arts/Bachelor of Education Primary/Junior,,
+Nipissing University,Concurrent Bachelor of Business Administration/Bachelor of Education Intermediate/Senior,,
+Nipissing University,Concurrent Bachelor of Business Administration/Bachelor of Education Junior/Intermediate,,
+Nipissing University,Concurrent Bachelor of Business Administration/Bachelor of Education Primary/Junior,,
+Nipissing University,Concurrent Bachelor of Fine Arts/Bachelor of Education Intermediate/Senior,,
+Nipissing University,Concurrent Bachelor of Fine Arts/Bachelor of Education Junior/Intermediate,,
+Nipissing University,Concurrent Bachelor of Fine Arts/Bachelor of Education Primary/Junior,,
+Nipissing University,Concurrent Bachelor of Physical and Health Education/Bachelor of Education Intermediate/Senior,,
+Nipissing University,Concurrent Bachelor of Physical and Health Education/Bachelor of Education Junior/Intermediate,,
+Nipissing University,Concurrent Bachelor of Physical and Health Education/Bachelor of Education Primary/Junior,,
+Nipissing University,Concurrent Bachelor of Science/Bachelor of Education Intermediate/Senior,,
+Nipissing University,Concurrent Bachelor of Science/Bachelor of Education Junior/Intermediate,,
+Nipissing University,Concurrent Bachelor of Science/Bachelor of Education Primary/Junior,,
+OCAD University,Advertising,,
+OCAD University,Creative Writing,,
+OCAD University,Criticism & Curatorial Practice,,
+OCAD University,Digital Futures,,
+OCAD University,Drawing & Painting,,
+OCAD University,Environmental Design,,
+OCAD University,Experimental Animation,,
+OCAD University,Graphic Design,,
+OCAD University,Illustration,,
+OCAD University,Indigenous Visual Culture,,
+OCAD University,Industrial Design,,
+OCAD University,Integrated Media,,
+OCAD University,Material Art & Design,,
+OCAD University,Photography,,
+OCAD University,Printmaking & Publications,,
+OCAD University,Sculpture/Installation,,
+OCAD University,Visual and Critical Studies (Art History),,
+Ontario Tech University,Accounting,,
+Ontario Tech University,Accounting (Co-op),,
+Ontario Tech University,Alternative Dispute Resolution,,
+Ontario Tech University,Alternative Dispute Resolution (Co-op),,
+Ontario Tech University,Applied Biotechnology,,
+Ontario Tech University,Applied Biotechnology (Co-op),,
+Ontario Tech University,Arts - General,,
+Ontario Tech University,Arts - General (Co-op),,
+Ontario Tech University,Astrophysics,,
+Ontario Tech University,Astrophysics (Co-op),,
+Ontario Tech University,Automotive Engineering,,
+Ontario Tech University,Automotive Engineering (Co-op),,
+Ontario Tech University,Biological Science,,
+Ontario Tech University,Biological Science (Co-op),,
+Ontario Tech University,Biomedical Science,,
+Ontario Tech University,Biomedical Science (Co-op),,
+Ontario Tech University,Bruce Power Women in Nuclear Engineering Co-op Program (BEng/BEngM),,
+Ontario Tech University,Business and Society (BA),,
+Ontario Tech University,Business and Society (Co-op),,
+Ontario Tech University,Chemical Biology,,
+Ontario Tech University,Chemical Biology (Co-op),,
+Ontario Tech University,Chemistry,,
+Ontario Tech University,Chemistry (Co-op),,
+Ontario Tech University,Commerce,,
+Ontario Tech University,Commerce (Co-op),,
+Ontario Tech University,Communication and Digital Media Studies,,
+Ontario Tech University,Communication and Digital Media Studies (Co-op),,
+Ontario Tech University,Comprehensive Engineering,,
+Ontario Tech University,Computer Science,,
+Ontario Tech University,Computer Science (Co-op),,
+Ontario Tech University,"Creativity, Digital Arts and Entertainment Industries",,
+Ontario Tech University,"Creativity, Digital Arts and Entertainment Industries (Co-op)",,
+Ontario Tech University,Criminal Justice,,
+Ontario Tech University,Criminal Justice (Co-op),,
+Ontario Tech University,Criminology and Justice,,
+Ontario Tech University,Criminology and Justice (Co-op),,
+Ontario Tech University,Data Science,,
+Ontario Tech University,Data Science (Co-op),,
+Ontario Tech University,Educational Studies - Adult Learning with Technology,,
+Ontario Tech University,Educational Studies - Digital Technologies,,
+Ontario Tech University,Educational Studies - Early Childhood Studies,,
+Ontario Tech University,"Educational Studies - Equity, Diversity and Inclusion",,
+Ontario Tech University,Educational Studies - Special Education,,
+Ontario Tech University,Educational Studies (BA),,
+Ontario Tech University,Electrical Engineering,,
+Ontario Tech University,Electrical Engineering (Co-op),,
+Ontario Tech University,Energy Engineering,,
+Ontario Tech University,Energy Engineering (Co-op),,
+Ontario Tech University,Entrepreneurship,,
+Ontario Tech University,Entrepreneurship (Co-op),,
+Ontario Tech University,Environmental Biology,,
+Ontario Tech University,Environmental Biology (Co-op),,
+Ontario Tech University,Finance,,
+Ontario Tech University,Finance (Co-op),,
+Ontario Tech University,Forensic Psychology,,
+Ontario Tech University,Forensic Science,,
+Ontario Tech University,Global Studies,,
+Ontario Tech University,Global Studies (Co-op),,
+Ontario Tech University,Health Administration,,
+Ontario Tech University,Health Sciences,,
+Ontario Tech University,Human Health Science,,
+Ontario Tech University,Human Rights and Advocacy,,
+Ontario Tech University,Human Rights and Advocacy (Co-op),,
+Ontario Tech University,Industrial Engineering,,
+Ontario Tech University,Industrial Engineering (Co-op),,
+Ontario Tech University,Information Technology - Game Development and Interactive Media,,
+Ontario Tech University,Integrated Mathematics and Computer Science,,
+Ontario Tech University,Integrated Mathematics and Computer Science (Co-op),,
+Ontario Tech University,Interactive Computing,,
+Ontario Tech University,Interactive Computing (Co-op),,
+Ontario Tech University,Kinesiology,,
+Ontario Tech University,"Law, Technology and Society",,
+Ontario Tech University,"Law, Technology and Society (Co-op)",,
+Ontario Tech University,Legal Studies,,
+Ontario Tech University,Legal Studies (BA) and Law (UK LLB) - Accelerated Pathway,,
+Ontario Tech University,Legal Studies (Co-op),,
+Ontario Tech University,Manufacturing Engineering,,
+Ontario Tech University,Manufacturing Engineering (Co-op),,
+Ontario Tech University,Marine Biology,,
+Ontario Tech University,Marine Biology (Co-op),,
+Ontario Tech University,Marketing,,
+Ontario Tech University,Marketing (Co-op),,
+Ontario Tech University,Math for Science & Industry,,
+Ontario Tech University,Math for Science & Industry (Co-op),,
+Ontario Tech University,Mechanical Engineering,,
+Ontario Tech University,Mechanical Engineering (Co-op),,
+Ontario Tech University,Mechatronics Engineering,,
+Ontario Tech University,Mechatronics Engineering (Co-op),,
+Ontario Tech University,Medical Laboratory Science,,
+Ontario Tech University,Medical Laboratory Science - Northern Access Initiative,,
+Ontario Tech University,Nanophysics,,
+Ontario Tech University,Nanophysics (Co-op),,
+Ontario Tech University,Networking and Information Technology Security,,
+Ontario Tech University,Neuroscience,,
+Ontario Tech University,Neuroscience (Co-op),,
+Ontario Tech University,Nuclear Engineering,,
+Ontario Tech University,Nuclear Engineering (Co-op),,
+Ontario Tech University,Nursing,,
+Ontario Tech University,Organizational Behaviour and Human Resources Management,,
+Ontario Tech University,Organizational Behaviour and Human Resources Management (Co-op),,
+Ontario Tech University,Pharmaceutical Chemistry,,
+Ontario Tech University,Pharmaceutical Chemistry (Co-op),,
+Ontario Tech University,Physics,,
+Ontario Tech University,Physics (Co-op),,
+Ontario Tech University,Policing in Society,,
+Ontario Tech University,Policing in Society (Co-op),,
+Ontario Tech University,Political Science,,
+Ontario Tech University,Political Science (Co-op),,
+Ontario Tech University,Pre-Engineering,,
+Ontario Tech University,Psychology – Bachelor of Arts,,
+Ontario Tech University,Psychology – Bachelor of Science,,
+Ontario Tech University,Public Health,,
+Ontario Tech University,Public Policy - Undergraduate Diploma,,
+Ontario Tech University,"Science, Technology and Society",,
+Ontario Tech University,"Science, Technology and Society (Co-op)",,
+Ontario Tech University,"Sociology, Technology and Innovation",,
+Ontario Tech University,Software Engineering,,
+Ontario Tech University,Software Engineering (Co-op),,
+Ontario Tech University,"Strategic Communications, Social Media & Society",,
+Ontario Tech University,"Strategic Communications, Social Media & Society (Co-op)",,
+Ontario Tech University,Sustainability,,
+Ontario Tech University,Technology Management - Bachelor of Commerce (Co-op),,
+Ontario Tech University,Technology Management – Bachelor of Commerce,,
+Ontario Tech University,Technology Management – Bachelor of Information Technology,,
+Ontario Tech University,Victimology and Victim Studies,,
+Ontario Tech University,Victimology and Victim Studies (Co-op),,
+Ontario Tech University,"Youth, Crime and Justice",,
+Ontario Tech University,"Youth, Crime and Justice (Co-op)",,
+Queen's University,Arts,,
+Queen's University,Commerce,,
+Queen's University,Computing,,
+Queen's University,Concurrent Education/Arts,,
+Queen's University,Concurrent Education/Arts - French,,
+Queen's University,Concurrent Education/Kinesiology,,
+Queen's University,Concurrent Education/Music,,
+Queen's University,Concurrent Education/Science,,
+Queen's University,Health Sciences,,
+Queen's University,Kinesiology,,
+Queen's University,Life Sciences and Biochemistry,,
+Queen's University,Music,,
+Queen's University,Nursing,,
+Queen's University,Science,,
+Queen's University,Smith Engineering - Direct Entry Chemical Engineering,,
+Queen's University,Smith Engineering - Direct Entry Civil Engineering,,
+Queen's University,Smith Engineering - Direct Entry Computer Engineering,,
+Queen's University,Smith Engineering - Direct Entry Mechatronics and Robotics Engineering,,
+Queen's University,Smith Engineering - Direct Entry Mining Engineering,,
+Queen's University,Smith Engineering – Common First Year programs,,
+Royal Military College of Canada,Engineering,,
+Royal Military College of Canada,Science,,
+Royal Military College of Canada,Science Honours,,
+Royal Military College of Canada,Social Sciences and Humanities Honours,,
+Royal Military College of Canada,Social Sciences and the Humanities,,
+Saint Mary's University,Arts,Faculty of Arts,BA
+Saint Mary's University,Biology,Faculty of Science,BSc
+Saint Mary's University,Business Administration,Faculty of Business,BBA/BCom
+Saint Mary's University,Chemistry,Faculty of Science,BSc
+Saint Mary's University,Commerce,Faculty of Business,BCom
+Saint Mary's University,Communication Studies,Faculty of Arts,BA
+Saint Mary's University,Computer Science,Faculty of Science,BSc
+Saint Mary's University,Economics,Faculty of Arts,BA
+Saint Mary's University,Education,Faculty of Education,BEd
+Saint Mary's University,Engineering,Faculty of Engineering,BEng/BASc
+Saint Mary's University,English,Faculty of Arts,BA
+Saint Mary's University,Environmental Science,Faculty of Science,BSc
+Saint Mary's University,History,Faculty of Arts,BA
+Saint Mary's University,Kinesiology,Faculty of Health,BKin/BSc
+Saint Mary's University,Mathematics,Faculty of Science,BSc
+Saint Mary's University,Nursing,Faculty of Health,BN/BScN
+Saint Mary's University,Physics,Faculty of Science,BSc
+Saint Mary's University,Political Science,Faculty of Arts,BA
+Saint Mary's University,Psychology,Faculty of Arts and Science,BA/BSc
+Saint Mary's University,Sociology,Faculty of Arts,BA
+Saint Mary's University,Statistics,Faculty of Science,BSc
+Simon Fraser University,Biological Sciences,Faculty of Science,BSc
+Simon Fraser University,Biomedical Physiology,Faculty of Science,BSc
+Simon Fraser University,Business Administration,Beedie School of Business,BBA
+Simon Fraser University,Communication,"Faculty of Communication, Art and Technology",BA
+Simon Fraser University,Computing Science,Faculty of Applied Sciences,BSc
+Simon Fraser University,Criminology,Faculty of Arts and Social Sciences,BA
+Simon Fraser University,Economics,Faculty of Arts and Social Sciences,BA
+Simon Fraser University,Education,Faculty of Education,BEd
+Simon Fraser University,Engineering Science,Faculty of Applied Sciences,BASc
+Simon Fraser University,Health Sciences,Faculty of Health Sciences,BA/BSc
+Simon Fraser University,Interactive Arts and Technology,"Faculty of Communication, Art and Technology",BA/BSc
+Simon Fraser University,Kinesiology,Faculty of Science,BSc
+Simon Fraser University,Mechatronic Systems Engineering,Faculty of Applied Sciences,BASc
+Simon Fraser University,Psychology,Faculty of Arts and Social Sciences,BA
+Simon Fraser University,Software Systems,Faculty of Applied Sciences,BSc
+Toronto Metropolitan University (formerly Ryerson University),Accounting & Finance (Honours),,
+Toronto Metropolitan University (formerly Ryerson University),Accounting & Finance Co-op (Honours),,
+Toronto Metropolitan University (formerly Ryerson University),Aerospace Engineering (Honours) (Co-op Available),,
+Toronto Metropolitan University (formerly Ryerson University),Architectural Science (Honours) (Co-op Available),,
+Toronto Metropolitan University (formerly Ryerson University),Arts and Contemporary Studies (Honours) (Co-op Available),,
+Toronto Metropolitan University (formerly Ryerson University),Biology (Honours) (Co-op Available),,
+Toronto Metropolitan University (formerly Ryerson University),Biomedical Engineering (Honours) (Co-op Available),,
+Toronto Metropolitan University (formerly Ryerson University),Biomedical Sciences (Honours) (Co-op Available),,
+Toronto Metropolitan University (formerly Ryerson University),Business Management (Honours),,
+Toronto Metropolitan University (formerly Ryerson University),Business Management Co-op (Honours),,
+Toronto Metropolitan University (formerly Ryerson University),Business Technology Management (Honours),,
+Toronto Metropolitan University (formerly Ryerson University),Business Technology Management (Part-time),,
+Toronto Metropolitan University (formerly Ryerson University),Business Technology Management Co-op (Honours),,
+Toronto Metropolitan University (formerly Ryerson University),Chemical Engineering Co-op (Honours),,
+Toronto Metropolitan University (formerly Ryerson University),Chemistry (Honours) (Co-op Available),,
+Toronto Metropolitan University (formerly Ryerson University),Child and Youth Care,,
+Toronto Metropolitan University (formerly Ryerson University),Civil Engineering (Honours) (Co-op Available),,
+Toronto Metropolitan University (formerly Ryerson University),Computer Engineering (Honours) (Co-op Available),,
+Toronto Metropolitan University (formerly Ryerson University),Computer Science (Honours) (Co-op Available),,
+Toronto Metropolitan University (formerly Ryerson University),Computer Science (Honours) (Part-time),,
+Toronto Metropolitan University (formerly Ryerson University),Creative Industries,,
+Toronto Metropolitan University (formerly Ryerson University),Criminology (Honours) (Co-op Available),,
+Toronto Metropolitan University (formerly Ryerson University),Cyber Science,,
+Toronto Metropolitan University (formerly Ryerson University),Early Childhood Studies,,
+Toronto Metropolitan University (formerly Ryerson University),Economics and Finance (Honours) (Co-op Available),,
+Toronto Metropolitan University (formerly Ryerson University),Electrical Engineering (Honours) (Co-op Available),,
+Toronto Metropolitan University (formerly Ryerson University),English (Honours) (Co-op Available),,
+Toronto Metropolitan University (formerly Ryerson University),English Language Pathway Programs,,
+Toronto Metropolitan University (formerly Ryerson University),Environmental and Urban Sustainability (Honours) (Co-op available),,
+Toronto Metropolitan University (formerly Ryerson University),Fashion,,
+Toronto Metropolitan University (formerly Ryerson University),Financial Mathematics (Honours) (Co-op Available),,
+Toronto Metropolitan University (formerly Ryerson University),Geographic Analysis (Honours),,
+Toronto Metropolitan University (formerly Ryerson University),Graphic Communications Management,,
+Toronto Metropolitan University (formerly Ryerson University),History (Honours) (Co-op Available),,
+Toronto Metropolitan University (formerly Ryerson University),Hospitality and Tourism Management (Honours),,
+Toronto Metropolitan University (formerly Ryerson University),Hospitality and Tourism Management Co-op (Honours),,
+Toronto Metropolitan University (formerly Ryerson University),Image Arts: Film,,
+Toronto Metropolitan University (formerly Ryerson University),Image Arts: Photography Media Arts,,
+Toronto Metropolitan University (formerly Ryerson University),Industrial Engineering (Honours) (Co-op Available),,
+Toronto Metropolitan University (formerly Ryerson University),Interior Design,,
+Toronto Metropolitan University (formerly Ryerson University),Journalism,,
+Toronto Metropolitan University (formerly Ryerson University),Language and Intercultural Relations (Honours),,
+Toronto Metropolitan University (formerly Ryerson University),Mathematics and Its Applications (Honours) (Co-op Available),,
+Toronto Metropolitan University (formerly Ryerson University),Mechanical Engineering (Honours) (Co-op Available),,
+Toronto Metropolitan University (formerly Ryerson University),Mechatronics Engineering (Honours) (Co-op Available),,
+Toronto Metropolitan University (formerly Ryerson University),Media Production,,
+Toronto Metropolitan University (formerly Ryerson University),Medical Physics (Honours) (Co-op Available),,
+Toronto Metropolitan University (formerly Ryerson University),Midwifery,,
+Toronto Metropolitan University (formerly Ryerson University),Midwifery (Part-time),,
+Toronto Metropolitan University (formerly Ryerson University),New Media,,
+Toronto Metropolitan University (formerly Ryerson University),Nursing at Centennial College,,
+Toronto Metropolitan University (formerly Ryerson University),Nursing at TMU,,
+Toronto Metropolitan University (formerly Ryerson University),Nutrition and Food,,
+Toronto Metropolitan University (formerly Ryerson University),Occupational Health and Safety (Co-op Available),,
+Toronto Metropolitan University (formerly Ryerson University),Performance: Acting,,
+Toronto Metropolitan University (formerly Ryerson University),Performance: Dance,,
+Toronto Metropolitan University (formerly Ryerson University),Performance: Design and Production,,
+Toronto Metropolitan University (formerly Ryerson University),Philosophy (Honours) (Co-op Available),,
+Toronto Metropolitan University (formerly Ryerson University),Politics and Governance (Honours) (Co-op Available),,
+Toronto Metropolitan University (formerly Ryerson University),Professional Communication (Honours) (Co-op Available),,
+Toronto Metropolitan University (formerly Ryerson University),Professional Music,,
+Toronto Metropolitan University (formerly Ryerson University),Psychology (Honours) (Co-op Available),,
+Toronto Metropolitan University (formerly Ryerson University),Public Administration and Governance (Honours) (Part-time Studies Only),,
+Toronto Metropolitan University (formerly Ryerson University),Public Health (Co-op Available),,
+Toronto Metropolitan University (formerly Ryerson University),Retail Management (Honours),,
+Toronto Metropolitan University (formerly Ryerson University),Retail Management Co-op (Honours),,
+Toronto Metropolitan University (formerly Ryerson University),Social Work,,
+Toronto Metropolitan University (formerly Ryerson University),Sociology (Honours) (Co-op Available),,
+Toronto Metropolitan University (formerly Ryerson University),Sport Media,,
+Toronto Metropolitan University (formerly Ryerson University),Undeclared Arts (First Year Studies Only),,
+Toronto Metropolitan University (formerly Ryerson University),Undeclared Engineering (First Semester Studies Only),,
+Toronto Metropolitan University (formerly Ryerson University),Urban and Regional Planning,,
+Trent University,Accounting & Economics (BA) - Co-op,,
+Trent University,Acounting & Economics,,
+Trent University,Ancient Greek and Roman Studies,,
+Trent University,Ancient Greek and Roman Studies (Honours Arts) – Co-op,,
+Trent University,Ancient Greek and Roman Studies and Business,,
+Trent University,Anthropology (BA),,
+Trent University,Anthropology (BA) - Co-Op,,
+Trent University,Anthropology (BSc),,
+Trent University,Anthropology (BSc) - Co-Op,,
+Trent University,Anthropology & Forensics (BA),,
+Trent University,Anthropology & Forensics (BSc),,
+Trent University,Archaeology (BA),,
+Trent University,Archaeology (BA) - Co-Op,,
+Trent University,Archaeology (BSc),,
+Trent University,Archaeology (BSc) - Co-Op,,
+Trent University,Archaeology (Honours Arts) - Bioarchaeology,,
+Trent University,Artificial Intelligence (Honours Arts),,
+Trent University,Artificial Intelligence (Honours Science),,
+Trent University,Bachelor of Arts & Science,,
+Trent University,Bachelor of Arts & Science (Honours Bachelor of Arts and Sciences) – Co-op,,
+Trent University,Bachelor of Arts and Science - Medical: Trent/Swansea Dual Degree,,
+Trent University,Biochemistry and Molecular Biology,,
+Trent University,Biology,,
+Trent University,Biomedical Science,,
+Trent University,Business Administration – Accounting – Co-op,,
+Trent University,Business Administration – Co-op,,
+Trent University,Business Administration (Honours),,
+Trent University,Business and Arts,,
+Trent University,Business and Science,,
+Trent University,Canadian Studies,,
+Trent University,Canadian Studies (Honours Arts) – Co-op,,
+Trent University,Canadian Studies and Business,,
+Trent University,Certificate in Spanish - Peterborough Campus,,
+Trent University,Chemical Engineering: Trent/Swansea Dual Degree,,
+Trent University,Chemical Physics,,
+Trent University,Chemistry,,
+Trent University,Circumpolar Studies Diploma,,
+Trent University,Computer Science – Co-op,,
+Trent University,Computer Science (BSc),,
+Trent University,Computer Science and Forensics,,
+Trent University,Computer Science and Physics,,
+Trent University,Computing Systems and Business,,
+Trent University,Computing Systems and Economics,,
+Trent University,Computing Systems and Media Studies,,
+Trent University,Conservation Biology,,
+Trent University,Conservation Biology – Co-op,,
+Trent University,Criminology,,
+Trent University,Cultural Studies,,
+Trent University,Cultural Studies (Honours Arts) – Co-op,,
+Trent University,Cultural Studies and Business,,
+Trent University,Data Science,,
+Trent University,Economics (BA),,
+Trent University,Economics (BSc),,
+Trent University,Economics (Honours Arts) – Co-op,,
+Trent University,Economics and Business,,
+Trent University,English and Business,,
+Trent University,English Literature,,
+Trent University,English Literature (Honours Arts) - Co-Op,,
+Trent University,Environmental and Resource Science (BSc),,
+Trent University,Environmental and Resource Studies (BA),,
+Trent University,Environmental Chemistry,,
+Trent University,Environmental Geoscience,,
+Trent University,Environmental Resource Science and Business,,
+Trent University,Environmental Resource Studies and Business,,
+Trent University,Environmental Science/Studies (Honours),,
+Trent University,Financial Science,,
+Trent University,Financial Science (Honours Science) - Co-op,,
+Trent University,Forensic Anthropology,,
+Trent University,Forensic Biology,,
+Trent University,Forensic Chemistry,,
+Trent University,Forensic Science,,
+Trent University,Forensics and Arts,,
+Trent University,Forensics and Business,,
+Trent University,Forensics and Science,,
+Trent University,Foundations of Indigenous Learning,,
+Trent University,French & Fracophone Studies (Honours Arts) – Co-op,,
+Trent University,French & Francophone Studies,,
+Trent University,French and Business,,
+Trent University,Gender & Social Justice,,
+Trent University,Gender & Social Justice (Hounours Arts) – Co-op,,
+Trent University,Gender & Social Justice and Business,,
+Trent University,Geography (BA),,
+Trent University,Geography (BSc),,
+Trent University,Geography and Business,,
+Trent University,Global Development Studies,,
+Trent University,Global Development Studies (Honours Arts) – Co-op,,
+Trent University,Global Development Studies and Business,,
+Trent University,Health,,
+Trent University,History,,
+Trent University,History (Honours Arts) – Co-op,,
+Trent University,History and Business,,
+Trent University,Honours Arts,,
+Trent University,Honours Science,,
+Trent University,Human Rights (Honours Arts),,
+Trent University,Human Rights (Honours Arts) - Co-op,,
+Trent University,Indigenous Bachelor of Education (BEd),,
+Trent University,Indigenous Environmental Science (BSc),,
+Trent University,Indigenous Environmental Studies (BA),,
+Trent University,Indigenous Environmental Studies (Dipl.),,
+Trent University,Indigenous Environmental Studies (Honours Arts) – Co-op,,
+Trent University,Indigenous Studies,,
+Trent University,Indigenous Studies (Honours Arts) – Co-op,,
+Trent University,Indigenous Studies and Business,,
+Trent University,Information Systems (BA),,
+Trent University,Information Systems (BSc),,
+Trent University,Information Systems and Business,,
+Trent University,International Political Economy,,
+Trent University,Kinesiology (Honours),,
+Trent University,Kinesiology (Honours) - Co-op,,
+Trent University,Law (LL.B.) Business Administration (BBA): Trent/Swansea Dual Degree,,
+Trent University,Law (LL.B.) Canadian Studies (BA): Trent/Swansea Dual Degree,,
+Trent University,Law (LL.B.) Cultural Studies (BA): Trent/Swansea Dual Degree,,
+Trent University,Law (LL.B.) Economics (BA): Trent/Swansea Dual Degree,,
+Trent University,Law (LL.B.) English Literature (BA): Trent/Swansea Dual Degree,,
+Trent University,Law (LL.B.) Environmental & Resource Studies (BA): Trent/Swansea Dual Degree,,
+Trent University,Law (LL.B.) Gender and Women’s Studies (BA): Trent/Swansea Dual Degree,,
+Trent University,Law (LL.B.) Geography (BA): Trent/Swansea Dual Degree,,
+Trent University,Law (LL.B.) Global Development Studies (BA): Trent/Swansea Dual Degree,,
+Trent University,Law (LL.B.) History (BA): Trent/Swansea Dual Degree,,
+Trent University,Law (LL.B.) Indigenous Studies (BA): Trent/Swansea Dual Degree,,
+Trent University,Law (LL.B.) Media Studies (BA): Trent/Swansea Dual Degree,,
+Trent University,Law (LL.B.) Philosophy (BA): Trent/Swansea Dual Degree,,
+Trent University,Law (LL.B.) Political Studies (BA): Trent/Swansea Dual Degree,,
+Trent University,Law (LL.B.) Sociology (BA): Trent/Swansea Dual Degree,,
+Trent University,Mathematical Economics,,
+Trent University,Mathematical Physics,,
+Trent University,Mathematics,,
+Trent University,Mathematics and Business,,
+Trent University,Media Studies,,
+Trent University,Media Studies (Honours Arts) - Co-Op,,
+Trent University,Media Studies & Sociology,,
+Trent University,Media Studies and Business,,
+Trent University,Medical Professional Stream,,
+Trent University,Medical Professional Stream – Indigenous,,
+Trent University,Nursing,,
+Trent University,Philosophy,,
+Trent University,Philosophy (Honours Arts) – Co-op,,
+Trent University,Philosophy and Business,,
+Trent University,Philosophy and Economics,,
+Trent University,Physics,,
+Trent University,Political Science (Honours Arts) – Co-op,,
+Trent University,Political Studies,,
+Trent University,Political Studies and Business,,
+Trent University,Political Studies and Forensics,,
+Trent University,Psychology (BA),,
+Trent University,Psychology (BSc),,
+Trent University,Psychology (Science) and Business,,
+Trent University,Psychology and Business,,
+Trent University,Psychology and Economics,,
+Trent University,Psychology and Forensics (Arts),,
+Trent University,Psychology and Forensics (Science),,
+Trent University,Quebec & Franco-Canadian Studies (French & Francophone Studies BA),,
+Trent University,Social Work (Honours),,
+Trent University,Sociology,,
+Trent University,Sociology (Honours Arts) – Co-op,,
+Trent University,Sociology and Business,,
+Trent University,Software Engineering - Co Op,,
+Trent University,Sustainable Agriculture and Food Systems (BA),,
+Trent University,Sustainable Agriculture and Food Systems (BSc),,
+Trent University,Teacher Education Stream – Arts (Honours),,
+Trent University,Teacher Education Stream – Science (Honours),,
+Trent University,Trent ESL: English for University,,
+Trent University,Water Sciences,,
+Trent University – Durham Greater Toronto Area,Anthropology (BA),,
+Trent University – Durham Greater Toronto Area,Anthropology (BSc),,
+Trent University – Durham Greater Toronto Area,Anthropology & Business Administration,,
+Trent University – Durham Greater Toronto Area,Anthropology & English Literature,,
+Trent University – Durham Greater Toronto Area,Anthropology & Media Studies,,
+Trent University – Durham Greater Toronto Area,Anthropology & Psychology,,
+Trent University – Durham Greater Toronto Area,Anthropology & Sociology,,
+Trent University – Durham Greater Toronto Area,Arts and Business,,
+Trent University – Durham Greater Toronto Area,Bachelor of Business Administration,,
+Trent University – Durham Greater Toronto Area,Business and Computing & Information Systems,,
+Trent University – Durham Greater Toronto Area,Child & Youth Studies & Sociology,,
+Trent University – Durham Greater Toronto Area,Child and Youth Studies,,
+Trent University – Durham Greater Toronto Area,Child and Youth Studies & Psychology,,
+Trent University – Durham Greater Toronto Area,Communications,,
+Trent University – Durham Greater Toronto Area,Communications (Honours Arts) - Co-Op,,
+Trent University – Durham Greater Toronto Area,Computer Science (BSc),,
+Trent University – Durham Greater Toronto Area,Computing Systems (BA),,
+Trent University – Durham Greater Toronto Area,Criminology,,
+Trent University – Durham Greater Toronto Area,English Literature,,
+Trent University – Durham Greater Toronto Area,English Literature & Media Studies,,
+Trent University – Durham Greater Toronto Area,English Literature & Psychology,,
+Trent University – Durham Greater Toronto Area,English Literature & Sociology,,
+Trent University – Durham Greater Toronto Area,English Literature and Business,,
+Trent University – Durham Greater Toronto Area,Gender & Social Justice,,
+Trent University – Durham Greater Toronto Area,Honours Arts,,
+Trent University – Durham Greater Toronto Area,Honours Science,,
+Trent University – Durham Greater Toronto Area,Honours Science Program – Computer Science,,
+Trent University – Durham Greater Toronto Area,Information Systems & Business,,
+Trent University – Durham Greater Toronto Area,Information Systems & Media Studies,,
+Trent University – Durham Greater Toronto Area,Law (LL.B.) Business Administration (B.B.A.): Trent/Swansea Dual Degree,,
+Trent University – Durham Greater Toronto Area,Law (LL.B.) English Literature (B.A.): Trent/Swansea Dual Degree,,
+Trent University – Durham Greater Toronto Area,Law (LL.B.) Media Studies (B.A.): Trent/Swansea Dual Degree,,
+Trent University – Durham Greater Toronto Area,Law (LL.B.) Philosophy (B.A.): Trent/Swansea Dual Degree,,
+Trent University – Durham Greater Toronto Area,Law (LL.B.) Sociology (B.A.): Trent/Swansea Dual Degree,,
+Trent University – Durham Greater Toronto Area,Media Studies,,
+Trent University – Durham Greater Toronto Area,Media Studies & Psychology,,
+Trent University – Durham Greater Toronto Area,Media Studies and Business,,
+Trent University – Durham Greater Toronto Area,Philosophy (Durham) General Degree,,
+Trent University – Durham Greater Toronto Area,Policing & Community Well-Being,,
+Trent University – Durham Greater Toronto Area,Psychology (BA),,
+Trent University – Durham Greater Toronto Area,Psychology (BSc),,
+Trent University – Durham Greater Toronto Area,Psychology (Science) and Business,,
+Trent University – Durham Greater Toronto Area,Psychology & Sociology,,
+Trent University – Durham Greater Toronto Area,Psychology and Business,,
+Trent University – Durham Greater Toronto Area,Science and Business,,
+Trent University – Durham Greater Toronto Area,Social Work (Honours),,
+Trent University – Durham Greater Toronto Area,Sociology,,
+Trent University – Durham Greater Toronto Area,Sociology and Business,,
+Trent University – Durham Greater Toronto Area,Supply Chain Management,,
+Trent University – Durham Greater Toronto Area,Teacher Education Stream – Arts (Honours),,
+Trent University – Durham Greater Toronto Area,Teacher Education Stream – Science (Honours),,
+Universit? de Montr?al,Arts,Faculty of Arts,BA
+Universit? de Montr?al,Biology,Faculty of Science,BSc
+Universit? de Montr?al,Business Administration,Faculty of Business,BBA/BCom
+Universit? de Montr?al,Chemistry,Faculty of Science,BSc
+Universit? de Montr?al,Commerce,Faculty of Business,BCom
+Universit? de Montr?al,Communication Studies,Faculty of Arts,BA
+Universit? de Montr?al,Computer Science,Faculty of Science,BSc
+Universit? de Montr?al,Economics,Faculty of Arts,BA
+Universit? de Montr?al,Education,Faculty of Education,BEd
+Universit? de Montr?al,Engineering,Faculty of Engineering,BEng/BASc
+Universit? de Montr?al,English,Faculty of Arts,BA
+Universit? de Montr?al,Environmental Science,Faculty of Science,BSc
+Universit? de Montr?al,History,Faculty of Arts,BA
+Universit? de Montr?al,Kinesiology,Faculty of Health,BKin/BSc
+Universit? de Montr?al,Mathematics,Faculty of Science,BSc
+Universit? de Montr?al,Nursing,Faculty of Health,BN/BScN
+Universit? de Montr?al,Physics,Faculty of Science,BSc
+Universit? de Montr?al,Political Science,Faculty of Arts,BA
+Universit? de Montr?al,Psychology,Faculty of Arts and Science,BA/BSc
+Universit? de Montr?al,Sociology,Faculty of Arts,BA
+Universit? de Montr?al,Statistics,Faculty of Science,BSc
+Universit? de Sherbrooke,Arts,Faculty of Arts,BA
+Universit? de Sherbrooke,Biology,Faculty of Science,BSc
+Universit? de Sherbrooke,Business Administration,Faculty of Business,BBA/BCom
+Universit? de Sherbrooke,Chemistry,Faculty of Science,BSc
+Universit? de Sherbrooke,Commerce,Faculty of Business,BCom
+Universit? de Sherbrooke,Communication Studies,Faculty of Arts,BA
+Universit? de Sherbrooke,Computer Science,Faculty of Science,BSc
+Universit? de Sherbrooke,Economics,Faculty of Arts,BA
+Universit? de Sherbrooke,Education,Faculty of Education,BEd
+Universit? de Sherbrooke,Engineering,Faculty of Engineering,BEng/BASc
+Universit? de Sherbrooke,English,Faculty of Arts,BA
+Universit? de Sherbrooke,Environmental Science,Faculty of Science,BSc
+Universit? de Sherbrooke,History,Faculty of Arts,BA
+Universit? de Sherbrooke,Kinesiology,Faculty of Health,BKin/BSc
+Universit? de Sherbrooke,Mathematics,Faculty of Science,BSc
+Universit? de Sherbrooke,Nursing,Faculty of Health,BN/BScN
+Universit? de Sherbrooke,Physics,Faculty of Science,BSc
+Universit? de Sherbrooke,Political Science,Faculty of Arts,BA
+Universit? de Sherbrooke,Psychology,Faculty of Arts and Science,BA/BSc
+Universit? de Sherbrooke,Sociology,Faculty of Arts,BA
+Universit? de Sherbrooke,Statistics,Faculty of Science,BSc
+Universit? Laval,Arts,Faculty of Arts,BA
+Universit? Laval,Biology,Faculty of Science,BSc
+Universit? Laval,Business Administration,Faculty of Business,BBA/BCom
+Universit? Laval,Chemistry,Faculty of Science,BSc
+Universit? Laval,Commerce,Faculty of Business,BCom
+Universit? Laval,Communication Studies,Faculty of Arts,BA
+Universit? Laval,Computer Science,Faculty of Science,BSc
+Universit? Laval,Economics,Faculty of Arts,BA
+Universit? Laval,Education,Faculty of Education,BEd
+Universit? Laval,Engineering,Faculty of Engineering,BEng/BASc
+Universit? Laval,English,Faculty of Arts,BA
+Universit? Laval,Environmental Science,Faculty of Science,BSc
+Universit? Laval,History,Faculty of Arts,BA
+Universit? Laval,Kinesiology,Faculty of Health,BKin/BSc
+Universit? Laval,Mathematics,Faculty of Science,BSc
+Universit? Laval,Nursing,Faculty of Health,BN/BScN
+Universit? Laval,Physics,Faculty of Science,BSc
+Universit? Laval,Political Science,Faculty of Arts,BA
+Universit? Laval,Psychology,Faculty of Arts and Science,BA/BSc
+Universit? Laval,Sociology,Faculty of Arts,BA
+Universit? Laval,Statistics,Faculty of Science,BSc
+Université de Hearst,Administration des affaires (4 ans),,
+Université de Hearst,Arts – Général (3 ans) Études des enjeux humains et sociaux; Gestion; Psychologie,,
+Université de Hearst,Arts – Psychologie (4 ans),,
+Université de Hearst,Baccalauréat ès arts (4 ans) avec spécialisation en Sciences humaines et sociales interdisciplinaires,,
+Université de l'Ontario français,Baccalauréat accéléré en éducation (B. A. + B. Ed),,
+Université de l'Ontario français,Baccalauréat en santé mentale,,
+Université de l'Ontario français,Bachelor's of Business Administration (Hon.),,
+Université de l'Ontario français,Communications et médias numériques (French),,
+Université de l'Ontario français,Economy and Social Innovation (French),,
+Université de l'Ontario français,Human plurality (French),,
+Université de l'Ontario français,Urban environments (French),,
+University of Alberta,Agricultural/Food Business Management,"Faculty of Agricultural, Life & Environmental Sciences",BSc
+University of Alberta,Biological Sciences,Faculty of Science,BSc
+University of Alberta,Business,Alberta School of Business,BCom
+University of Alberta,Computer Science,Faculty of Science,BSc
+University of Alberta,Design,Faculty of Arts,BDes
+University of Alberta,Education,Faculty of Education,BEd
+University of Alberta,Engineering,Faculty of Engineering,BScEng
+University of Alberta,Environmental and Conservation Sciences,"Faculty of Agricultural, Life & Environmental Sciences",BSc
+University of Alberta,Kinesiology,"Faculty of Kinesiology, Sport, and Recreation",BKin
+University of Alberta,Music,Faculty of Arts,BMus
+University of Alberta,Nursing,Faculty of Nursing,BScN
+University of Alberta,Psychology,Faculty of Arts/Science,BA/BSc
+University of British Columbia,Applied Science (Engineering),Faculty of Applied Science,BASc
+University of British Columbia,Architecture,School of Architecture and Landscape Architecture,BDes
+University of British Columbia,Arts,Faculty of Arts,BA
+University of British Columbia,Biology,Faculty of Science,BSc
+University of British Columbia,Biomedical Engineering,Faculty of Applied Science,BASc
+University of British Columbia,Civil Engineering,Faculty of Applied Science,BASc
+University of British Columbia,Commerce,Sauder School of Business,BCom
+University of British Columbia,Computer Science,Faculty of Science,BSc
+University of British Columbia,Data Science,Faculty of Science,BSc
+University of British Columbia,Electrical Engineering,Faculty of Applied Science,BASc
+University of British Columbia,Engineering,Faculty of Applied Science,BASc
+University of British Columbia,International Economics,Vancouver School of Economics,BIE
+University of British Columbia,Kinesiology,School of Kinesiology,BKin
+University of British Columbia,Mechanical Engineering,Faculty of Applied Science,BASc
+University of British Columbia,Nursing,School of Nursing,BSN
+University of British Columbia,Pharmaceutical Sciences,Faculty of Pharmaceutical Sciences,BPSc
+University of British Columbia,Psychology,Faculty of Arts,BA
+University of Calgary,Architecture,"School of Architecture, Planning and Landscape",BA Urban Studies/BSc
+University of Calgary,Biological Sciences,Faculty of Science,BSc
+University of Calgary,Business,Haskayne School of Business,BCom
+University of Calgary,Computer Science,Faculty of Science,BSc
+University of Calgary,Data Science,Faculty of Science,BSc
+University of Calgary,Economics,Faculty of Arts,BA
+University of Calgary,Education,Werklund School of Education,BEd
+University of Calgary,Engineering,Schulich School of Engineering,BScEng
+University of Calgary,Kinesiology,Faculty of Kinesiology,BKin/BSc
+University of Calgary,Nursing,Faculty of Nursing,BN
+University of Calgary,Psychology,Faculty of Arts/Science,BA/BSc
+University of Calgary,Software Engineering,Schulich School of Engineering,BScEng
+University of Guelph,Animal Biology,,
+University of Guelph,Applied Human Nutrition,,
+University of Guelph,Arts and Sciences,,
+University of Guelph,Arts General,,
+University of Guelph,Arts Honours,,
+University of Guelph,"Arts Honours, Psychology (Co-op option available)",,
+University of Guelph,"Bachelor of Commerce, Undeclared (first year only)",,
+University of Guelph,"Bachelor of Creative Arts, Health and Wellness (Honours)",,
+University of Guelph,Bachelor of Indigenous Environmental Science and Practice,,
+University of Guelph,Bachelor of Mathematics (General),,
+University of Guelph,Bachelor of Mathematics (Honours),,
+University of Guelph,Bachelor of One Health,,
+University of Guelph,Bachelor of Science in Agriculture,,
+University of Guelph,Bachelor of Science in Environmental Sciences,,
+University of Guelph,"Bachelor of Science, General (3 years)",,
+University of Guelph,"Bachelor of Science, Honours (4 years)",,
+University of Guelph,Bio-Medical Science,,
+University of Guelph,Biological Engineering (co-op admission only),,
+University of Guelph,Biomedical Engineering (Co-op admission only),,
+University of Guelph,Child Studies,,
+University of Guelph,Civil Engineering (Co-op admission only),,
+University of Guelph,Commerce - Accounting (co-op and regular),,
+University of Guelph,Commerce - Food and Agricultural Business (co-op and regular),,
+University of Guelph,"Commerce - Government, Economics and Management ( co-op and regular)",,
+University of Guelph,Commerce - Management (co-op and regular),,
+University of Guelph,Commerce - Management Economics and Finance (co-op and regular),,
+University of Guelph,Commerce - Marketing Management (co-op and regular),,
+University of Guelph,Commerce - Real Estate (co-op and regular),,
+University of Guelph,Commerce - Sport and Event Management Commerce (co-op and regular),,
+University of Guelph,Commerce - Sport and Event Management Commerce (Fully Online),,
+University of Guelph,Computer Engineering (co-op admission only),,
+University of Guelph,Computer Science (co-op and regular),,
+University of Guelph,Criminal Justice and Public Policy (co-op and regular),,
+University of Guelph,Engineering Systems and Computing (co-op admission only),,
+University of Guelph,Environmental Engineering (co-op admission only),,
+University of Guelph,Environmental Management,,
+University of Guelph,Equine Management,,
+University of Guelph,Family Studies and Human Development,,
+University of Guelph,General Bachelor of Arts (three year degree),,
+University of Guelph,General Bachelor of Computing,,
+University of Guelph,Hospitality and Tourism Management,,
+University of Guelph,Human Kinetics,,
+University of Guelph,International Development Studies (Dual Credential Option),,
+University of Guelph,Landscape Architecture,,
+University of Guelph,Mechanical Engineering (co-op admission only),,
+University of Guelph,Mechatronics Engineering (co-op and regular),,
+University of Guelph,Software Engineering (co-op and regular),,
+University of Guelph,Studio Art,,
+University of Guelph,Turfgrass Management (Associate Diploma program),,
+University of Guelph,Water Resources Engineering (co-op admission only),,
+University of Guelph-Humber,Honours Bachelor of Applied Arts in Media & Communication Studies and Diploma in Media Communications,,
+University of Guelph-Humber,Honours Bachelor of Applied Science in Early Childhood Studies and Diploma in Early Childhood Education,,
+University of Guelph-Humber,Honours Bachelor of Applied Science in Justice Studies and Diploma in Police Foundations OR Community & Justice Services,,
+University of Guelph-Humber,Honours Bachelor of Applied Science in Kinesiology and Diploma in Fitness & Health Promotion,,
+University of Guelph-Humber,Honours Bachelor of Applied Science in Psychology and Diploma in General Arts & Science,,
+University of Guelph-Humber,Honours Bachelor of Applied Science in Social Services & Well-Being Studies and Social Service Worker Diploma,,
+University of Guelph-Humber,Honours Bachelor of Business Administration and Diploma in Business Administration,,
+University of Lethbridge,Arts,Faculty of Arts,BA
+University of Lethbridge,Biology,Faculty of Science,BSc
+University of Lethbridge,Business Administration,Faculty of Business,BBA/BCom
+University of Lethbridge,Chemistry,Faculty of Science,BSc
+University of Lethbridge,Commerce,Faculty of Business,BCom
+University of Lethbridge,Communication Studies,Faculty of Arts,BA
+University of Lethbridge,Computer Science,Faculty of Science,BSc
+University of Lethbridge,Economics,Faculty of Arts,BA
+University of Lethbridge,Education,Faculty of Education,BEd
+University of Lethbridge,Engineering,Faculty of Engineering,BEng/BASc
+University of Lethbridge,English,Faculty of Arts,BA
+University of Lethbridge,Environmental Science,Faculty of Science,BSc
+University of Lethbridge,History,Faculty of Arts,BA
+University of Lethbridge,Kinesiology,Faculty of Health,BKin/BSc
+University of Lethbridge,Mathematics,Faculty of Science,BSc
+University of Lethbridge,Nursing,Faculty of Health,BN/BScN
+University of Lethbridge,Physics,Faculty of Science,BSc
+University of Lethbridge,Political Science,Faculty of Arts,BA
+University of Lethbridge,Psychology,Faculty of Arts and Science,BA/BSc
+University of Lethbridge,Sociology,Faculty of Arts,BA
+University of Lethbridge,Statistics,Faculty of Science,BSc
+University of Manitoba,Arts,Faculty of Arts,BA
+University of Manitoba,Biology,Faculty of Science,BSc
+University of Manitoba,Business Administration,Faculty of Business,BBA/BCom
+University of Manitoba,Chemistry,Faculty of Science,BSc
+University of Manitoba,Commerce,Faculty of Business,BCom
+University of Manitoba,Communication Studies,Faculty of Arts,BA
+University of Manitoba,Computer Science,Faculty of Science,BSc
+University of Manitoba,Economics,Faculty of Arts,BA
+University of Manitoba,Education,Faculty of Education,BEd
+University of Manitoba,Engineering,Faculty of Engineering,BEng/BASc
+University of Manitoba,English,Faculty of Arts,BA
+University of Manitoba,Environmental Science,Faculty of Science,BSc
+University of Manitoba,History,Faculty of Arts,BA
+University of Manitoba,Kinesiology,Faculty of Health,BKin/BSc
+University of Manitoba,Mathematics,Faculty of Science,BSc
+University of Manitoba,Nursing,Faculty of Health,BN/BScN
+University of Manitoba,Physics,Faculty of Science,BSc
+University of Manitoba,Political Science,Faculty of Arts,BA
+University of Manitoba,Psychology,Faculty of Arts and Science,BA/BSc
+University of Manitoba,Sociology,Faculty of Arts,BA
+University of Manitoba,Statistics,Faculty of Science,BSc
+University of New Brunswick,Arts,Faculty of Arts,BA
+University of New Brunswick,Biology,Faculty of Science,BSc
+University of New Brunswick,Business Administration,Faculty of Business,BBA/BCom
+University of New Brunswick,Chemistry,Faculty of Science,BSc
+University of New Brunswick,Commerce,Faculty of Business,BCom
+University of New Brunswick,Communication Studies,Faculty of Arts,BA
+University of New Brunswick,Computer Science,Faculty of Science,BSc
+University of New Brunswick,Economics,Faculty of Arts,BA
+University of New Brunswick,Education,Faculty of Education,BEd
+University of New Brunswick,Engineering,Faculty of Engineering,BEng/BASc
+University of New Brunswick,English,Faculty of Arts,BA
+University of New Brunswick,Environmental Science,Faculty of Science,BSc
+University of New Brunswick,History,Faculty of Arts,BA
+University of New Brunswick,Kinesiology,Faculty of Health,BKin/BSc
+University of New Brunswick,Mathematics,Faculty of Science,BSc
+University of New Brunswick,Nursing,Faculty of Health,BN/BScN
+University of New Brunswick,Physics,Faculty of Science,BSc
+University of New Brunswick,Political Science,Faculty of Arts,BA
+University of New Brunswick,Psychology,Faculty of Arts and Science,BA/BSc
+University of New Brunswick,Sociology,Faculty of Arts,BA
+University of New Brunswick,Statistics,Faculty of Science,BSc
+University of Northern British Columbia,Arts,Faculty of Arts,BA
+University of Northern British Columbia,Biology,Faculty of Science,BSc
+University of Northern British Columbia,Business Administration,Faculty of Business,BBA/BCom
+University of Northern British Columbia,Chemistry,Faculty of Science,BSc
+University of Northern British Columbia,Commerce,Faculty of Business,BCom
+University of Northern British Columbia,Communication Studies,Faculty of Arts,BA
+University of Northern British Columbia,Computer Science,Faculty of Science,BSc
+University of Northern British Columbia,Economics,Faculty of Arts,BA
+University of Northern British Columbia,Education,Faculty of Education,BEd
+University of Northern British Columbia,Engineering,Faculty of Engineering,BEng/BASc
+University of Northern British Columbia,English,Faculty of Arts,BA
+University of Northern British Columbia,Environmental Science,Faculty of Science,BSc
+University of Northern British Columbia,History,Faculty of Arts,BA
+University of Northern British Columbia,Kinesiology,Faculty of Health,BKin/BSc
+University of Northern British Columbia,Mathematics,Faculty of Science,BSc
+University of Northern British Columbia,Nursing,Faculty of Health,BN/BScN
+University of Northern British Columbia,Physics,Faculty of Science,BSc
+University of Northern British Columbia,Political Science,Faculty of Arts,BA
+University of Northern British Columbia,Psychology,Faculty of Arts and Science,BA/BSc
+University of Northern British Columbia,Sociology,Faculty of Arts,BA
+University of Northern British Columbia,Statistics,Faculty of Science,BSc
+University of Ottawa,Acting (3 years),,
+University of Ottawa,Administration publique (4 ans),,
+University of Ottawa,Administration publique et science politique (Bidisciplinaire – 4 ans),,
+University of Ottawa,Anglais langue seconde (4 ans – majeure),,
+University of Ottawa,Anthropologie (4 ans),,
+University of Ottawa,Anthropologie et sociologie (Bidisciplinaire – 4 ans),,
+University of Ottawa,Anthropology (4 years) (French Immersion Stream is available),,
+University of Ottawa,Anthropology and Sociology (Joint Honours 4 years) (French Immersion Stream is available),,
+University of Ottawa,Antiquité grecque et romaine (4 ans),,
+University of Ottawa,Art History (4-year major) (French Immersion Stream is available),,
+University of Ottawa,Arts – Études interdisciplinaires (3 ans),,
+University of Ottawa,Arts – Études interdisciplinaires (4 ans),,
+University of Ottawa,Arts – Interdisciplinary Studies (3 years),,
+University of Ottawa,Arts – Interdisciplinary Studies (4 years),,
+University of Ottawa,Arts visuels (B.A.V.) (4 ans),,
+University of Ottawa,Biochemistry (4 years) (French Immersion Stream is available),,
+University of Ottawa,Biochimie (4 ans),,
+University of Ottawa,Biologie (4 ans),,
+University of Ottawa,Biology (4 years) (French Immersion Stream is available),,
+University of Ottawa,Biomedical Mechanical Engineering (4 years),,
+University of Ottawa,Biomedical Mechanical Engineering and Computing Technology (5-year double degree),,
+University of Ottawa,Biomedical Science (4 years) (French Immersion Stream is available),,
+University of Ottawa,Biopharmaceutical Sciences (4 years) (French Immersion Stream is available),,
+University of Ottawa,Biotechnologie (biochimie et génie chimique) (Double grade – 5 ans),,
+University of Ottawa,Biotechnology (Biochemistry and Chemical Engineering) (5-year double degree) (French Immersion Stream is available),,
+University of Ottawa,Chemical Engineering (4 years),,
+University of Ottawa,Chemical Engineering and Computing Technology (5-year double degree),,
+University of Ottawa,Chemistry (4 years) (French Immersion Stream is available),,
+University of Ottawa,Chimie (4 ans),,
+University of Ottawa,Civil Engineering (4 years),,
+University of Ottawa,Civil Engineering and Computing Technology (5-year double degree),,
+University of Ottawa,Commerce - Accounting (4 years) (French Immersion Stream is available),,
+University of Ottawa,Commerce - Business Analytics (4 years) (French Immersion Stream is available),,
+University of Ottawa,Commerce - Entrepreneurship (4 years) (French Immersion Stream available),,
+University of Ottawa,Commerce – Business Technology Management (4 years) (French Immersion Stream is available),,
+University of Ottawa,Commerce – Finance (4 years) (French Immersion Stream is available),,
+University of Ottawa,Commerce – Healthcare Analytics (4 years) (French Immersion Stream is available),,
+University of Ottawa,Commerce – Human Resource Management (4 years) (French Immersion Stream is available),,
+University of Ottawa,Commerce – International Management (4 years) (French Immersion Stream is available),,
+University of Ottawa,Commerce – Management (4 years) (French Immersion Stream is available),,
+University of Ottawa,Commerce – Marketing (4 years) (French Immersion Stream is available),,
+University of Ottawa,Commerce — Accounting (BCom) and Master of Science in Management (Research Project) (5-year double degree) (French Immersion Stream is available),,
+University of Ottawa,Commerce — Business Analytics (BCom) and Master of Science in Management (Research Project) (5-year double degree) (French Immersion Stream is available),,
+University of Ottawa,Commerce — Business Technology Management (BCom) and Master of Science in Management (Research Project) (5-year double degree) (French Immersion Stream is available),,
+University of Ottawa,Commerce — Entrepreneurship (BCom) and Master of Science in Management (Research Project) (5-year double degree) (French Immersion Stream is available),,
+University of Ottawa,Commerce — Finance (BCom) and Master of Science in Management (Research Project) (5-year double degree) (French Immersion Stream is available),,
+University of Ottawa,Commerce — Healthcare Analytics (BCom) and Master of Science in Management (Research Project) (5-year double degree) (French Immersion Stream is available),,
+University of Ottawa,Commerce — Human Resources (BCom) and Master of Science in Management (Research Project) (5-year double degree) (French Immersion Stream is available),,
+University of Ottawa,Commerce — International Management (BCom) and Master of Science in Management (Research Project) (5-year double degree) (French Immersion Stream is available),,
+University of Ottawa,Commerce — Management (BCom) and Master of Science in Management (Research Project) (5-year double degree) (French Immersion Stream is available),,
+University of Ottawa,Commerce — Marketing (BCom) and Master of Science in Management (Research Project) (5-year double degree) (French Immersion Stream is available),,
+University of Ottawa,Commerce and Juris Doctor (6-year double degree) (French Immersion Stream is available),,
+University of Ottawa,Communication (4 ans),,
+University of Ottawa,Communication (4 years) (French Immersion Stream is available),,
+University of Ottawa,Communication and Political Science (Joint Honours – 4 years) (French Immersion Stream is available),,
+University of Ottawa,Communication and Sociology (Joint Honours – 4 years) (French Immersion Stream is available),,
+University of Ottawa,Communication et lettres françaises (Bidisciplinaire – 4 ans),,
+University of Ottawa,Communication et science politique (Bidisciplinaire – 4 ans),,
+University of Ottawa,Communication et sociologie (Bidisciplinaire – 4 ans),,
+University of Ottawa,Computer Engineering (4 years),,
+University of Ottawa,Computer Science (4 years) (French Immersion Stream is available),,
+University of Ottawa,Computer Science and Mathematics (Joint Honours – 4 years) (French Immersion Stream is available),,
+University of Ottawa,Conception multidisciplinaire - apprentissage expérientiel (4 ans),,
+University of Ottawa,Conflict Studies and Human Rights (4 years) (French Immersion Stream is available),,
+University of Ottawa,Criminologie (4 ans),,
+University of Ottawa,Criminologie et études féministes et du genre (Bidisciplinaire – 4 ans),,
+University of Ottawa,Criminology (4 years) (French Immersion Stream is available),,
+University of Ottawa,Criminology and Feminist and Gender Studies (Joint Honours – 4 years) (French Immersion Stream is available),,
+University of Ottawa,Data Science (5-year double degree) (French Immersion Stream is available),,
+University of Ottawa,Développement international et mondialisation (4 ans),,
+University of Ottawa,Digital Journalism (Joint program with Algonquin College) (4 years),,
+University of Ottawa,Economics (4 years) (French Immersion Stream is available),,
+University of Ottawa,Economics and Political Science (Joint Honours – 4 years) (French Immersion Stream is available),,
+University of Ottawa,Economics and Public Policy (4 years) (French Immersion Stream is available),,
+University of Ottawa,Économie et politiques publiques (4 ans),,
+University of Ottawa,Économie et politiques publiques de l'environnement (4 ans),,
+University of Ottawa,Économie internationale et développement (4 ans),,
+University of Ottawa,Electrical Engineering (4 years),,
+University of Ottawa,Electrical Engineering and Computing Technology (5-year double degree),,
+University of Ottawa,English (4 years),,
+University of Ottawa,Enseignement des langues secondes (ESL) (4 ans),,
+University of Ottawa,Enseignement des langues secondes (FLS) (4 ans),,
+University of Ottawa,Environmental Economics and Public Policy (4 years) (French Immersion Stream is available),,
+University of Ottawa,Environmental Geoscience (4 years) (French Immersion Stream is available),,
+University of Ottawa,Environmental Science (4 years) (French Immersion Stream is available),,
+University of Ottawa,Environmental Studies (4 years) (English Program) (French Immersion Stream is available),,
+University of Ottawa,Ethics and Political Philosophy (4 years) (French Immersion Stream is available),,
+University of Ottawa,Éthique et philosophie politique (4 ans),,
+University of Ottawa,Études de l'environnement (4 ans) (Programme en français),,
+University of Ottawa,Études des conflits et droit humains (4 ans),,
+University of Ottawa,Études féministes et de genre (4 ans – majeure),,
+University of Ottawa,Études féministes et de genre et science politique (Bidisciplinaire – 4 ans),,
+University of Ottawa,Études féministes et de genre et sociologie (Bidisciplinaire – 4 ans),,
+University of Ottawa,Études internationales et langues modernes (4 ans),,
+University of Ottawa,Études médiévales et de la Renaissance (4 ans – majeure),,
+University of Ottawa,Feminist and Gender Studies (4-year major) (French Immersion Stream is available),,
+University of Ottawa,Feminist and Gender Studies and Political Science (Joint Honours – 4 years) (French Immersion Stream is available),,
+University of Ottawa,Feminist and Gender Studies and Sociology (Joint Honours – 4 years) (French Immersion Stream is available),,
+University of Ottawa,Financial Mathematics and Economics (4 years) (French Immersion Stream is available),,
+University of Ottawa,Food Sciences (4 years) (French Immersion Stream is available),,
+University of Ottawa,French as a Second Language (4-year major),,
+University of Ottawa,Génie chimique (4 ans),,
+University of Ottawa,Génie chimique et technologie de l'informatique (Double grade – 5 ans),,
+University of Ottawa,Génie civil (4 ans),,
+University of Ottawa,Génie civil et technologie de l'informatique (Double grade – 5 ans),,
+University of Ottawa,Génie électrique (4 ans),,
+University of Ottawa,Génie électrique et technologie de l'informatique (Double grade – 5 ans),,
+University of Ottawa,Génie informatique (4 ans),,
+University of Ottawa,Génie logiciel (4 ans),,
+University of Ottawa,Génie mécanique (4 ans),,
+University of Ottawa,Génie mécanique biomédical (4 ans),,
+University of Ottawa,Génie mécanique biomédical et technologie de l’informatique (Double grade – 5 ans),,
+University of Ottawa,Génie mécanique et technologie de l'informatique (Double grade – 5 ans),,
+University of Ottawa,Géographie (4 ans),,
+University of Ottawa,Géographie physique et géomatique (4 ans – majeure),,
+University of Ottawa,Geography (4 years) (French Immersion Stream is available),,
+University of Ottawa,Géologie (4 ans),,
+University of Ottawa,Géologie-physique (4 ans),,
+University of Ottawa,Geology (4 years) (French Immersion Stream is available),,
+University of Ottawa,Geology-Physics (4 years) (French Immersion Stream is available),,
+University of Ottawa,Géosciences environnementales (4 ans),,
+University of Ottawa,Greek and Roman Studies (4 years) (French Immersion Stream is available),,
+University of Ottawa,Health Sciences (4 years) (French Immersion Stream is available),,
+University of Ottawa,Histoire (4 ans),,
+University of Ottawa,Histoire de l'art (4 ans – majeure),,
+University of Ottawa,Histoire et science politique (Bidisciplinaire – 4 ans),,
+University of Ottawa,History (4 years) (French Immersion Stream is available),,
+University of Ottawa,History and Political Science (Joint Honours – 4 years) (French Immersion Stream is available),,
+University of Ottawa,Human Kinetics – Bachelor of Science (BScHK) (4 years) - Applied Studies in Kinesiology (French Immersion Stream is available),,
+University of Ottawa,Human Kinetics – Bachelor of Science (BScHK) (4 years) (French Immersion Stream is available),,
+University of Ottawa,Human Kinetics (BHK) (4 years) - Education and Coaching (French Immersion Stream is available),,
+University of Ottawa,Human Kinetics (BHK) (4 years) - Recreation and Sport Management (French Immersion Stream is available),,
+University of Ottawa,Human Kinetics (BHK) (4 years) with Emphasis on Social Sciences (French Immersion Stream is available),,
+University of Ottawa,Informatique (4 ans),,
+University of Ottawa,Informatique et mathématiques (Bidisciplinaire – 4 ans),,
+University of Ottawa,International Development and Globalization (4 years) (French Immersion Stream is available),,
+University of Ottawa,International Economics and Development (4 years) (French Immersion Stream is available),,
+University of Ottawa,International Studies and Modern Languages (4 years) (French Immersion Stream is available),,
+University of Ottawa,Journalisme numérique (programme conjoint avec La Cité) (4 ans),,
+University of Ottawa,Langues et cultures du monde (4 ans – majeure),,
+University of Ottawa,Lettres françaises (4 ans) (offered in French only),,
+University of Ottawa,Lettres françaises et éducation (Double grade – 6 ans)(offered in French only),,
+University of Ottawa,Linguistics (4 years),,
+University of Ottawa,Linguistique (4 ans),,
+University of Ottawa,Mathematics (4 years) (French Immersion Stream is available),,
+University of Ottawa,Mathematics and Economics (Joint Honours - 4 years) (French Immersion Stream is available),,
+University of Ottawa,Mathematics and Economics (Joint Honours – 4 years) (French Immersion Stream is available),,
+University of Ottawa,Mathématiques (4 ans),,
+University of Ottawa,Mathématiques et science économique (Bidisciplinaire – 4 ans),,
+University of Ottawa,Mathématiques financières et économie (4 ans),,
+University of Ottawa,Mechanical Engineering (4 years),,
+University of Ottawa,Mechanical Engineering and Computing Technology (5-year double degree),,
+University of Ottawa,Medieval Renaissance Studies (4-year major) (French Immersion Stream is available),,
+University of Ottawa,Multidisciplinary Design- Experiential Learning (4 years),,
+University of Ottawa,Music (BA) (4 years) (French Immersion Stream is available),,
+University of Ottawa,Music (BMus) (4 years),,
+University of Ottawa,Music and Biochemistry (5-year double degree),,
+University of Ottawa,Music and Biology (5-year double degree),,
+University of Ottawa,Music and Chemistry (5-year double degree),,
+University of Ottawa,Music and Computer Science (5-year double degree),,
+University of Ottawa,Music and Geology (5-year double degree),,
+University of Ottawa,Music and Mathematics (5-year double degree),,
+University of Ottawa,Music and Physics (5-year double degree),,
+University of Ottawa,Music and Statistics (5-year double degree),,
+University of Ottawa,Musique (4 ans),,
+University of Ottawa,Musique (BMus) (4 ans),,
+University of Ottawa,Musique et biochimie (Double grade – 5 ans),,
+University of Ottawa,Musique et biologie (Double grade – 5 ans),,
+University of Ottawa,Musique et chimie (Double grade – 5 ans),,
+University of Ottawa,Musique et géologie (Double grade – 5 ans),,
+University of Ottawa,Musique et informatique (Double grade – 5 ans),,
+University of Ottawa,Musique et mathématiques (Double grade – 5 ans),,
+University of Ottawa,Musique et physique (Double grade – 5 ans),,
+University of Ottawa,Musique et statistique (Double grade – 5 ans),,
+University of Ottawa,Nursing (4 years) – uOttawa's campus (French Immersion Stream is available),,
+University of Ottawa,Nutrition et diététique (4 ans),,
+University of Ottawa,Philosophie (4 ans),,
+University of Ottawa,Philosophie et science politique (Bidisciplinaire – 4 ans),,
+University of Ottawa,Philosophy (4 years) (French Immersion Stream is available),,
+University of Ottawa,Philosophy and Political Science (Joint Honours – 4 years) (French Immersion Stream is available),,
+University of Ottawa,Physical Geography and Geomatics (4 years) (French Immersion Stream is available),,
+University of Ottawa,Physics (4 years) (French Immersion Stream is available),,
+University of Ottawa,Physics and Electrical Engineering (Double degree – 5 years) (French Immersion Stream is available),,
+University of Ottawa,Physics and Mathematics (Joint Honours – 4 years) (French Immersion Stream is available),,
+University of Ottawa,Physique (4 ans),,
+University of Ottawa,Physique et génie électrique (Double grade – 5 ans),,
+University of Ottawa,Physique et mathématiques (Bidisciplinaire – 4 ans),,
+University of Ottawa,Political Science (4 years) (French Immersion Stream is available),,
+University of Ottawa,Political Science and Juris Doctor (French Immersion Stream is available),,
+University of Ottawa,Pratique théâtrale en jeu (3 ans),,
+University of Ottawa,Psychologie (B.A.) (4 ans),,
+University of Ottawa,Psychologie (B.Sc.) (4 ans),,
+University of Ottawa,Psychologie et linguistique (Bidisciplinaire – 4 ans),,
+University of Ottawa,Psychology (BA) (4 years) (French Immersion Stream is available),,
+University of Ottawa,Psychology (BSc) (4 years) (French Immersion Stream is available),,
+University of Ottawa,Psychology and Linguistics (Joint Honours – 4 years),,
+University of Ottawa,Public Administration (4 years) (French Immersion Stream is available),,
+University of Ottawa,Public Administration and Political Science (Joint Honours – 4 years) (French Immersion Stream is available),,
+University of Ottawa,Public Relations – Joint program with Algonquin College (4 years),,
+University of Ottawa,Relations publiques et communication – offert conjointement avec La Cité (4 ans),,
+University of Ottawa,Science des données (Double grade – 5 ans),,
+University of Ottawa,Science économique (4 ans),,
+University of Ottawa,Science économique et science politique (Bidisciplinaire – 4 ans),,
+University of Ottawa,Science politique (4 ans),,
+University of Ottawa,Science politique et Juris Doctor (Double grade – 6 ans),,
+University of Ottawa,Sciences biomédicales (4 ans),,
+University of Ottawa,Sciences biopharmaceutiques (4 ans),,
+University of Ottawa,Sciences commerciales – Analytique en soins de santé (4 ans),,
+University of Ottawa,Sciences commerciales – Comptabilité (4 ans),,
+University of Ottawa,Sciences commerciales – Finance (4 ans),,
+University of Ottawa,Sciences commerciales – Gestion des ressources humaines (4 ans),,
+University of Ottawa,Sciences commerciales – Gestion des technologies d’affaires (4 ans),,
+University of Ottawa,Sciences commerciales – Gestion internationale (4 ans),,
+University of Ottawa,Sciences commerciales – Management (4 ans),,
+University of Ottawa,Sciences commerciales – Marketing (4 ans),,
+University of Ottawa,Sciences commerciales et Juris Doctor (Double grade – 6 ans),,
+University of Ottawa,Sciences commerciales- Analytique de gestion (4 ans),,
+University of Ottawa,Sciences commerciales- Entrepreneuriat (4 ans),,
+University of Ottawa,Sciences commerciales— Analytique de gestion (B.Com.) et Maîtrise en Gestion (Projet de recherche) (Double grade - 5 ans),,
+University of Ottawa,Sciences commerciales— Analytique en soins de santé (B.Com.) et Maîtrise en Gestion (Projet de recherche) (Double grade - 5 ans),,
+University of Ottawa,Sciences commerciales— Entrepreneuriat (B.Com.) et Maîtrise en Gestion (Projet de recherche) (Double grade - 5 ans),,
+University of Ottawa,Sciences commerciales— Gestion des technologies d’affaires (B.Com.) et Maîtrise en Gestion (Projet de recherche) (Double grade - 5 ans),,
+University of Ottawa,Sciences commerciales— Gestion internationale (B.Com.) et Maîtrise en Gestion (Projet de recherche) (Double grade - 5 ans),,
+University of Ottawa,Sciences commerciales— Marketing (B.Com.) et Maîtrise en Gestion (Projet de recherche) (Double grade - 5 ans),,
+University of Ottawa,Sciences commerciales—Comptabilité (B.Com.) et Maîtrise en Gestion (Projet de recherche) (Double grade - 5 ans),,
+University of Ottawa,Sciences commerciales—Finance (B.Com.) et Maîtrise en Gestion (Projet de recherche) (Double grade - 5 ans),,
+University of Ottawa,Sciences commerciales—Gestion des ressources humaines (B.Com.) et Maîtrise en Gestion (Projet de recherche) (Double grade - 5 ans),,
+University of Ottawa,Sciences commerciales—Management (B.Com.) et Maîtrise en Gestion (Projet de recherche) (Double grade - 5 ans),,
+University of Ottawa,Sciences de l'activité physique – (B.S.A.P.) – Option sciences sociales (4 ans),,
+University of Ottawa,Sciences de l'activité physique – (B.Sc.S.A.P.) (4 ans),,
+University of Ottawa,Sciences de l'activité physique (B.S.A.P.) – Éducation et coaching (4 ans),,
+University of Ottawa,Sciences de l'activité physique (B.S.A.P.) – Gestion du sport et des loisirs (4 ans),,
+University of Ottawa,Sciences de l'activité physique (B.S.A.P.) et Formation à l'enseignement (B.Éd.) - cycle moyen/intermédiaire (Double grade - 5 ans),,
+University of Ottawa,Sciences de l'activité physique (B.S.A.P.) et Formation à l'enseignement (B.Éd.) - cycle primaire/moyen (Double grade - 5 ans),,
+University of Ottawa,Sciences de l'activité physique (B.S.A.P.) et Maîtrise en Ergothérapie (Double grade - 5 ans),,
+University of Ottawa,Sciences de l'activité physique (B.S.A.P.) et Maîtrise en Physiothérapie (Double grade - 5 ans),,
+University of Ottawa,Sciences de l'activité physique (B.Sc.S.A.P.) – Études appliquées en kinésiologie (4 ans),,
+University of Ottawa,Sciences de l'activité physique (B.Sc.S.A.P.) et Maîtrise en Ergothérapie (Double grade - 5 ans),,
+University of Ottawa,Sciences de l'activité physique (B.Sc.S.A.P.) et Maîtrise en Physiothérapie (Double grade - 5 ans),,
+University of Ottawa,Sciences de la santé (4 ans),,
+University of Ottawa,Sciences de la santé et Maîtrise en Audiologie (Double grade - 5 ans),,
+University of Ottawa,Sciences de la santé et Maîtrise en Ergothérapie (Double grade - 5 ans),,
+University of Ottawa,Sciences de la santé et Maîtrise en Orthophonie (Double grade - 5 ans),,
+University of Ottawa,Sciences de la santé et Maîtrise en Physiothérapie (Double grade - 5 ans),,
+University of Ottawa,Sciences des aliments (4 ans),,
+University of Ottawa,Sciences environnementales (4 ans),,
+University of Ottawa,Sciences infirmières (4 ans),,
+University of Ottawa,Sciences sociales en études interdisciplinaires (3 ans),,
+University of Ottawa,Sciences sociales en études interdisciplinaires (4 ans),,
+University of Ottawa,Second Language Teaching (ESL) (4 years) (French Immersion Stream is available),,
+University of Ottawa,Second Language Teaching (FLS) (4 years) (French Immersion Stream is available),,
+University of Ottawa,Social Sciences in Interdisciplinary studies (3 years),,
+University of Ottawa,Social Sciences in Interdisciplinary studies (4 years),,
+University of Ottawa,Sociologie (4 ans),,
+University of Ottawa,Sociology (4 years) (French Immersion Stream is available),,
+University of Ottawa,Software Engineering (4 years) (French Immersion Stream is available),,
+University of Ottawa,Statistics (4 years) (French Immersion Stream is available),,
+University of Ottawa,Statistique (4 ans),,
+University of Ottawa,Théâtre (4 ans),,
+University of Ottawa,Theatre (4 years) (French Immersion Stream is available),,
+University of Ottawa,Travail social (4 ans),,
+University of Ottawa,Visual Arts (BFA) (4 years),,
+University of Ottawa,World Languages and Cultures (4-year major),,
+University of Ottawa – Saint Paul University,"Baccalauréat ès arts spécialisé avec majeure en foi, éthique et justice (4 ans)",,
+University of Ottawa – Saint Paul University,"Baccalauréat ès arts spécialisé avec majeure en foi, éthique et justice (spécialisation) (4 ans)",,
+University of Ottawa – Saint Paul University,Communications sociales (Baccalauréat ès arts spécialisé) (4 ans),,
+University of Ottawa – Saint Paul University,"Communications sociales (certificat, temps partiel seulement) (1 an)",,
+University of Ottawa – Saint Paul University,"Conflict Resolution (Certificate, Part-time only) (1 year)",,
+University of Ottawa – Saint Paul University,Conflict Studies (Honours Bachelor of Arts) (4 years),,
+University of Ottawa – Saint Paul University,"Ethics and Contemporary Social Issues (Certificate, Part-time Only) (1 year)",,
+University of Ottawa – Saint Paul University,"Éthique et enjeux sociaux contemporains (certificat, temps partiel seulement) (1 an)",,
+University of Ottawa – Saint Paul University,Études de Conflits (Baccalauréat ès arts spécialisé) (4 ans),,
+University of Ottawa – Saint Paul University,"Honours Bachelor of Arts with Major in Faith, Ethics and Justice (4 years)",,
+University of Ottawa – Saint Paul University,"Human Relations and Spirituality (Certificate, Part-time Only) (1 year)",,
+University of Ottawa – Saint Paul University,Human Relations and Spirituality (Honours Bachelor of Arts) (4 years),,
+University of Ottawa – Saint Paul University,Innovation sociale (Baccalauréat ès arts spécialisé) (4 ans),,
+University of Ottawa – Saint Paul University,"Innovation sociale (certificat, temps partiel seulement) (1 an)",,
+University of Ottawa – Saint Paul University,Majeure en éthique et enjeux sociaux contemporains (BA) (4 ans),,
+University of Ottawa – Saint Paul University,Major in Ethics and Contemporary Social Issues (BA) (4 years),,
+University of Ottawa – Saint Paul University,Relations humaines et spiritualité (Baccalauréat ès arts spécialisé) (4 ans),,
+University of Ottawa – Saint Paul University,"Relations humaines et spiritualité (certificat, temps partiel seulement) (1 an)",,
+University of Ottawa – Saint Paul University,"Résolution de conflits (certificat, temps partiel seulement) (1 an)",,
+University of Ottawa – Saint Paul University,"Social communication (Certificate, Part-time Only) (1 year)",,
+University of Ottawa – Saint Paul University,Social Communication (Honours Bachelor of Arts) (4 years),,
+University of Ottawa – Saint Paul University,"Social Innovation (Certificate, Part-time Only) (1 year)",,
+University of Ottawa – Saint Paul University,Social Innovation (Honours Bachelor of Arts) (4 years),,
+University of Ottawa – Saint Paul University,"Théologie (certificat, temps partiel seulement) (1 an)",,
+University of Ottawa – Saint Paul University,"Theology (Certificate, Part-time Only) (1 year)",,
+University of Prince Edward Island,Arts,Faculty of Arts,BA
+University of Prince Edward Island,Biology,Faculty of Science,BSc
+University of Prince Edward Island,Business Administration,Faculty of Business,BBA/BCom
+University of Prince Edward Island,Chemistry,Faculty of Science,BSc
+University of Prince Edward Island,Commerce,Faculty of Business,BCom
+University of Prince Edward Island,Communication Studies,Faculty of Arts,BA
+University of Prince Edward Island,Computer Science,Faculty of Science,BSc
+University of Prince Edward Island,Economics,Faculty of Arts,BA
+University of Prince Edward Island,Education,Faculty of Education,BEd
+University of Prince Edward Island,Engineering,Faculty of Engineering,BEng/BASc
+University of Prince Edward Island,English,Faculty of Arts,BA
+University of Prince Edward Island,Environmental Science,Faculty of Science,BSc
+University of Prince Edward Island,History,Faculty of Arts,BA
+University of Prince Edward Island,Kinesiology,Faculty of Health,BKin/BSc
+University of Prince Edward Island,Mathematics,Faculty of Science,BSc
+University of Prince Edward Island,Nursing,Faculty of Health,BN/BScN
+University of Prince Edward Island,Physics,Faculty of Science,BSc
+University of Prince Edward Island,Political Science,Faculty of Arts,BA
+University of Prince Edward Island,Psychology,Faculty of Arts and Science,BA/BSc
+University of Prince Edward Island,Sociology,Faculty of Arts,BA
+University of Prince Edward Island,Statistics,Faculty of Science,BSc
+University of Regina,Arts,Faculty of Arts,BA
+University of Regina,Biology,Faculty of Science,BSc
+University of Regina,Business Administration,Faculty of Business,BBA/BCom
+University of Regina,Chemistry,Faculty of Science,BSc
+University of Regina,Commerce,Faculty of Business,BCom
+University of Regina,Communication Studies,Faculty of Arts,BA
+University of Regina,Computer Science,Faculty of Science,BSc
+University of Regina,Economics,Faculty of Arts,BA
+University of Regina,Education,Faculty of Education,BEd
+University of Regina,Engineering,Faculty of Engineering,BEng/BASc
+University of Regina,English,Faculty of Arts,BA
+University of Regina,Environmental Science,Faculty of Science,BSc
+University of Regina,History,Faculty of Arts,BA
+University of Regina,Kinesiology,Faculty of Health,BKin/BSc
+University of Regina,Mathematics,Faculty of Science,BSc
+University of Regina,Nursing,Faculty of Health,BN/BScN
+University of Regina,Physics,Faculty of Science,BSc
+University of Regina,Political Science,Faculty of Arts,BA
+University of Regina,Psychology,Faculty of Arts and Science,BA/BSc
+University of Regina,Sociology,Faculty of Arts,BA
+University of Regina,Statistics,Faculty of Science,BSc
+University of Saskatchewan,Arts,Faculty of Arts,BA
+University of Saskatchewan,Biology,Faculty of Science,BSc
+University of Saskatchewan,Business Administration,Faculty of Business,BBA/BCom
+University of Saskatchewan,Chemistry,Faculty of Science,BSc
+University of Saskatchewan,Commerce,Faculty of Business,BCom
+University of Saskatchewan,Communication Studies,Faculty of Arts,BA
+University of Saskatchewan,Computer Science,Faculty of Science,BSc
+University of Saskatchewan,Economics,Faculty of Arts,BA
+University of Saskatchewan,Education,Faculty of Education,BEd
+University of Saskatchewan,Engineering,Faculty of Engineering,BEng/BASc
+University of Saskatchewan,English,Faculty of Arts,BA
+University of Saskatchewan,Environmental Science,Faculty of Science,BSc
+University of Saskatchewan,History,Faculty of Arts,BA
+University of Saskatchewan,Kinesiology,Faculty of Health,BKin/BSc
+University of Saskatchewan,Mathematics,Faculty of Science,BSc
+University of Saskatchewan,Nursing,Faculty of Health,BN/BScN
+University of Saskatchewan,Physics,Faculty of Science,BSc
+University of Saskatchewan,Political Science,Faculty of Arts,BA
+University of Saskatchewan,Psychology,Faculty of Arts and Science,BA/BSc
+University of Saskatchewan,Sociology,Faculty of Arts,BA
+University of Saskatchewan,Statistics,Faculty of Science,BSc
+University of Toronto – St. George Campus,Architectural Studies,,
+University of Toronto – St. George Campus,Chemical Engineering,,
+University of Toronto – St. George Campus,Civil Engineering,,
+University of Toronto – St. George Campus,Computer Engineering,,
+University of Toronto – St. George Campus,Computer Science,,
+University of Toronto – St. George Campus,Electrical Engineering,,
+University of Toronto – St. George Campus,Engineering Science,,
+University of Toronto – St. George Campus,Humanities,,
+University of Toronto – St. George Campus,Industrial Engineering,,
+University of Toronto – St. George Campus,International Foundation Program – Applied Science and Engineering,,
+University of Toronto – St. George Campus,"International Foundation Program – Architecture, Landscape and Design",,
+University of Toronto – St. George Campus,International Foundation Program – Arts and Science,,
+University of Toronto – St. George Campus,International Foundation Program – Music,,
+University of Toronto – St. George Campus,Kinesiology and Physical Education,,
+University of Toronto – St. George Campus,Life Sciences (including Psychology),,
+University of Toronto – St. George Campus,Materials Engineering,,
+University of Toronto – St. George Campus,Mathematical & Physical Sciences,,
+University of Toronto – St. George Campus,Mechanical Engineering,,
+University of Toronto – St. George Campus,Mineral Engineering,,
+University of Toronto – St. George Campus,Music,,
+University of Toronto – St. George Campus,Music – Artist Diploma,,
+University of Toronto – St. George Campus,Music Education,,
+University of Toronto – St. George Campus,Music Performance,,
+University of Toronto – St. George Campus,Rotman Commerce,,
+University of Toronto – St. George Campus,Social Sciences,,
+University of Toronto – St. George Campus,"TrackOne, Undeclared Engineering",,
+University of Toronto – St. George Campus,Visual Studies,,
+University of Toronto Mississauga,Chemical and Physical Sciences,,
+University of Toronto Mississauga,"Commerce (Including Accounting, Economics, Finance, Marketing)",,
+University of Toronto Mississauga,"Communication, Culture, Information & Technology",,
+University of Toronto Mississauga,Computer Science,,
+University of Toronto Mississauga,Forensic Sciences,,
+University of Toronto Mississauga,Humanities,,
+University of Toronto Mississauga,Life Sciences,,
+University of Toronto Mississauga,Management,,
+University of Toronto Mississauga,Mathematical & Computational Sciences,,
+University of Toronto Mississauga,Psychological & Brain Sciences,,
+University of Toronto Mississauga,Social Sciences,,
+University of Toronto Mississauga,Theatre and Drama,,
+University of Toronto Mississauga,Visual Studies,,
+University of Toronto Scarborough,Computer Science (regular and co-op),,
+University of Toronto Scarborough,Double Degree: Management & Finance (BBA) and Statistics – Quantitative Finance (BSc) (regular and co-op),,
+University of Toronto Scarborough,International Development Studies (BA or BSc) (Co-op),,
+University of Toronto Scarborough,Journalism (Joint Program with Centennial College),,
+University of Toronto Scarborough,Life Sciences - Health Sciences Stream (regular and co-op),,
+University of Toronto Scarborough,Life Sciences (regular and co-op),,
+University of Toronto Scarborough,Management (regular and co-op),,
+University of Toronto Scarborough,Management & International Business,,
+University of Toronto Scarborough,Mathematics (regular and co-op),,
+University of Toronto Scarborough,Music Industry & Technology (Joint Program with Centennial College),,
+University of Toronto Scarborough,Paramedicine (Joint Program with Centennial College),,
+University of Toronto Scarborough,Physical & Environmental Sciences - Health Sciences Stream (regular and co-op),,
+University of Toronto Scarborough,Physical & Environmental Sciences (regular and co-op),,
+University of Toronto Scarborough,Psychology & Health Studies - Health Sciences Stream (regular and co-op),,
+University of Toronto Scarborough,Psychology & Health Studies (regular and co-op),,
+University of Toronto Scarborough,Social Sciences & Humanities (regular and co-op),,
+University of Toronto Scarborough,Statistics (regular and co-op),,
+University of Toronto Scarborough,"Visual & Performing Arts, Arts Management and Media",,
+University of Victoria,Biochemistry,Faculty of Science,BSc
+University of Victoria,Biology,Faculty of Science,BSc
+University of Victoria,Business,Gustavson School of Business,BCom
+University of Victoria,Computer Science,Faculty of Engineering and Computer Science,BSc
+University of Victoria,Economics,Faculty of Social Sciences,BA
+University of Victoria,Electrical Engineering,Faculty of Engineering and Computer Science,BEng
+University of Victoria,Health Information Science,Faculty of Human and Social Development,BSc
+University of Victoria,Kinesiology,Faculty of Education,BSc
+University of Victoria,Mechanical Engineering,Faculty of Engineering and Computer Science,BEng
+University of Victoria,Nursing,Faculty of Human and Social Development,BSN
+University of Victoria,Physics and Astronomy,Faculty of Science,BSc
+University of Victoria,Psychology,Faculty of Social Sciences,BA/BSc
+University of Victoria,Software Engineering,Faculty of Engineering and Computer Science,BSEng
+University of Victoria,Visual Arts,Faculty of Fine Arts,BFA
+University of Victoria,Writing,Faculty of Fine Arts,BFA
+University of Waterloo,Accounting and Financial Management,,
+University of Waterloo,Architectural Engineering,,
+University of Waterloo,Architecture,,
+University of Waterloo,Biomedical Engineering,,
+University of Waterloo,Business Administration (Laurier) and Computer Science (Waterloo) Double Degree,,
+University of Waterloo,Business Administration (Laurier) and Mathematics (Waterloo) Double Degree,,
+University of Waterloo,Chemical Engineering,,
+University of Waterloo,Civil Engineering,,
+University of Waterloo,Climate and Environmental Change,,
+University of Waterloo,Computer Engineering,,
+University of Waterloo,Computer Science,,
+University of Waterloo,Computing and Financial Management,,
+University of Waterloo,Electrical Engineering,,
+University of Waterloo,Environment and Business,,
+University of Waterloo,"Environment, Resources and Sustainability",,
+University of Waterloo,Environmental Engineering,,
+University of Waterloo,Environmental Sciences,,
+University of Waterloo,Geography and Aviation,,
+University of Waterloo,Geography and Environmental Management,,
+University of Waterloo,Geological Engineering,,
+University of Waterloo,Geospatial Data Science,,
+University of Waterloo,Global Business and Digital Arts,,
+University of Waterloo,Health Sciences,,
+University of Waterloo,Honours Arts,,
+University of Waterloo,Honours Arts and Business,,
+University of Waterloo,Honours Science,,
+University of Waterloo,Kinesiology,,
+University of Waterloo,Life Sciences,,
+University of Waterloo,Management Engineering,,
+University of Waterloo,Mathematics,,
+University of Waterloo,Mathematics/Business Administration,,
+University of Waterloo,Mathematics/CPA,,
+University of Waterloo,Mathematics/Financial Analysis and Risk Management,,
+University of Waterloo,Mechanical Engineering,,
+University of Waterloo,Mechatronics Engineering,,
+University of Waterloo,Nanotechnology Engineering,,
+University of Waterloo,Physical Sciences,,
+University of Waterloo,Planning,,
+University of Waterloo,Public Health,,
+University of Waterloo,"Recreation & Leisure Studies, Sport & Recreation Management, Therapeutic Recreation",,
+University of Waterloo,Science and Aviation,,
+University of Waterloo,Science and Business,,
+University of Waterloo,Science and Financial Management,,
+University of Waterloo,Software Engineering,,
+University of Waterloo,Sustainability and Financial Management,,
+University of Waterloo,Systems Design Engineering,,
+University of Waterloo – St. Jerome's University,"Arts, Honours (BA): St. Jerome’s University",,
+University of Waterloo – St. Jerome's University,Honours Arts and Business,,
+University of Windsor,Actuarial Science,,
+University of Windsor,Bachelor of Science in Kinesiology and Health Studies or Bachelor of Sport Management and Leadership,,
+University of Windsor,"Behaviour, Cognition and Neuroscience",,
+University of Windsor,Biochemistry,,
+University of Windsor,Biological Sciences,,
+University of Windsor,Biomedical Sciences,,
+University of Windsor,Business Administration,,
+University of Windsor,Chemistry,,
+University of Windsor,Civil Engineering,,
+University of Windsor,Commercial Aviation Leadership,,
+University of Windsor,"Communication, Media and Film",,
+University of Windsor,"Communication, Media and Film (with Co-op)",,
+University of Windsor,Computer Science,,
+University of Windsor,Concurrent Bachelor of Music Education/Bachelor of Education,,
+University of Windsor,"Concurrent General BA (Communication, Media and Film) / Bachelor of Education",,
+University of Windsor,"Concurrent General Bachelor of Arts (Communication, Media and Film)/​Bachelor of Education",,
+University of Windsor,Concurrent General Bachelor of Arts (Drama)/​Bachelor of Education,,
+University of Windsor,Concurrent General Bachelor of Arts (English)/Bachelor of Education,,
+University of Windsor,Concurrent General Bachelor of Arts (French Studies)/Bachelor of Education,,
+University of Windsor,Concurrent General Bachelor of Arts (History)/Bachelor of Education,,
+University of Windsor,Concurrent General Bachelor of Arts (Political Science)/Bachelor of Education,,
+University of Windsor,Concurrent General Bachelor of Arts (Psychology)/Bachelor of Education/Diploma in Early Childhood Education,,
+University of Windsor,Concurrent General Bachelor of Arts (Visual Art)/Bachelor of Education,,
+University of Windsor,Concurrent General Bachelor of Arts with Second Language Education/Bachelor of Education,,
+University of Windsor,Concurrent General Bachelor of Mathematics/Bachelor of Education,,
+University of Windsor,Concurrent General Bachelor of Science/Bachelor of Education,,
+University of Windsor,Criminology,,
+University of Windsor,Disability Studies,,
+University of Windsor,Drama (with Co-op),,
+University of Windsor,Dramatic Art,,
+University of Windsor,Economics,,
+University of Windsor,Electrical Engineering,,
+University of Windsor,English,,
+University of Windsor,English (with Co-op),,
+University of Windsor,Environmental Engineering,,
+University of Windsor,Environmental Science/Environmental Studies,,
+University of Windsor,Film Production,,
+University of Windsor,Forensic Science/Forensics,,
+University of Windsor,French,,
+University of Windsor,French (with Co-op),,
+University of Windsor,General Engineering,,
+University of Windsor,General Science,,
+University of Windsor,Greek and Roman Studies,,
+University of Windsor,History,,
+University of Windsor,History (with Co-op),,
+University of Windsor,Industrial Engineering,,
+University of Windsor,Interdisciplinary Arts and Science,,
+University of Windsor,International Relations & Development Studies,,
+University of Windsor,Liberal Arts and Professional Studies,,
+University of Windsor,Mathematics & Statistics,,
+University of Windsor,Mechanical Engineering,,
+University of Windsor,Mechatronics Systems Engineering,,
+University of Windsor,Modern Languages,,
+University of Windsor,Modern Languages and Second-Language Education (Spanish Stream) (with Co-op),,
+University of Windsor,Music,,
+University of Windsor,Nursing,,
+University of Windsor,Philosophy,,
+University of Windsor,Philosophy (with Co-op),,
+University of Windsor,Physics,,
+University of Windsor,Political Science,,
+University of Windsor,Psychology,,
+University of Windsor,Psychology (with Co-op),,
+University of Windsor,Social Work,,
+University of Windsor,Sociology,,
+University of Windsor,Undeclared Major,,
+University of Windsor,Visual Arts,,
+University of Windsor,Visual Arts and the Built Environment (VABE),,
+University of Windsor,Women's and Gender Studies,,
+University of Winnipeg,Arts,Faculty of Arts,BA
+University of Winnipeg,Biology,Faculty of Science,BSc
+University of Winnipeg,Business Administration,Faculty of Business,BBA/BCom
+University of Winnipeg,Chemistry,Faculty of Science,BSc
+University of Winnipeg,Commerce,Faculty of Business,BCom
+University of Winnipeg,Communication Studies,Faculty of Arts,BA
+University of Winnipeg,Computer Science,Faculty of Science,BSc
+University of Winnipeg,Economics,Faculty of Arts,BA
+University of Winnipeg,Education,Faculty of Education,BEd
+University of Winnipeg,Engineering,Faculty of Engineering,BEng/BASc
+University of Winnipeg,English,Faculty of Arts,BA
+University of Winnipeg,Environmental Science,Faculty of Science,BSc
+University of Winnipeg,History,Faculty of Arts,BA
+University of Winnipeg,Kinesiology,Faculty of Health,BKin/BSc
+University of Winnipeg,Mathematics,Faculty of Science,BSc
+University of Winnipeg,Nursing,Faculty of Health,BN/BScN
+University of Winnipeg,Physics,Faculty of Science,BSc
+University of Winnipeg,Political Science,Faculty of Arts,BA
+University of Winnipeg,Psychology,Faculty of Arts and Science,BA/BSc
+University of Winnipeg,Sociology,Faculty of Arts,BA
+University of Winnipeg,Statistics,Faculty of Science,BSc
+Western University,Arts and Humanities,,
+Western University,Computer Science,,
+Western University,Engineering,,
+Western University,Family Studies & Human Development,,
+Western University,Fine Arts – Studio,,
+Western University,Foods and Nutrition,,
+Western University,Health Sciences,,
+Western University,Kinesiology,,
+Western University,Management and Organizational Studies,,
+Western University,Management and Organizational Studies (Commercial Aviation Management) – Flight and Non-flight (Main Campus Only),,
+Western University,Media & Communications Studies,,
+Western University,Medical Sciences,,
+Western University,Music (BA),,
+Western University,Music (BMus),,
+Western University,Music Administrative Studies,,
+Western University,Nursing,,
+Western University,Science,,
+Western University,Social Science,,
+Western University – Huron University College,Arts,,
+Western University – Huron University College,Management and Organizational Studies,,
+Western University – Huron University College,Social Science,,
+Western University – King's University College,Arts,,
+Western University – King's University College,Childhood and Youth Studies,,
+Western University – King's University College,Disability Studies,,
+Western University – King's University College,Human Rights Studies,,
+Western University – King's University College,Management and Organizational Studies,,
+Western University – King's University College,Social Justice and Peace Studies,,
+Western University – King's University College,Social Sciences,,
+Western University – King's University College,Thanatology,,
+Wilfrid Laurier University,Arts Degree (BA) + Master of Business Administration (MBA) with Co-op,,
+Wilfrid Laurier University,Arts Degree (BA) + Master’s Degree (MA or MAP or MIPP),,
+Wilfrid Laurier University,"Arts Degree (BA) + Master's Degree (MA or MSc), Cardiff University",,
+Wilfrid Laurier University,"Arts Degree (BA) + Master's Degree (MA or MSc), University of Sussex",,
+Wilfrid Laurier University,Biochemistry and Biotechnology (BSc),,
+Wilfrid Laurier University,Biology (BA and BSc),,
+Wilfrid Laurier University,Business Administration (BBA),,
+Wilfrid Laurier University,"Business Administration (BBA) + Computer Science (BCS), University of Waterloo",,
+Wilfrid Laurier University,Business Administration (BBA) + Computer Science (BSc),,
+Wilfrid Laurier University,Business Administration (BBA) + Financial Mathematics and Analytics (BA),,
+Wilfrid Laurier University,"Business Administration (BBA) + Mathematics (BMath), University of Waterloo",,
+Wilfrid Laurier University,Chemistry (BSc),,
+Wilfrid Laurier University,"Christianity, Interfaith Dialogue and Community Engagement (BA)",,
+Wilfrid Laurier University,Computer Science (BA and BSc),,
+Wilfrid Laurier University,Data Science (BSc),,
+Wilfrid Laurier University,Diploma in Business Administration,,
+Wilfrid Laurier University,Diploma in Chamber Music,,
+Wilfrid Laurier University,Diploma in Opera,,
+Wilfrid Laurier University,Economics,,
+Wilfrid Laurier University,Environmental Science (BSc) and Studies (BA),,
+Wilfrid Laurier University,Film Studies (BA) + Vancouver Film School Diploma,,
+Wilfrid Laurier University,Financial Mathematics and Analytics (BA and BSc),,
+Wilfrid Laurier University,Geography (BA and BSc),,
+Wilfrid Laurier University,Health Sciences (BSc),,
+Wilfrid Laurier University,Honours Bachelor of Arts (BA),,
+Wilfrid Laurier University,Honours Science (BSc),,
+Wilfrid Laurier University,Kinesiology (BKin),,
+Wilfrid Laurier University,"Law Degree (LLB at University of Sussex, UK) and Arts Degree (BA at Laurier)",,
+Wilfrid Laurier University,"Law Degree (LLB at University of Sussex, UK) and Science Degree (BSc at Laurier)",,
+Wilfrid Laurier University,Mathematics (BA or BSc),,
+Wilfrid Laurier University,"Multidisciplinary Studies (BA) and Juris Doctor (JD), Griffith University",,
+Wilfrid Laurier University,Music (BMus),,
+Wilfrid Laurier University,Navigating the Music Industry Ecosystem Certificate,,
+Wilfrid Laurier University,Post-Degree Certificate in Computer Science,,
+Wilfrid Laurier University,Psychology (BA or BSc),,
+Wilfrid Laurier University,Science Degree (BA or BSc) + Master of Business Administration (MBA) (Pending approval),,
+Wilfrid Laurier University – Brantford Campus,Applied Health Sciences (BASc),,
+Wilfrid Laurier University – Brantford Campus,Arts Degree (BA) + Master of Business Administration (MBA) with Co-op (Pending Senate Approval),,
+Wilfrid Laurier University – Brantford Campus,Criminology and Policing - Online,,
+Wilfrid Laurier University – Brantford Campus,Global Crime and Justice (Certificate) - Online,,
+Wilfrid Laurier University – Brantford Campus,"Health Studies (BA) + Public Health / Global Health (MSc), Brighton and Sussex Medical School",,
+Wilfrid Laurier University – Brantford Campus,Honours Bachelor of Arts (BA),,
+Wilfrid Laurier University – Brantford Campus,"Human Rights (BA) + International Development (MA), University of Sussex",,
+Wilfrid Laurier University – Brantford Campus,"Law Degree (LLB at University of Sussex, UK) and Arts Degree (BA at Laurier)",,
+Wilfrid Laurier University – Brantford Campus,Paramedicine - Online,,
+Wilfrid Laurier University – Brantford Campus,Psychology (BA and BSc),,
+Wilfrid Laurier University – Brantford Campus,Social Work (BSW),,
+Wilfrid Laurier University – Brantford Campus,User Experience Design (BDes),,
+Wilfrid Laurier University – Milton Campus,Business Technology Management (BBTM),,
+Wilfrid Laurier University – Milton Campus,Computer Science (BA and BSc),,
+Wilfrid Laurier University – Milton Campus,Psychology (BA),,
+Wilfrid Laurier University – Milton Campus,Software Engineering (BEng),,
+York University,Actuarial Science (BA),,
+York University,African Studies (BA - Co-op available),,
+York University,"Anthropology (BA, iBA - Co-op available)",,
+York University,Applied Mathematics (BA),,
+York University,Applied Mathematics (BSc),,
+York University,Biochemistry (BSc),,
+York University,Biology (BSc),,
+York University,Biology (iBSc),,
+York University,Biomedical Science (BSc),,
+York University,Biotechnology (BSc),,
+York University,Business & Society (BA - Co-op available),,
+York University,Business Administration (BBA),,
+York University,Business Economics (BA - Co-op available),,
+York University,Chemistry (BSc),,
+York University,"Children, Childhood & Youth (BA - Co-op available)",,
+York University,Cinema & Media Arts - Media Arts (BFA),,
+York University,Cinema & Media Arts - Production (BFA),,
+York University,Cinema & Media Arts - Screenwriting (BFA),,
+York University,Cinema & Media Arts (BA),,
+York University,"Cities, Regions, Planning (BES)",,
+York University,Cognitive Science (BA - Co-op available),,
+York University,Commerce (BCom - Co-op available),,
+York University,"Communication & Media Studies (BA, iBA- Co-op available)",,
+York University,Computer Science (BA),,
+York University,Computer Science (BSc),,
+York University,Computer Science (iBA),,
+York University,Computer Science (iBSc),,
+York University,Computer Security (BA),,
+York University,Computer Security (BSc),,
+York University,Concurrent Bachelor of Education: Environmental and Urban Change (BEd),,
+York University,"Concurrent Education: Arts, Media, Performance & Design (BEd)",,
+York University,Concurrent Education: Health (BEd),,
+York University,Concurrent Education: Lassonde (BEd),,
+York University,Concurrent Education: Liberal Arts & Professional Studies (BEd),,
+York University,Concurrent Education: Science (BEd),,
+York University,Creative Writing,,
+York University,Criminology (BA- Co-op available),,
+York University,Dance (BFA),,
+York University,Data Science (BA),,
+York University,Data Science (BSc),,
+York University,Design (BDes),,
+York University,"Digital Media (BA) - School of the Arts, Media, Performance & Design",,
+York University,Digital Media (BA) – Lassonde School of Engineering,,
+York University,Disaster & Emergency Management (BDEM - Co-op available),,
+York University,Earth & Atmospheric Science (BSc),,
+York University,Economics (BA - Co-op available),,
+York University,Educational Studies (BA),,
+York University,Engineering (BEng),,
+York University,English (BA - Co-op available),,
+York University,English & Professional Writing (BA - Co-op available),,
+York University,Environmental Arts & Justice (BES),,
+York University,Environmental Science (BSc) - Faculty of Environmental & Urban Change,,
+York University,Financial & Business Economics (BA - Co-op available),,
+York University,"Gender, Sexuality and Women's Studies (BA)",,
+York University,Global Geography (BA),,
+York University,Global Health (BA),,
+York University,Global Health (BSc),,
+York University,Health & Society (BA- Co-op available),,
+York University,"Health Policy, Management & Digital Health (BHS)",,
+York University,Health Studies (BHS),,
+York University,"History (BA, iBA - Co-op available)",,
+York University,Human Resources Management (BHRM - Co-op available),,
+York University,Human Rights & Equity Studies (BA- Co-op available),,
+York University,"Humanities (BA, iBA - Co-op available)",,
+York University,Indigenous Studies (BA- Co-op available),,
+York University,Information Technology (BA - Co-op available),,
+York University,Information Technology (BCom - Co-op available),,
+York University,Integrative Arts (BFA),,
+York University,Interdisciplinary Social Science (BA- Co-op available),,
+York University,International Development Studies (BA- Co-op available),,
+York University,Kinesiology & Health Science (BA),,
+York University,Kinesiology & Health Science (BSc),,
+York University,Law & Society (BA- Co-op available),,
+York University,Linguistics (BA - Co-op available),,
+York University,Mathematics (BA),,
+York University,Mathematics (BSc),,
+York University,Mathematics for Education (BA),,
+York University,Mathematics for Education (BSc),,
+York University,Music (BFA),,
+York University,Neuroscience (BSc) – Faculty of Health,,
+York University,Neuroscience (BSc) – Faculty of Science,,
+York University,Nursing - Internationally Educated Nurses,,
+York University,Nursing (Direct Entry) - BScN,,
+York University,Nursing (Second-Degree Entry),,
+York University,Philosophy (BA - Co-op available),,
+York University,Philosophy of Law,,
+York University,Physics & Astronomy (BSc),,
+York University,"Political Science (BA, iBA - Co-op available)",,
+York University,Professional Writing (BA- Co-op available),,
+York University,Psychology (BA),,
+York University,Psychology (BSc),,
+York University,Public Administration (BPA- Co-op available),,
+York University,"Science, Technology & Society (BA)",,
+York University,"Social Work (BSW, Direct Entry- Co-op available)",,
+York University,Sociology (BA- Co-op available),,
+York University,Speech and Language Sciences (BA),,
+York University,Statistics (BA),,
+York University,Statistics (BSc),,
+York University,Sustainable Environmental Management (BES),,
+York University,Teacher Education: Educational Studies (BEd),,
+York University,Theatre - Acting & Performance (BFA),,
+York University,Theatre - Performance Creation (BFA),,
+York University,Theatre - Production & Design (BFA),,
+York University,"Theatre (BA, BFA)",,
+York University,"Undecided Major (BSc, First Year Only)",,
+York University,Undeclared Major (BA - Co-op available),,
+York University,Undeclared Major (BA/BES),,
+York University,Visual Arts - Art History (BA),,
+York University,Visual Arts - Studio (BFA),,
+York University,Work & Labour Studies (BA- Co-op available),,
+York University – Glendon Campus,Biology (BSc) (Courses in English or French as per student's preference),,
+York University – Glendon Campus,Business Economics (Courses in English or French as per student's preference),,
+York University – Glendon Campus,Communications (Courses in English or French as per student's preference),,
+York University – Glendon Campus,Concurrent Bachelor of Education (English),,
+York University – Glendon Campus,Concurrent Bachelor of Education (French),,
+York University – Glendon Campus,Economics (Courses in English or French as per student's preference),,
+York University – Glendon Campus,Ethics and Political Philosophy (Courses in English or French as per student's preference),,
+York University – Glendon Campus,First Year Exploration BA (First year only) (Courses in English or French as per student's preference),,
+York University – Glendon Campus,French Studies,,
+York University – Glendon Campus,International BA (iBA Bilingual),,
+York University – Glendon Campus,International BSc (iBSc Bilingual: Psychology or Biology),,
+York University – Glendon Campus,International Studies (Courses in English or French as per student's preference),,
+York University – Glendon Campus,International Studies & Business Administration (Dual Degree),,
+York University – Glendon Campus,"Linguistics, Language and Society (Courses in English or French as per student's preference)",,
+York University – Glendon Campus,Mathematics and its Applications (Courses in English or French as per student's preference),,
+York University – Glendon Campus,Political Science (Courses in English or French as per student's preference),,
+York University – Glendon Campus,Professional Translation,,
+York University – Glendon Campus,Psychology (BA) (Courses in English or French as per student's preference),,
+York University – Glendon Campus,Psychology (BSc) (Courses in English or French as per student's preference),,
+York University – Markham Campus,"Communication, Social Media & Public Relations (BA)",,
+York University – Markham Campus,Computer Science for Software Development (BASc),,
+York University – Markham Campus,Creative Technologies (BFA),,
+York University – Markham Campus,Digital Technologies (BASc),,
+York University – Markham Campus,Entrepreneurship and Innovation (BCom),,
+York University – Markham Campus,Financial Technologies (BSc),,
+York University – Markham Campus,First Year Engineering Core Program,,
+York University – Markham Campus,First Year Science Program,,
+York University – Markham Campus,Sport Management (BSM),,
