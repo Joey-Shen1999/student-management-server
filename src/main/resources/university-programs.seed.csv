@@ -1,4 +1,25 @@
 universityName,programName,facultyName,degreeType
+Acadia University,Arts,Faculty of Arts,BA
+Acadia University,Biology,Faculty of Science,BSc
+Acadia University,Business Administration,Faculty of Business,BBA/BCom
+Acadia University,Chemistry,Faculty of Science,BSc
+Acadia University,Commerce,Faculty of Business,BCom
+Acadia University,Communication Studies,Faculty of Arts,BA
+Acadia University,Computer Science,Faculty of Science,BSc
+Acadia University,Economics,Faculty of Arts,BA
+Acadia University,Education,Faculty of Education,BEd
+Acadia University,Engineering,Faculty of Engineering,BEng/BASc
+Acadia University,English,Faculty of Arts,BA
+Acadia University,Environmental Science,Faculty of Science,BSc
+Acadia University,History,Faculty of Arts,BA
+Acadia University,Kinesiology,Faculty of Health,BKin/BSc
+Acadia University,Mathematics,Faculty of Science,BSc
+Acadia University,Nursing,Faculty of Health,BN/BScN
+Acadia University,Physics,Faculty of Science,BSc
+Acadia University,Political Science,Faculty of Arts,BA
+Acadia University,Psychology,Faculty of Arts and Science,BA/BSc
+Acadia University,Sociology,Faculty of Arts,BA
+Acadia University,Statistics,Faculty of Science,BSc
 Algoma University,Accounting (BA 3 year),,
 Algoma University,Anishinaabe Studies (BA 3 year),,
 Algoma University,Anishinaabemowin (BA 3 year),,
@@ -196,6 +217,35 @@ Carleton University,Science – Honours (4 years),,
 Carleton University,Science – Major (4 years),,
 Carleton University,Science – Non-Honours (3 years),,
 Carleton University,Social Work,,
+Concordia University,Accountancy,John Molson School of Business,BComm
+Concordia University,Biology,Faculty of Arts and Science,BSc
+Concordia University,Business Technology Management,John Molson School of Business,BComm
+Concordia University,Communication Studies,Faculty of Arts and Science,BA
+Concordia University,Computer Engineering,Gina Cody School of Engineering and Computer Science,BEng
+Concordia University,Computer Science,Gina Cody School of Engineering and Computer Science,BCompSc
+Concordia University,Design,Faculty of Fine Arts,BFA
+Concordia University,Economics,Faculty of Arts and Science,BA
+Concordia University,Film Production,Faculty of Fine Arts,BFA
+Concordia University,Finance,John Molson School of Business,BComm
+Concordia University,Marketing,John Molson School of Business,BComm
+Concordia University,Mechanical Engineering,Gina Cody School of Engineering and Computer Science,BEng
+Concordia University,Psychology,Faculty of Arts and Science,BA/BSc
+Concordia University,Software Engineering,Gina Cody School of Engineering and Computer Science,BEng
+Dalhousie University,Agriculture,Faculty of Agriculture,BScAgr
+Dalhousie University,Applied Computer Science,Faculty of Computer Science,BACS
+Dalhousie University,Biology,Faculty of Science,BSc
+Dalhousie University,Chemical Engineering,Faculty of Engineering,BEng
+Dalhousie University,Civil Engineering,Faculty of Engineering,BEng
+Dalhousie University,Commerce,Faculty of Management,BCom
+Dalhousie University,Computer Science,Faculty of Computer Science,BCS/BSc
+Dalhousie University,Electrical Engineering,Faculty of Engineering,BEng
+Dalhousie University,Engineering,Faculty of Engineering,BEng
+Dalhousie University,Health Promotion,Faculty of Health,BSc
+Dalhousie University,Kinesiology,Faculty of Health,BSc
+Dalhousie University,Management,Faculty of Management,BMgmt
+Dalhousie University,Marine Biology,Faculty of Science,BSc
+Dalhousie University,Mechanical Engineering,Faculty of Engineering,BEng
+Dalhousie University,Nursing,Faculty of Health,BScN
 Lakehead University,Anthropology (Thunder Bay and Orillia),,
 Lakehead University,Applied Life Sciences (Thunder Bay and Orillia),,
 Lakehead University,Arts One (Thunder Bay),,
@@ -323,9 +373,22 @@ Laurentian University,Sociology,,
 Laurentian University,Sport Psychology,,
 Laurentian University,Sports Administration,,
 Laurentian University,Zoology,,
+McGill University,Architecture,Peter Guo-hua Fu School of Architecture,BSc(Arch)
+McGill University,Arts,Faculty of Arts,BA
+McGill University,Biology,Faculty of Science,BSc
+McGill University,Chemistry,Faculty of Science,BSc
 McGill University,Commerce,Desautels Faculty of Management,BCom
 McGill University,Computer Science,Faculty of Science,BSc
+McGill University,Education,Faculty of Education,BEd
+McGill University,Engineering,Faculty of Engineering,BEng
 McGill University,Life Sciences,Faculty of Science,BSc
+McGill University,Mathematics,Faculty of Science,BSc
+McGill University,Music,Schulich School of Music,BMus
+McGill University,Nursing,Ingram School of Nursing,BN
+McGill University,Physics,Faculty of Science,BSc
+McGill University,Psychology,Faculty of Arts/Science,BA/BSc
+McGill University,Science,Faculty of Science,BSc
+McGill University,Software Engineering,Faculty of Engineering,BEng
 McMaster University,Arts and Science I,,
 McMaster University,Automation Systems Engineering Technology (Bachelor of Technology),,
 McMaster University,Automotive & Vehicle Engineering Technology I (Bachelor of Technology),,
@@ -355,6 +418,48 @@ McMaster University,Nursing I (McMaster University Site),,
 McMaster University,Nursing I (Mohawk College Site),,
 McMaster University,Social Sciences I,,
 McMaster University,Wilson College of Leadership and Civic Engagement,,
+Memorial University of Newfoundland,Arts,Faculty of Arts,BA
+Memorial University of Newfoundland,Biology,Faculty of Science,BSc
+Memorial University of Newfoundland,Business Administration,Faculty of Business,BBA/BCom
+Memorial University of Newfoundland,Chemistry,Faculty of Science,BSc
+Memorial University of Newfoundland,Commerce,Faculty of Business,BCom
+Memorial University of Newfoundland,Communication Studies,Faculty of Arts,BA
+Memorial University of Newfoundland,Computer Science,Faculty of Science,BSc
+Memorial University of Newfoundland,Economics,Faculty of Arts,BA
+Memorial University of Newfoundland,Education,Faculty of Education,BEd
+Memorial University of Newfoundland,Engineering,Faculty of Engineering,BEng/BASc
+Memorial University of Newfoundland,English,Faculty of Arts,BA
+Memorial University of Newfoundland,Environmental Science,Faculty of Science,BSc
+Memorial University of Newfoundland,History,Faculty of Arts,BA
+Memorial University of Newfoundland,Kinesiology,Faculty of Health,BKin/BSc
+Memorial University of Newfoundland,Mathematics,Faculty of Science,BSc
+Memorial University of Newfoundland,Nursing,Faculty of Health,BN/BScN
+Memorial University of Newfoundland,Physics,Faculty of Science,BSc
+Memorial University of Newfoundland,Political Science,Faculty of Arts,BA
+Memorial University of Newfoundland,Psychology,Faculty of Arts and Science,BA/BSc
+Memorial University of Newfoundland,Sociology,Faculty of Arts,BA
+Memorial University of Newfoundland,Statistics,Faculty of Science,BSc
+Mount Allison University,Arts,Faculty of Arts,BA
+Mount Allison University,Biology,Faculty of Science,BSc
+Mount Allison University,Business Administration,Faculty of Business,BBA/BCom
+Mount Allison University,Chemistry,Faculty of Science,BSc
+Mount Allison University,Commerce,Faculty of Business,BCom
+Mount Allison University,Communication Studies,Faculty of Arts,BA
+Mount Allison University,Computer Science,Faculty of Science,BSc
+Mount Allison University,Economics,Faculty of Arts,BA
+Mount Allison University,Education,Faculty of Education,BEd
+Mount Allison University,Engineering,Faculty of Engineering,BEng/BASc
+Mount Allison University,English,Faculty of Arts,BA
+Mount Allison University,Environmental Science,Faculty of Science,BSc
+Mount Allison University,History,Faculty of Arts,BA
+Mount Allison University,Kinesiology,Faculty of Health,BKin/BSc
+Mount Allison University,Mathematics,Faculty of Science,BSc
+Mount Allison University,Nursing,Faculty of Health,BN/BScN
+Mount Allison University,Physics,Faculty of Science,BSc
+Mount Allison University,Political Science,Faculty of Arts,BA
+Mount Allison University,Psychology,Faculty of Arts and Science,BA/BSc
+Mount Allison University,Sociology,Faculty of Arts,BA
+Mount Allison University,Statistics,Faculty of Science,BSc
 Nipissing University,Bachelor of Arts,,
 Nipissing University,Bachelor of Arts (Liberal Arts),,
 Nipissing University,Bachelor of Arts in Criminal Justice,,
@@ -558,6 +663,42 @@ Royal Military College of Canada,Science,,
 Royal Military College of Canada,Science Honours,,
 Royal Military College of Canada,Social Sciences and Humanities Honours,,
 Royal Military College of Canada,Social Sciences and the Humanities,,
+Saint Mary's University,Arts,Faculty of Arts,BA
+Saint Mary's University,Biology,Faculty of Science,BSc
+Saint Mary's University,Business Administration,Faculty of Business,BBA/BCom
+Saint Mary's University,Chemistry,Faculty of Science,BSc
+Saint Mary's University,Commerce,Faculty of Business,BCom
+Saint Mary's University,Communication Studies,Faculty of Arts,BA
+Saint Mary's University,Computer Science,Faculty of Science,BSc
+Saint Mary's University,Economics,Faculty of Arts,BA
+Saint Mary's University,Education,Faculty of Education,BEd
+Saint Mary's University,Engineering,Faculty of Engineering,BEng/BASc
+Saint Mary's University,English,Faculty of Arts,BA
+Saint Mary's University,Environmental Science,Faculty of Science,BSc
+Saint Mary's University,History,Faculty of Arts,BA
+Saint Mary's University,Kinesiology,Faculty of Health,BKin/BSc
+Saint Mary's University,Mathematics,Faculty of Science,BSc
+Saint Mary's University,Nursing,Faculty of Health,BN/BScN
+Saint Mary's University,Physics,Faculty of Science,BSc
+Saint Mary's University,Political Science,Faculty of Arts,BA
+Saint Mary's University,Psychology,Faculty of Arts and Science,BA/BSc
+Saint Mary's University,Sociology,Faculty of Arts,BA
+Saint Mary's University,Statistics,Faculty of Science,BSc
+Simon Fraser University,Biological Sciences,Faculty of Science,BSc
+Simon Fraser University,Biomedical Physiology,Faculty of Science,BSc
+Simon Fraser University,Business Administration,Beedie School of Business,BBA
+Simon Fraser University,Communication,"Faculty of Communication, Art and Technology",BA
+Simon Fraser University,Computing Science,Faculty of Applied Sciences,BSc
+Simon Fraser University,Criminology,Faculty of Arts and Social Sciences,BA
+Simon Fraser University,Economics,Faculty of Arts and Social Sciences,BA
+Simon Fraser University,Education,Faculty of Education,BEd
+Simon Fraser University,Engineering Science,Faculty of Applied Sciences,BASc
+Simon Fraser University,Health Sciences,Faculty of Health Sciences,BA/BSc
+Simon Fraser University,Interactive Arts and Technology,"Faculty of Communication, Art and Technology",BA/BSc
+Simon Fraser University,Kinesiology,Faculty of Science,BSc
+Simon Fraser University,Mechatronic Systems Engineering,Faculty of Applied Sciences,BASc
+Simon Fraser University,Psychology,Faculty of Arts and Social Sciences,BA
+Simon Fraser University,Software Systems,Faculty of Applied Sciences,BSc
 Toronto Metropolitan University (formerly Ryerson University),Accounting & Finance (Honours),,
 Toronto Metropolitan University (formerly Ryerson University),Accounting & Finance Co-op (Honours),,
 Toronto Metropolitan University (formerly Ryerson University),Aerospace Engineering (Honours) (Co-op Available),,
@@ -844,6 +985,69 @@ Trent University – Durham Greater Toronto Area,Sociology and Business,,
 Trent University – Durham Greater Toronto Area,Supply Chain Management,,
 Trent University – Durham Greater Toronto Area,Teacher Education Stream – Arts (Honours),,
 Trent University – Durham Greater Toronto Area,Teacher Education Stream – Science (Honours),,
+Universit? de Montr?al,Arts,Faculty of Arts,BA
+Universit? de Montr?al,Biology,Faculty of Science,BSc
+Universit? de Montr?al,Business Administration,Faculty of Business,BBA/BCom
+Universit? de Montr?al,Chemistry,Faculty of Science,BSc
+Universit? de Montr?al,Commerce,Faculty of Business,BCom
+Universit? de Montr?al,Communication Studies,Faculty of Arts,BA
+Universit? de Montr?al,Computer Science,Faculty of Science,BSc
+Universit? de Montr?al,Economics,Faculty of Arts,BA
+Universit? de Montr?al,Education,Faculty of Education,BEd
+Universit? de Montr?al,Engineering,Faculty of Engineering,BEng/BASc
+Universit? de Montr?al,English,Faculty of Arts,BA
+Universit? de Montr?al,Environmental Science,Faculty of Science,BSc
+Universit? de Montr?al,History,Faculty of Arts,BA
+Universit? de Montr?al,Kinesiology,Faculty of Health,BKin/BSc
+Universit? de Montr?al,Mathematics,Faculty of Science,BSc
+Universit? de Montr?al,Nursing,Faculty of Health,BN/BScN
+Universit? de Montr?al,Physics,Faculty of Science,BSc
+Universit? de Montr?al,Political Science,Faculty of Arts,BA
+Universit? de Montr?al,Psychology,Faculty of Arts and Science,BA/BSc
+Universit? de Montr?al,Sociology,Faculty of Arts,BA
+Universit? de Montr?al,Statistics,Faculty of Science,BSc
+Universit? de Sherbrooke,Arts,Faculty of Arts,BA
+Universit? de Sherbrooke,Biology,Faculty of Science,BSc
+Universit? de Sherbrooke,Business Administration,Faculty of Business,BBA/BCom
+Universit? de Sherbrooke,Chemistry,Faculty of Science,BSc
+Universit? de Sherbrooke,Commerce,Faculty of Business,BCom
+Universit? de Sherbrooke,Communication Studies,Faculty of Arts,BA
+Universit? de Sherbrooke,Computer Science,Faculty of Science,BSc
+Universit? de Sherbrooke,Economics,Faculty of Arts,BA
+Universit? de Sherbrooke,Education,Faculty of Education,BEd
+Universit? de Sherbrooke,Engineering,Faculty of Engineering,BEng/BASc
+Universit? de Sherbrooke,English,Faculty of Arts,BA
+Universit? de Sherbrooke,Environmental Science,Faculty of Science,BSc
+Universit? de Sherbrooke,History,Faculty of Arts,BA
+Universit? de Sherbrooke,Kinesiology,Faculty of Health,BKin/BSc
+Universit? de Sherbrooke,Mathematics,Faculty of Science,BSc
+Universit? de Sherbrooke,Nursing,Faculty of Health,BN/BScN
+Universit? de Sherbrooke,Physics,Faculty of Science,BSc
+Universit? de Sherbrooke,Political Science,Faculty of Arts,BA
+Universit? de Sherbrooke,Psychology,Faculty of Arts and Science,BA/BSc
+Universit? de Sherbrooke,Sociology,Faculty of Arts,BA
+Universit? de Sherbrooke,Statistics,Faculty of Science,BSc
+Universit? Laval,Arts,Faculty of Arts,BA
+Universit? Laval,Biology,Faculty of Science,BSc
+Universit? Laval,Business Administration,Faculty of Business,BBA/BCom
+Universit? Laval,Chemistry,Faculty of Science,BSc
+Universit? Laval,Commerce,Faculty of Business,BCom
+Universit? Laval,Communication Studies,Faculty of Arts,BA
+Universit? Laval,Computer Science,Faculty of Science,BSc
+Universit? Laval,Economics,Faculty of Arts,BA
+Universit? Laval,Education,Faculty of Education,BEd
+Universit? Laval,Engineering,Faculty of Engineering,BEng/BASc
+Universit? Laval,English,Faculty of Arts,BA
+Universit? Laval,Environmental Science,Faculty of Science,BSc
+Universit? Laval,History,Faculty of Arts,BA
+Universit? Laval,Kinesiology,Faculty of Health,BKin/BSc
+Universit? Laval,Mathematics,Faculty of Science,BSc
+Universit? Laval,Nursing,Faculty of Health,BN/BScN
+Universit? Laval,Physics,Faculty of Science,BSc
+Universit? Laval,Political Science,Faculty of Arts,BA
+Universit? Laval,Psychology,Faculty of Arts and Science,BA/BSc
+Universit? Laval,Sociology,Faculty of Arts,BA
+Universit? Laval,Statistics,Faculty of Science,BSc
 Université de Hearst,Administration des affaires (4 ans),,
 Université de Hearst,Arts – Général (3 ans) Études des enjeux humains et sociaux; Gestion; Psychologie,,
 Université de Hearst,Arts – Psychologie (4 ans),,
@@ -855,9 +1059,47 @@ Université de l'Ontario français,Communications et médias numériques (French
 Université de l'Ontario français,Economy and Social Innovation (French),,
 Université de l'Ontario français,Human plurality (French),,
 Université de l'Ontario français,Urban environments (French),,
+University of Alberta,Agricultural/Food Business Management,"Faculty of Agricultural, Life & Environmental Sciences",BSc
+University of Alberta,Biological Sciences,Faculty of Science,BSc
+University of Alberta,Business,Alberta School of Business,BCom
+University of Alberta,Computer Science,Faculty of Science,BSc
+University of Alberta,Design,Faculty of Arts,BDes
+University of Alberta,Education,Faculty of Education,BEd
+University of Alberta,Engineering,Faculty of Engineering,BScEng
+University of Alberta,Environmental and Conservation Sciences,"Faculty of Agricultural, Life & Environmental Sciences",BSc
+University of Alberta,Kinesiology,"Faculty of Kinesiology, Sport, and Recreation",BKin
+University of Alberta,Music,Faculty of Arts,BMus
+University of Alberta,Nursing,Faculty of Nursing,BScN
+University of Alberta,Psychology,Faculty of Arts/Science,BA/BSc
+University of British Columbia,Applied Science (Engineering),Faculty of Applied Science,BASc
+University of British Columbia,Architecture,School of Architecture and Landscape Architecture,BDes
+University of British Columbia,Arts,Faculty of Arts,BA
+University of British Columbia,Biology,Faculty of Science,BSc
+University of British Columbia,Biomedical Engineering,Faculty of Applied Science,BASc
+University of British Columbia,Civil Engineering,Faculty of Applied Science,BASc
 University of British Columbia,Commerce,Sauder School of Business,BCom
 University of British Columbia,Computer Science,Faculty of Science,BSc
+University of British Columbia,Data Science,Faculty of Science,BSc
+University of British Columbia,Electrical Engineering,Faculty of Applied Science,BASc
 University of British Columbia,Engineering,Faculty of Applied Science,BASc
+University of British Columbia,International Economics,Vancouver School of Economics,BIE
+University of British Columbia,Kinesiology,School of Kinesiology,BKin
+University of British Columbia,Mechanical Engineering,Faculty of Applied Science,BASc
+University of British Columbia,Nursing,School of Nursing,BSN
+University of British Columbia,Pharmaceutical Sciences,Faculty of Pharmaceutical Sciences,BPSc
+University of British Columbia,Psychology,Faculty of Arts,BA
+University of Calgary,Architecture,"School of Architecture, Planning and Landscape",BA Urban Studies/BSc
+University of Calgary,Biological Sciences,Faculty of Science,BSc
+University of Calgary,Business,Haskayne School of Business,BCom
+University of Calgary,Computer Science,Faculty of Science,BSc
+University of Calgary,Data Science,Faculty of Science,BSc
+University of Calgary,Economics,Faculty of Arts,BA
+University of Calgary,Education,Werklund School of Education,BEd
+University of Calgary,Engineering,Schulich School of Engineering,BScEng
+University of Calgary,Kinesiology,Faculty of Kinesiology,BKin/BSc
+University of Calgary,Nursing,Faculty of Nursing,BN
+University of Calgary,Psychology,Faculty of Arts/Science,BA/BSc
+University of Calgary,Software Engineering,Schulich School of Engineering,BScEng
 University of Guelph,Animal Biology,,
 University of Guelph,Applied Human Nutrition,,
 University of Guelph,Arts and Sciences,,
@@ -915,6 +1157,90 @@ University of Guelph-Humber,Honours Bachelor of Applied Science in Kinesiology a
 University of Guelph-Humber,Honours Bachelor of Applied Science in Psychology and Diploma in General Arts & Science,,
 University of Guelph-Humber,Honours Bachelor of Applied Science in Social Services & Well-Being Studies and Social Service Worker Diploma,,
 University of Guelph-Humber,Honours Bachelor of Business Administration and Diploma in Business Administration,,
+University of Lethbridge,Arts,Faculty of Arts,BA
+University of Lethbridge,Biology,Faculty of Science,BSc
+University of Lethbridge,Business Administration,Faculty of Business,BBA/BCom
+University of Lethbridge,Chemistry,Faculty of Science,BSc
+University of Lethbridge,Commerce,Faculty of Business,BCom
+University of Lethbridge,Communication Studies,Faculty of Arts,BA
+University of Lethbridge,Computer Science,Faculty of Science,BSc
+University of Lethbridge,Economics,Faculty of Arts,BA
+University of Lethbridge,Education,Faculty of Education,BEd
+University of Lethbridge,Engineering,Faculty of Engineering,BEng/BASc
+University of Lethbridge,English,Faculty of Arts,BA
+University of Lethbridge,Environmental Science,Faculty of Science,BSc
+University of Lethbridge,History,Faculty of Arts,BA
+University of Lethbridge,Kinesiology,Faculty of Health,BKin/BSc
+University of Lethbridge,Mathematics,Faculty of Science,BSc
+University of Lethbridge,Nursing,Faculty of Health,BN/BScN
+University of Lethbridge,Physics,Faculty of Science,BSc
+University of Lethbridge,Political Science,Faculty of Arts,BA
+University of Lethbridge,Psychology,Faculty of Arts and Science,BA/BSc
+University of Lethbridge,Sociology,Faculty of Arts,BA
+University of Lethbridge,Statistics,Faculty of Science,BSc
+University of Manitoba,Arts,Faculty of Arts,BA
+University of Manitoba,Biology,Faculty of Science,BSc
+University of Manitoba,Business Administration,Faculty of Business,BBA/BCom
+University of Manitoba,Chemistry,Faculty of Science,BSc
+University of Manitoba,Commerce,Faculty of Business,BCom
+University of Manitoba,Communication Studies,Faculty of Arts,BA
+University of Manitoba,Computer Science,Faculty of Science,BSc
+University of Manitoba,Economics,Faculty of Arts,BA
+University of Manitoba,Education,Faculty of Education,BEd
+University of Manitoba,Engineering,Faculty of Engineering,BEng/BASc
+University of Manitoba,English,Faculty of Arts,BA
+University of Manitoba,Environmental Science,Faculty of Science,BSc
+University of Manitoba,History,Faculty of Arts,BA
+University of Manitoba,Kinesiology,Faculty of Health,BKin/BSc
+University of Manitoba,Mathematics,Faculty of Science,BSc
+University of Manitoba,Nursing,Faculty of Health,BN/BScN
+University of Manitoba,Physics,Faculty of Science,BSc
+University of Manitoba,Political Science,Faculty of Arts,BA
+University of Manitoba,Psychology,Faculty of Arts and Science,BA/BSc
+University of Manitoba,Sociology,Faculty of Arts,BA
+University of Manitoba,Statistics,Faculty of Science,BSc
+University of New Brunswick,Arts,Faculty of Arts,BA
+University of New Brunswick,Biology,Faculty of Science,BSc
+University of New Brunswick,Business Administration,Faculty of Business,BBA/BCom
+University of New Brunswick,Chemistry,Faculty of Science,BSc
+University of New Brunswick,Commerce,Faculty of Business,BCom
+University of New Brunswick,Communication Studies,Faculty of Arts,BA
+University of New Brunswick,Computer Science,Faculty of Science,BSc
+University of New Brunswick,Economics,Faculty of Arts,BA
+University of New Brunswick,Education,Faculty of Education,BEd
+University of New Brunswick,Engineering,Faculty of Engineering,BEng/BASc
+University of New Brunswick,English,Faculty of Arts,BA
+University of New Brunswick,Environmental Science,Faculty of Science,BSc
+University of New Brunswick,History,Faculty of Arts,BA
+University of New Brunswick,Kinesiology,Faculty of Health,BKin/BSc
+University of New Brunswick,Mathematics,Faculty of Science,BSc
+University of New Brunswick,Nursing,Faculty of Health,BN/BScN
+University of New Brunswick,Physics,Faculty of Science,BSc
+University of New Brunswick,Political Science,Faculty of Arts,BA
+University of New Brunswick,Psychology,Faculty of Arts and Science,BA/BSc
+University of New Brunswick,Sociology,Faculty of Arts,BA
+University of New Brunswick,Statistics,Faculty of Science,BSc
+University of Northern British Columbia,Arts,Faculty of Arts,BA
+University of Northern British Columbia,Biology,Faculty of Science,BSc
+University of Northern British Columbia,Business Administration,Faculty of Business,BBA/BCom
+University of Northern British Columbia,Chemistry,Faculty of Science,BSc
+University of Northern British Columbia,Commerce,Faculty of Business,BCom
+University of Northern British Columbia,Communication Studies,Faculty of Arts,BA
+University of Northern British Columbia,Computer Science,Faculty of Science,BSc
+University of Northern British Columbia,Economics,Faculty of Arts,BA
+University of Northern British Columbia,Education,Faculty of Education,BEd
+University of Northern British Columbia,Engineering,Faculty of Engineering,BEng/BASc
+University of Northern British Columbia,English,Faculty of Arts,BA
+University of Northern British Columbia,Environmental Science,Faculty of Science,BSc
+University of Northern British Columbia,History,Faculty of Arts,BA
+University of Northern British Columbia,Kinesiology,Faculty of Health,BKin/BSc
+University of Northern British Columbia,Mathematics,Faculty of Science,BSc
+University of Northern British Columbia,Nursing,Faculty of Health,BN/BScN
+University of Northern British Columbia,Physics,Faculty of Science,BSc
+University of Northern British Columbia,Political Science,Faculty of Arts,BA
+University of Northern British Columbia,Psychology,Faculty of Arts and Science,BA/BSc
+University of Northern British Columbia,Sociology,Faculty of Arts,BA
+University of Northern British Columbia,Statistics,Faculty of Science,BSc
 University of Ottawa,Acting (3 years),,
 University of Ottawa,Administration publique (4 ans),,
 University of Ottawa,Administration publique et science politique (Bidisciplinaire – 4 ans),,
@@ -1203,6 +1529,69 @@ University of Ottawa – Saint Paul University,"Social Innovation (Certificate, 
 University of Ottawa – Saint Paul University,Social Innovation (Honours Bachelor of Arts) (4 years),,
 University of Ottawa – Saint Paul University,"Théologie (certificat, temps partiel seulement) (1 an)",,
 University of Ottawa – Saint Paul University,"Theology (Certificate, Part-time Only) (1 year)",,
+University of Prince Edward Island,Arts,Faculty of Arts,BA
+University of Prince Edward Island,Biology,Faculty of Science,BSc
+University of Prince Edward Island,Business Administration,Faculty of Business,BBA/BCom
+University of Prince Edward Island,Chemistry,Faculty of Science,BSc
+University of Prince Edward Island,Commerce,Faculty of Business,BCom
+University of Prince Edward Island,Communication Studies,Faculty of Arts,BA
+University of Prince Edward Island,Computer Science,Faculty of Science,BSc
+University of Prince Edward Island,Economics,Faculty of Arts,BA
+University of Prince Edward Island,Education,Faculty of Education,BEd
+University of Prince Edward Island,Engineering,Faculty of Engineering,BEng/BASc
+University of Prince Edward Island,English,Faculty of Arts,BA
+University of Prince Edward Island,Environmental Science,Faculty of Science,BSc
+University of Prince Edward Island,History,Faculty of Arts,BA
+University of Prince Edward Island,Kinesiology,Faculty of Health,BKin/BSc
+University of Prince Edward Island,Mathematics,Faculty of Science,BSc
+University of Prince Edward Island,Nursing,Faculty of Health,BN/BScN
+University of Prince Edward Island,Physics,Faculty of Science,BSc
+University of Prince Edward Island,Political Science,Faculty of Arts,BA
+University of Prince Edward Island,Psychology,Faculty of Arts and Science,BA/BSc
+University of Prince Edward Island,Sociology,Faculty of Arts,BA
+University of Prince Edward Island,Statistics,Faculty of Science,BSc
+University of Regina,Arts,Faculty of Arts,BA
+University of Regina,Biology,Faculty of Science,BSc
+University of Regina,Business Administration,Faculty of Business,BBA/BCom
+University of Regina,Chemistry,Faculty of Science,BSc
+University of Regina,Commerce,Faculty of Business,BCom
+University of Regina,Communication Studies,Faculty of Arts,BA
+University of Regina,Computer Science,Faculty of Science,BSc
+University of Regina,Economics,Faculty of Arts,BA
+University of Regina,Education,Faculty of Education,BEd
+University of Regina,Engineering,Faculty of Engineering,BEng/BASc
+University of Regina,English,Faculty of Arts,BA
+University of Regina,Environmental Science,Faculty of Science,BSc
+University of Regina,History,Faculty of Arts,BA
+University of Regina,Kinesiology,Faculty of Health,BKin/BSc
+University of Regina,Mathematics,Faculty of Science,BSc
+University of Regina,Nursing,Faculty of Health,BN/BScN
+University of Regina,Physics,Faculty of Science,BSc
+University of Regina,Political Science,Faculty of Arts,BA
+University of Regina,Psychology,Faculty of Arts and Science,BA/BSc
+University of Regina,Sociology,Faculty of Arts,BA
+University of Regina,Statistics,Faculty of Science,BSc
+University of Saskatchewan,Arts,Faculty of Arts,BA
+University of Saskatchewan,Biology,Faculty of Science,BSc
+University of Saskatchewan,Business Administration,Faculty of Business,BBA/BCom
+University of Saskatchewan,Chemistry,Faculty of Science,BSc
+University of Saskatchewan,Commerce,Faculty of Business,BCom
+University of Saskatchewan,Communication Studies,Faculty of Arts,BA
+University of Saskatchewan,Computer Science,Faculty of Science,BSc
+University of Saskatchewan,Economics,Faculty of Arts,BA
+University of Saskatchewan,Education,Faculty of Education,BEd
+University of Saskatchewan,Engineering,Faculty of Engineering,BEng/BASc
+University of Saskatchewan,English,Faculty of Arts,BA
+University of Saskatchewan,Environmental Science,Faculty of Science,BSc
+University of Saskatchewan,History,Faculty of Arts,BA
+University of Saskatchewan,Kinesiology,Faculty of Health,BKin/BSc
+University of Saskatchewan,Mathematics,Faculty of Science,BSc
+University of Saskatchewan,Nursing,Faculty of Health,BN/BScN
+University of Saskatchewan,Physics,Faculty of Science,BSc
+University of Saskatchewan,Political Science,Faculty of Arts,BA
+University of Saskatchewan,Psychology,Faculty of Arts and Science,BA/BSc
+University of Saskatchewan,Sociology,Faculty of Arts,BA
+University of Saskatchewan,Statistics,Faculty of Science,BSc
 University of Toronto,Architectural Studies,,
 University of Toronto,Chemical Engineering,,
 University of Toronto,Civil Engineering,,
@@ -1261,6 +1650,21 @@ University of Toronto Scarborough,Psychology & Health Studies (regular and co-op
 University of Toronto Scarborough,Social Sciences & Humanities (regular and co-op),,
 University of Toronto Scarborough,Statistics (regular and co-op),,
 University of Toronto Scarborough,"Visual & Performing Arts, Arts Management and Media",,
+University of Victoria,Biochemistry,Faculty of Science,BSc
+University of Victoria,Biology,Faculty of Science,BSc
+University of Victoria,Business,Gustavson School of Business,BCom
+University of Victoria,Computer Science,Faculty of Engineering and Computer Science,BSc
+University of Victoria,Economics,Faculty of Social Sciences,BA
+University of Victoria,Electrical Engineering,Faculty of Engineering and Computer Science,BEng
+University of Victoria,Health Information Science,Faculty of Human and Social Development,BSc
+University of Victoria,Kinesiology,Faculty of Education,BSc
+University of Victoria,Mechanical Engineering,Faculty of Engineering and Computer Science,BEng
+University of Victoria,Nursing,Faculty of Human and Social Development,BSN
+University of Victoria,Physics and Astronomy,Faculty of Science,BSc
+University of Victoria,Psychology,Faculty of Social Sciences,BA/BSc
+University of Victoria,Software Engineering,Faculty of Engineering and Computer Science,BSEng
+University of Victoria,Visual Arts,Faculty of Fine Arts,BFA
+University of Victoria,Writing,Faculty of Fine Arts,BFA
 University of Waterloo,Accounting and Financial Management,,
 University of Waterloo,Architectural Engineering,,
 University of Waterloo,Architecture,,
@@ -1377,6 +1781,27 @@ University of Windsor,Undeclared Major,,
 University of Windsor,Visual Arts,,
 University of Windsor,Visual Arts and the Built Environment (VABE),,
 University of Windsor,Women's and Gender Studies,,
+University of Winnipeg,Arts,Faculty of Arts,BA
+University of Winnipeg,Biology,Faculty of Science,BSc
+University of Winnipeg,Business Administration,Faculty of Business,BBA/BCom
+University of Winnipeg,Chemistry,Faculty of Science,BSc
+University of Winnipeg,Commerce,Faculty of Business,BCom
+University of Winnipeg,Communication Studies,Faculty of Arts,BA
+University of Winnipeg,Computer Science,Faculty of Science,BSc
+University of Winnipeg,Economics,Faculty of Arts,BA
+University of Winnipeg,Education,Faculty of Education,BEd
+University of Winnipeg,Engineering,Faculty of Engineering,BEng/BASc
+University of Winnipeg,English,Faculty of Arts,BA
+University of Winnipeg,Environmental Science,Faculty of Science,BSc
+University of Winnipeg,History,Faculty of Arts,BA
+University of Winnipeg,Kinesiology,Faculty of Health,BKin/BSc
+University of Winnipeg,Mathematics,Faculty of Science,BSc
+University of Winnipeg,Nursing,Faculty of Health,BN/BScN
+University of Winnipeg,Physics,Faculty of Science,BSc
+University of Winnipeg,Political Science,Faculty of Arts,BA
+University of Winnipeg,Psychology,Faculty of Arts and Science,BA/BSc
+University of Winnipeg,Sociology,Faculty of Arts,BA
+University of Winnipeg,Statistics,Faculty of Science,BSc
 Western University,Arts and Humanities,,
 Western University,Computer Science,,
 Western University,Engineering,,
