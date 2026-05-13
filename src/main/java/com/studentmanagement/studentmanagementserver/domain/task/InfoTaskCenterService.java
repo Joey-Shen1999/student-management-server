@@ -290,6 +290,33 @@ public class InfoTaskCenterService {
         );
     }
 
+    @Transactional
+    public void deleteInfoGroup(String taskGroupIdRaw, HttpServletRequest request) {
+        String taskGroupId = requireNonBlank(taskGroupIdRaw, "taskGroupId", TASK_GROUP_ID_MAX_LENGTH);
+
+        User operator = authSessionService.requireAuthenticatedUser(request);
+        if (operator.getRole() != UserRole.TEACHER && operator.getRole() != UserRole.ADMIN) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: teacher/admin role required.");
+        }
+
+        InfoTask infoTask;
+        if (operator.getRole() == UserRole.TEACHER) {
+            Teacher teacher = requireTeacherByUser(operator);
+            infoTask = infoTaskRepository
+                    .findTopByPublishedByTeacher_IdAndTaskGroupIdOrderByIdDesc(teacher.getId(), taskGroupId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Info task group not found."));
+        } else {
+            infoTask = infoTaskRepository
+                    .findTopByTaskGroupIdOrderByIdDesc(taskGroupId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Info task group not found."));
+        }
+
+        Long infoTaskId = infoTask.getId();
+        infoVolunteerTaskItemRepository.deleteByInfoTask_Id(infoTaskId);
+        infoTaskRecipientRepository.deleteByInfoTask_Id(infoTaskId);
+        infoTaskRepository.delete(infoTask);
+    }
+
     private List<Long> normalizeStudentIds(List<Long> rawStudentIds) {
         if (rawStudentIds == null || rawStudentIds.isEmpty()) {
             throw badRequest("studentIds is required");

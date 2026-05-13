@@ -43,4 +43,10 @@ public interface InfoTaskRepository extends JpaRepository<InfoTask, Long> {
             "publishedByTeacher.user"
     })
     Optional<InfoTask> findTopByPublishedByTeacher_IdAndTaskGroupIdOrderByIdDesc(Long publishedByTeacherId, String taskGroupId);
+
+    @EntityGraph(attributePaths = {
+            "publishedByTeacher",
+            "publishedByTeacher.user"
+    })
+    Optional<InfoTask> findTopByTaskGroupIdOrderByIdDesc(String taskGroupId);
 }

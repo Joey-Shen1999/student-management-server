@@ -146,6 +146,14 @@ public class TaskCenterController {
         return ResponseEntity.ok(infoTaskCenterService.createInfo(requestBody, request));
     }
 
+    @DeleteMapping("/api/teacher/tasks/info-groups/{taskGroupId}")
+    public ResponseEntity<Void> deleteInfoGroup(
+            @PathVariable String taskGroupId,
+            HttpServletRequest request) {
+        infoTaskCenterService.deleteInfoGroup(taskGroupId, request);
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping("/api/teacher/tasks/dll-templates")
     public ResponseEntity<DllTemplateDto> createDllTemplate(
             @RequestBody(required = false) CreateDllTemplateRequestDto requestBody,
