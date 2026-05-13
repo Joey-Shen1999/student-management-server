@@ -42,6 +42,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -513,7 +514,7 @@ class TaskCenterGoalApiTest {
                 .andExpect(jsonPath("$.items[0].targetStudentCount").value(0))
                 .andExpect(jsonPath("$.items[0].volunteer").isEmpty());
 
-        verify(emailService).sendTextEmail(
+        verify(emailService, timeout(1000)).sendTextEmail(
                 argThat((Collection<String> recipients) ->
                         recipients != null && recipients.contains("tracking.notice@example.com")),
                 eq("学习进度通知"),
@@ -563,7 +564,7 @@ class TaskCenterGoalApiTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.total").value(2));
 
-        verify(emailService).sendTextEmail(
+        verify(emailService, timeout(1000)).sendTextEmail(
                 argThat((Collection<String> recipients) ->
                         recipients != null
                                 && recipients.size() == 1

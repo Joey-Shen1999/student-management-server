@@ -42,6 +42,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -200,7 +201,7 @@ class TaskCenterInfoDllApiTest {
                         )))
                 .andExpect(status().isOk());
 
-        verify(emailService).sendTextEmail(
+        verify(emailService, timeout(1000)).sendTextEmail(
                 argThat((Collection<String> recipients) ->
                         recipients != null
                                 && recipients.contains("info.student.a@example.com")
@@ -259,7 +260,7 @@ class TaskCenterInfoDllApiTest {
                         )))
                 .andExpect(status().isOk());
 
-        verify(emailService).sendTextEmail(
+        verify(emailService, timeout(1000)).sendTextEmail(
                 argThat((Collection<String> recipients) ->
                         recipients != null
                                 && recipients.size() == 1

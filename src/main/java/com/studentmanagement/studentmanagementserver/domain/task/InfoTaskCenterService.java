@@ -22,6 +22,7 @@ import com.studentmanagement.studentmanagementserver.service.TeacherBindingRequi
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
@@ -74,6 +75,7 @@ public class InfoTaskCenterService {
     private final TeacherRepository teacherRepository;
     private final TeacherStudentRepository teacherStudentRepository;
     private final EmailService emailService;
+    private final TaskExecutor taskExecutor;
     private final boolean infoTaskEmailRemindersEnabled;
 
     public InfoTaskCenterService(AuthSessionService authSessionService,
@@ -85,7 +87,8 @@ public class InfoTaskCenterService {
                                  TeacherRepository teacherRepository,
                                  TeacherStudentRepository teacherStudentRepository,
                                  EmailService emailService,
-                                 @Value("${app.info-task.email-reminders.enabled:true}")
+                                 TaskExecutor taskExecutor,
+                                 @Value("${app.info-task.email-reminders.enabled:false}")
                                  boolean infoTaskEmailRemindersEnabled) {
         this.authSessionService = authSessionService;
         this.infoTaskRepository = infoTaskRepository;
@@ -96,6 +99,7 @@ public class InfoTaskCenterService {
         this.teacherRepository = teacherRepository;
         this.teacherStudentRepository = teacherStudentRepository;
         this.emailService = emailService;
+        this.taskExecutor = taskExecutor;
         this.infoTaskEmailRemindersEnabled = infoTaskEmailRemindersEnabled;
     }
 
@@ -514,16 +518,16 @@ public class InfoTaskCenterService {
             return;
         }
 
-        try {
-            emailService.sendTextEmail(
-                    emails,
-                    buildInfoTaskEmailSubject(infoTask),
-                    buildInfoTaskEmailBody(infoTask)
-            );
-        } catch (RuntimeException ex) {
-            Long infoTaskId = infoTask == null ? null : infoTask.getId();
-            log.warn("Failed to send info task reminder email for infoTaskId={}", infoTaskId, ex);
-        }
+        final Long infoTaskId = infoTask == null ? null : infoTask.getId();
+        final String subject = buildInfoTaskEmailSubject(infoTask);
+        final String body = buildInfoTaskEmailBody(infoTask);
+        taskExecutor.execute(() -> {
+            try {
+                emailService.sendTextEmail(emails, subject, body);
+            } catch (RuntimeException ex) {
+                log.warn("Failed to send info task reminder email for infoTaskId={}", infoTaskId, ex);
+            }
+        });
     }
 
     private List<String> collectInfoTaskReminderEmails(List<Student> students) {
