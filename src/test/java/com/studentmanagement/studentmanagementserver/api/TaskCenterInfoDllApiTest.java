@@ -42,8 +42,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -131,6 +133,53 @@ class TaskCenterInfoDllApiTest {
     }
 
     @Test
+    void teacherDeleteInfoGroup_removesNoticeRecipientsAndVolunteerItems() throws Exception {
+        Teacher teacher = createTeacherAccount("info_teacher_delete", "Info Delete Teacher");
+        Student student = createStudentAccount("info_delete_student", "Delete", "Student", "DS");
+        assignTeacherStudent(teacher, student, TeacherStudentStatus.ACTIVE);
+
+        String taskGroupId = "info-delete-group-001";
+        Map<String, Object> volunteer = buildVolunteerPayload(Arrays.asList(
+                buildVolunteerTask("Delete Task", "Delete Desc", new BigDecimal("2.0"), "2026-03-01", "2026-03-01", "contact")
+        ));
+
+        MvcResult createResult = mockMvc.perform(post("/api/teacher/tasks/infos")
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createInfoPayload(
+                                "Notice to delete",
+                                "content",
+                                "VOLUNTEER",
+                                Arrays.asList("Delete"),
+                                Arrays.asList(student.getId()),
+                                taskGroupId,
+                                null,
+                                volunteer
+                        )))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.taskGroupId").value(taskGroupId))
+                .andExpect(jsonPath("$.recipientStudentIds.length()").value(1))
+                .andExpect(jsonPath("$.volunteer.tasks.length()").value(1))
+                .andReturn();
+
+        long infoId = objectMapper.readTree(createResult.getResponse().getContentAsString()).path("id").asLong();
+        assertEquals(1, infoVolunteerTaskItemRepository.findByInfoTask_IdOrderByIdAsc(infoId).size());
+
+        mockMvc.perform(delete("/api/teacher/tasks/info-groups/{taskGroupId}", taskGroupId)
+                        .header("Authorization", bearerFor(teacher.getUser())))
+                .andExpect(status().isNoContent());
+
+        assertEquals(0, infoVolunteerTaskItemRepository.findByInfoTask_IdOrderByIdAsc(infoId).size());
+        mockMvc.perform(get("/api/teacher/tasks")
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .param("type", "INFO")
+                        .param("page", "1")
+                        .param("size", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[*].id", not(hasItem((int) infoId))));
+    }
+
+    @Test
     void teacherCreateInfo_sendsEmailReminderToStudentProfileEmails() throws Exception {
         Teacher teacher = createTeacherAccount("info_teacher_email_create", "Info Email Teacher");
         Student studentA = createStudentAccount("info_email_student_a", "Email", "A", "EA");
@@ -152,7 +201,7 @@ class TaskCenterInfoDllApiTest {
                         )))
                 .andExpect(status().isOk());
 
-        verify(emailService).sendTextEmail(
+        verify(emailService, timeout(1000)).sendTextEmail(
                 argThat((Collection<String> recipients) ->
                         recipients != null
                                 && recipients.contains("info.student.a@example.com")
@@ -211,7 +260,7 @@ class TaskCenterInfoDllApiTest {
                         )))
                 .andExpect(status().isOk());
 
-        verify(emailService).sendTextEmail(
+        verify(emailService, timeout(1000)).sendTextEmail(
                 argThat((Collection<String> recipients) ->
                         recipients != null
                                 && recipients.size() == 1

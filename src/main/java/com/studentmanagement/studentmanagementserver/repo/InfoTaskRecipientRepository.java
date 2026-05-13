@@ -58,6 +58,8 @@ public interface InfoTaskRecipientRepository extends JpaRepository<InfoTaskRecip
     })
     List<InfoTaskRecipient> findByInfoTask_Id(Long infoTaskId);
 
+    void deleteByInfoTask_Id(Long infoTaskId);
+
     @Query("select r.student.id from InfoTaskRecipient r " +
             "where r.infoTask.id = :infoTaskId " +
             "order by r.student.id asc")

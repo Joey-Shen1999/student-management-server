@@ -23,8 +23,8 @@ Configure in `Repository -> Settings -> Secrets and variables -> Actions`.
 - `DB_USER` (optional): `postgres`
 - `SPRING_MAIL_USERNAME` (optional): defaults to `noreply@global-vip.ca`
 - `APP_MAIL_FROM` (optional): defaults to `noreply@global-vip.ca`
-- `APP_INFO_TASK_EMAIL_REMINDERS_ENABLED` (optional): defaults to `true`
-- `APP_TASK_TRACKING_EMAIL_REMINDERS_ENABLED` (optional): defaults to `true`
+- `APP_INFO_TASK_EMAIL_REMINDERS_ENABLED` (optional): defaults to `false`; set to `true` only after SMTP is configured.
+- `APP_TASK_TRACKING_EMAIL_REMINDERS_ENABLED` (optional): defaults to `false`; set to `true` only after SMTP is configured.
 
 ### Optional DB Secret
 - `DB_PASSWORD` (optional): PostgreSQL password used by migration command.

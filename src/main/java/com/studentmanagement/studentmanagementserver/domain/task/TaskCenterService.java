@@ -26,6 +26,7 @@ import com.studentmanagement.studentmanagementserver.service.TeacherBindingRequi
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -82,6 +83,7 @@ public class TaskCenterService {
     private final StudentProfileRepository studentProfileRepository;
     private final StudentSchoolRecordRepository studentSchoolRecordRepository;
     private final EmailService emailService;
+    private final TaskExecutor taskExecutor;
     private final boolean taskTrackingEmailRemindersEnabled;
 
     public TaskCenterService(AuthSessionService authSessionService,
@@ -95,7 +97,8 @@ public class TaskCenterService {
                              StudentProfileRepository studentProfileRepository,
                              StudentSchoolRecordRepository studentSchoolRecordRepository,
                              EmailService emailService,
-                             @Value("${app.task-tracking.email-reminders.enabled:true}")
+                             TaskExecutor taskExecutor,
+                             @Value("${app.task-tracking.email-reminders.enabled:false}")
                              boolean taskTrackingEmailRemindersEnabled) {
         this.authSessionService = authSessionService;
         this.goalTaskRepository = goalTaskRepository;
@@ -108,6 +111,7 @@ public class TaskCenterService {
         this.studentProfileRepository = studentProfileRepository;
         this.studentSchoolRecordRepository = studentSchoolRecordRepository;
         this.emailService = emailService;
+        this.taskExecutor = taskExecutor;
         this.taskTrackingEmailRemindersEnabled = taskTrackingEmailRemindersEnabled;
     }
 
@@ -1134,21 +1138,20 @@ public class TaskCenterService {
             return;
         }
 
-        try {
-            emailService.sendTextEmail(
-                    emails,
-                    TRACKING_ASSIGNMENT_EMAIL_SUBJECT,
-                    buildTrackingAssignmentEmailBody(
-                            title,
-                            trackingDescription,
-                            teacherName,
-                            cycleSummary,
-                            startDate
-                    )
-            );
-        } catch (RuntimeException ex) {
-            log.warn("Failed to send tracking assignment reminder email for taskGroupId={}", taskGroupId, ex);
-        }
+        final String emailBody = buildTrackingAssignmentEmailBody(
+                title,
+                trackingDescription,
+                teacherName,
+                cycleSummary,
+                startDate
+        );
+        taskExecutor.execute(() -> {
+            try {
+                emailService.sendTextEmail(emails, TRACKING_ASSIGNMENT_EMAIL_SUBJECT, emailBody);
+            } catch (RuntimeException ex) {
+                log.warn("Failed to send tracking assignment reminder email for taskGroupId={}", taskGroupId, ex);
+            }
+        });
     }
 
     private String buildTrackingAssignmentEmailBody(String title,
