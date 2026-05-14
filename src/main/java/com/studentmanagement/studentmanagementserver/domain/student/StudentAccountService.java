@@ -6,6 +6,7 @@ import com.studentmanagement.studentmanagementserver.domain.enums.UserAccountSta
 import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
 import com.studentmanagement.studentmanagementserver.domain.user.User;
 import com.studentmanagement.studentmanagementserver.domain.volunteer.StudentVolunteerTracking;
+import com.studentmanagement.studentmanagementserver.repo.GraduationApplicationRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentProfileRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentSchoolRecordRepository;
@@ -40,6 +41,7 @@ public class StudentAccountService {
     private final StudentProfileRepository studentProfileRepository;
     private final StudentSchoolRecordRepository studentSchoolRecordRepository;
     private final StudentVolunteerTrackingRepository studentVolunteerTrackingRepository;
+    private final GraduationApplicationRepository graduationApplicationRepository;
     private final TeacherStudentRepository teacherStudentRepository;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -50,6 +52,7 @@ public class StudentAccountService {
                                  StudentProfileRepository studentProfileRepository,
                                  StudentSchoolRecordRepository studentSchoolRecordRepository,
                                  StudentVolunteerTrackingRepository studentVolunteerTrackingRepository,
+                                 GraduationApplicationRepository graduationApplicationRepository,
                                  TeacherStudentRepository teacherStudentRepository,
                                  UserRepository userRepository,
                                  PasswordEncoder passwordEncoder,
@@ -59,6 +62,7 @@ public class StudentAccountService {
         this.studentProfileRepository = studentProfileRepository;
         this.studentSchoolRecordRepository = studentSchoolRecordRepository;
         this.studentVolunteerTrackingRepository = studentVolunteerTrackingRepository;
+        this.graduationApplicationRepository = graduationApplicationRepository;
         this.teacherStudentRepository = teacherStudentRepository;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
@@ -107,6 +111,7 @@ public class StudentAccountService {
         Map<Long, StudentProfile> profileByStudentId = findProfilesByStudentIds(studentIds);
         Map<Long, StudentSchoolRecord> primarySchoolByStudentId = findPrimarySchoolByStudentIds(studentIds);
         Map<Long, BigDecimal> volunteerHoursByStudentId = findVolunteerHoursByStudentIds(studentIds);
+        Map<Long, Integer> graduationApplicationCountByStudentId = findGraduationApplicationCountsByStudentIds(studentIds);
 
         List<StudentAccountItem> result = new ArrayList<StudentAccountItem>(sortedStudents.size());
         for (Student student : sortedStudents) {
@@ -135,6 +140,9 @@ public class StudentAccountService {
                 totalVolunteerHours = BigDecimal.ZERO;
             }
             boolean volunteerCompleted = totalVolunteerHours.compareTo(VOLUNTEER_COMPLETED_THRESHOLD) >= 0;
+            int graduationApplicationCount = graduationApplicationCountByStudentId.containsKey(studentId)
+                    ? graduationApplicationCountByStudentId.get(studentId)
+                    : 0;
             UserAccountStatus accountStatus = user.getStatus();
             boolean selectable = accountStatus == UserAccountStatus.ACTIVE;
             List<String> serviceItems = StudentServiceItemNormalizer.normalizeStored(
@@ -163,7 +171,9 @@ public class StudentAccountService {
                     profile == null ? null : trimToNull(profile.getTeacherNote()),
                     selectable,
                     totalVolunteerHours,
-                    volunteerCompleted
+                    volunteerCompleted,
+                    graduationApplicationCount > 0,
+                    graduationApplicationCount
             ));
         }
         return result;
@@ -310,6 +320,27 @@ public class StudentAccountService {
         return result;
     }
 
+    private Map<Long, Integer> findGraduationApplicationCountsByStudentIds(List<Long> studentIds) {
+        if (studentIds == null || studentIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        List<GraduationApplicationRepository.StudentApplicationCountView> rows =
+                graduationApplicationRepository.countByStudentIds(studentIds);
+        if (rows.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        Map<Long, Integer> result = new HashMap<Long, Integer>();
+        for (GraduationApplicationRepository.StudentApplicationCountView row : rows) {
+            if (row == null || row.getStudentId() == null) {
+                continue;
+            }
+            Long count = row.getApplicationCount();
+            result.put(row.getStudentId(), count == null ? 0 : count.intValue());
+        }
+        return result;
+    }
+
     private String firstNonBlank(String first, String second) {
         String firstValue = trimToNull(first);
         if (firstValue != null) {
@@ -436,6 +467,8 @@ public class StudentAccountService {
         private boolean selectable;
         private BigDecimal totalVolunteerHours;
         private boolean volunteerCompleted;
+        private boolean graduationStageEnabled;
+        private int graduationApplicationCount;
 
         public StudentAccountItem(Long studentId,
                                   String studentName,
@@ -458,7 +491,9 @@ public class StudentAccountService {
                                   String teacherNote,
                                   boolean selectable,
                                   BigDecimal totalVolunteerHours,
-                                  boolean volunteerCompleted) {
+                                  boolean volunteerCompleted,
+                                  boolean graduationStageEnabled,
+                                  int graduationApplicationCount) {
             this.studentId = studentId;
             this.studentName = studentName;
             this.username = username;
@@ -483,6 +518,8 @@ public class StudentAccountService {
             this.selectable = selectable;
             this.totalVolunteerHours = totalVolunteerHours;
             this.volunteerCompleted = volunteerCompleted;
+            this.graduationStageEnabled = graduationStageEnabled;
+            this.graduationApplicationCount = graduationApplicationCount;
         }
 
         public Long getStudentId() {
@@ -571,6 +608,14 @@ public class StudentAccountService {
 
         public boolean isVolunteerCompleted() {
             return volunteerCompleted;
+        }
+
+        public boolean isGraduationStageEnabled() {
+            return graduationStageEnabled;
+        }
+
+        public int getGraduationApplicationCount() {
+            return graduationApplicationCount;
         }
     }
 
