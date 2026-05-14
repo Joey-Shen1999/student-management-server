@@ -41,7 +41,13 @@ public class UniversityCatalogSeedService {
     public void seedUniversityCatalog() {
         int universities = seedUniversities();
         int programs = seedPrograms();
-        log.info("University catalog seed complete. universitiesUpserted={}, programsInserted={}", universities, programs);
+        int retiredCampuses = retireNonTorontoCampusUniversities();
+        log.info(
+                "University catalog seed complete. universitiesUpserted={}, programsInserted={}, retiredNonTorontoCampuses={}",
+                universities,
+                programs,
+                retiredCampuses
+        );
     }
 
     private int seedUniversities() {
@@ -64,10 +70,12 @@ public class UniversityCatalogSeedService {
                     continue;
                 }
 
-                String name = normalize(fields.get(0));
-                if (name == null) {
+                String rawName = normalize(fields.get(0));
+                if (rawName == null) {
                     continue;
                 }
+                String name = canonicalUniversityNameForCampusPolicy(rawName);
+                boolean campusAlias = !sameKey(rawName, name);
                 String province = normalize(fields.get(1));
                 String city = normalize(fields.get(2));
                 String country = normalize(fields.get(3));
@@ -100,7 +108,7 @@ public class UniversityCatalogSeedService {
                     university.setCountry(country);
                     changed = true;
                 }
-                if (!same(university.getWebsite(), website)) {
+                if (!campusAlias && !same(university.getWebsite(), website)) {
                     university.setWebsite(website);
                     changed = true;
                 }
@@ -120,7 +128,7 @@ public class UniversityCatalogSeedService {
     }
 
     private University findLegacyUniversityForSeedName(String name, String website) {
-        if (!sameKey(name, "University of Toronto – St. George Campus")) {
+        if (!isTorontoStGeorgeCampusName(name)) {
             return null;
         }
         University legacy = universityRepository.findFirstByNameIgnoreCase("University of Toronto").orElse(null);
@@ -155,7 +163,7 @@ public class UniversityCatalogSeedService {
                     continue;
                 }
 
-                String universityName = normalize(fields.get(0));
+                String universityName = canonicalUniversityNameForCampusPolicy(normalize(fields.get(0)));
                 String programName = normalize(fields.get(1));
                 if (universityName == null || programName == null) {
                     continue;
@@ -178,6 +186,28 @@ public class UniversityCatalogSeedService {
             throw new IllegalStateException("Failed to load " + PROGRAM_SEED_FILE, e);
         }
         return inserted;
+    }
+
+    private int retireNonTorontoCampusUniversities() {
+        int retired = 0;
+        List<University> universities = universityRepository.findAll();
+        for (University university : universities) {
+            String name = normalize(university.getName());
+            String canonicalName = canonicalUniversityNameForCampusPolicy(name);
+            if (name == null || canonicalName == null || sameKey(name, canonicalName)) {
+                continue;
+            }
+            if (universityRepository.findFirstByNameIgnoreCase(canonicalName).orElse(null) == null) {
+                continue;
+            }
+            if (!university.isActive()) {
+                continue;
+            }
+            university.setActive(false);
+            universityRepository.save(university);
+            retired++;
+        }
+        return retired;
     }
 
     private boolean programExists(University university, String programName, String facultyName, String degreeType) {
@@ -228,6 +258,60 @@ public class UniversityCatalogSeedService {
     private String normalize(String value) {
         String normalized = value == null ? "" : value.trim();
         return normalized.isEmpty() ? null : normalized;
+    }
+
+    private String canonicalUniversityNameForCampusPolicy(String name) {
+        String normalized = normalize(name);
+        if (normalized == null || isUniversityOfTorontoCampusName(normalized)) {
+            return normalized;
+        }
+
+        int delimiterIndex = findCampusDelimiterIndex(normalized);
+        if (delimiterIndex > 0) {
+            return normalize(normalized.substring(0, delimiterIndex));
+        }
+
+        return normalized;
+    }
+
+    private int findCampusDelimiterIndex(String value) {
+        String[] delimiters = new String[] {
+                " \u2013 ",
+                " \u2014 ",
+                " - "
+        };
+        int best = -1;
+        for (String delimiter : delimiters) {
+            int index = value.indexOf(delimiter);
+            if (index >= 0 && (best < 0 || index < best)) {
+                best = index;
+            }
+        }
+        return best;
+    }
+
+    private boolean isUniversityOfTorontoCampusName(String name) {
+        String key = campusPolicyKey(name);
+        return key.contains("university of toronto")
+                && (key.contains("st george")
+                || key.contains("mississauga")
+                || key.contains("scarborough"));
+    }
+
+    private boolean isTorontoStGeorgeCampusName(String name) {
+        String key = campusPolicyKey(name);
+        return key.contains("university of toronto") && key.contains("st george");
+    }
+
+    private String campusPolicyKey(String value) {
+        return String.valueOf(value == null ? "" : value)
+                .replace('\u2013', ' ')
+                .replace('\u2014', ' ')
+                .replace('-', ' ')
+                .replace(".", " ")
+                .replaceAll("\\s+", " ")
+                .trim()
+                .toLowerCase(Locale.ROOT);
     }
 
     private boolean same(String left, String right) {
