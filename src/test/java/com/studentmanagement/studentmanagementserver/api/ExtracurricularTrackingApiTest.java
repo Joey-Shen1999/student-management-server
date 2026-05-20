@@ -219,7 +219,7 @@ class ExtracurricularTrackingApiTest {
     }
 
     @Test
-    void extracurricularTrackingPermissions_teacherScopeAdminAndStudentRules_work() throws Exception {
+    void extracurricularTrackingPermissions_teacherAdminAndStudentRules_work() throws Exception {
         Teacher teacherA = createTeacherAccount("extra_teacher_scope_a", "Extracurricular Scope A");
         Teacher teacherB = createTeacherAccount("extra_teacher_scope_b", "Extracurricular Scope B");
         User admin = createAdmin("extra_admin_scope");
@@ -243,15 +243,15 @@ class ExtracurricularTrackingApiTest {
 
         mockMvc.perform(get("/api/teacher/students/{studentId}/extracurricular-tracking", student.getId())
                         .header("Authorization", bearerFor(teacherA.getUser())))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.studentId").value(student.getId()));
 
         mockMvc.perform(put("/api/teacher/students/{studentId}/extracurricular-tracking", student.getId())
                         .header("Authorization", bearerFor(teacherA.getUser()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(payload)))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.studentId").value(student.getId()));
 
         mockMvc.perform(put("/api/teacher/students/{studentId}/extracurricular-tracking", student.getId())
                         .header("Authorization", bearerFor(admin))

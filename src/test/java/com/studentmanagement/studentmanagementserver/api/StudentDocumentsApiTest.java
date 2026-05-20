@@ -226,14 +226,15 @@ class StudentDocumentsApiTest {
     }
 
     @Test
-    void teacherDocuments_unassignedTeacher_forbidden403() throws Exception {
+    void teacherDocuments_unassignedTeacher_canListStudentDocuments() throws Exception {
         Teacher teacher = createTeacherAccount("student_documents_teacher_unassigned", "Teacher Unassigned");
         Student student = createStudentAccount("student_documents_unassigned_student", "Amy", "Chen", "Amy");
 
         mockMvc.perform(get("/api/teacher/students/{studentId}/documents", student.getId())
                         .header("Authorization", bearerFor(teacher.getUser())))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$.length()").value(0));
     }
 
     @Test
@@ -370,7 +371,7 @@ class StudentDocumentsApiTest {
     }
 
     @Test
-    void teacherDocuments_historyUsesTeacherAssignmentPermission() throws Exception {
+    void teacherDocuments_historyAllowsTeacherAccess() throws Exception {
         Teacher assignedTeacher = createTeacherAccount("student_documents_history_assigned", "Assigned History Teacher");
         Teacher unassignedTeacher = createTeacherAccount("student_documents_history_unassigned", "Unassigned History Teacher");
         Student student = createStudentAccount("student_documents_history_target", "Amy", "Chen", "Amy");
@@ -398,12 +399,13 @@ class StudentDocumentsApiTest {
 
         mockMvc.perform(get("/api/teacher/students/{studentId}/documents/history", student.getId())
                         .header("Authorization", bearerFor(unassignedTeacher.getUser())))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].action").value("UPLOAD"));
     }
 
     @Test
-    void teacherDocuments_unassignedTeacher_forbiddenForUploadViewAndDelete() throws Exception {
+    void teacherDocuments_unassignedTeacher_canUploadViewAndDelete() throws Exception {
         Teacher teacher = createTeacherAccount("student_documents_teacher_forbidden_ops", "Teacher Forbidden");
         Student student = createStudentAccount("student_documents_teacher_forbidden_student", "Amy", "Chen", "Amy");
         String teacherBearer = bearerFor(teacher.getUser());
@@ -438,22 +440,22 @@ class StudentDocumentsApiTest {
                         .param("documentCategory", "Other")
                         .param("title", "Forbidden")
                         .header("Authorization", teacherBearer))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.documentCategory").value("Other"));
 
         mockMvc.perform(get("/api/teacher/students/{studentId}/documents/{documentId}/file",
                         student.getId(),
                         documentId)
                         .header("Authorization", teacherBearer))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "application/pdf"))
+                .andExpect(content().bytes(passportBytes));
 
         mockMvc.perform(delete("/api/teacher/students/{studentId}/documents/{documentId}",
                         student.getId(),
                         documentId)
                         .header("Authorization", teacherBearer))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+                .andExpect(status().isNoContent());
     }
 
     private Student createStudentAccount(String username, String firstName, String lastName, String nickName) {

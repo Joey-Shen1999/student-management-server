@@ -1,6 +1,5 @@
 package com.studentmanagement.studentmanagementserver.domain.extracurricular;
 
-import com.studentmanagement.studentmanagementserver.domain.enums.TeacherStudentStatus;
 import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
 import com.studentmanagement.studentmanagementserver.domain.student.Student;
 import com.studentmanagement.studentmanagementserver.domain.teacher.Teacher;
@@ -9,7 +8,6 @@ import com.studentmanagement.studentmanagementserver.repo.StudentExtracurricular
 import com.studentmanagement.studentmanagementserver.repo.StudentExtracurricularTrackingRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentRepository;
 import com.studentmanagement.studentmanagementserver.repo.TeacherRepository;
-import com.studentmanagement.studentmanagementserver.repo.TeacherStudentRepository;
 import com.studentmanagement.studentmanagementserver.service.ApiRequestException;
 import com.studentmanagement.studentmanagementserver.service.AuthSessionService;
 import com.studentmanagement.studentmanagementserver.service.ManagementAccessService;
@@ -73,7 +71,6 @@ public class ExtracurricularTrackingService {
     private final ManagementAccessService managementAccessService;
     private final StudentRepository studentRepository;
     private final TeacherRepository teacherRepository;
-    private final TeacherStudentRepository teacherStudentRepository;
     private final StudentExtracurricularTrackingRepository trackingRepository;
     private final StudentExtracurricularActivityRepository activityRepository;
 
@@ -81,14 +78,12 @@ public class ExtracurricularTrackingService {
                                           ManagementAccessService managementAccessService,
                                           StudentRepository studentRepository,
                                           TeacherRepository teacherRepository,
-                                          TeacherStudentRepository teacherStudentRepository,
                                           StudentExtracurricularTrackingRepository trackingRepository,
                                           StudentExtracurricularActivityRepository activityRepository) {
         this.authSessionService = authSessionService;
         this.managementAccessService = managementAccessService;
         this.studentRepository = studentRepository;
         this.teacherRepository = teacherRepository;
-        this.teacherStudentRepository = teacherStudentRepository;
         this.trackingRepository = trackingRepository;
         this.activityRepository = activityRepository;
     }
@@ -508,46 +503,17 @@ public class ExtracurricularTrackingService {
     }
 
     private void ensureTeacherCanAccessStudent(User operator, Long studentId) {
-        if (operator.getRole() == UserRole.ADMIN) {
+        if (operator.getRole() == UserRole.ADMIN || operator.getRole() == UserRole.TEACHER) {
             return;
         }
-        if (operator.getRole() != UserRole.TEACHER) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: teacher/admin role required.");
-        }
-        Teacher teacher = teacherRepository.findByUser_Id(operator.getId())
-                .orElseThrow(TeacherBindingRequiredException::new);
-        boolean assigned = teacherStudentRepository.existsByTeacher_IdAndStudent_IdAndStatus(
-                teacher.getId(),
-                studentId,
-                TeacherStudentStatus.ACTIVE
-        );
-        if (!assigned) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: student not assigned to current teacher.");
-        }
+        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: teacher/admin role required.");
     }
 
     private void ensureTeacherCanAccessStudents(User operator, List<Long> studentIds) {
-        if (operator.getRole() == UserRole.ADMIN) {
+        if (operator.getRole() == UserRole.ADMIN || operator.getRole() == UserRole.TEACHER) {
             return;
         }
-        if (operator.getRole() != UserRole.TEACHER) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: teacher/admin role required.");
-        }
-        Teacher teacher = teacherRepository.findByUser_Id(operator.getId())
-                .orElseThrow(TeacherBindingRequiredException::new);
-        for (Long studentId : studentIds) {
-            boolean assigned = teacherStudentRepository.existsByTeacher_IdAndStudent_IdAndStatus(
-                    teacher.getId(),
-                    studentId,
-                    TeacherStudentStatus.ACTIVE
-            );
-            if (!assigned) {
-                throw new ResponseStatusException(
-                        HttpStatus.FORBIDDEN,
-                        "Forbidden: student not assigned to current teacher."
-                );
-            }
-        }
+        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: teacher/admin role required.");
     }
 
     private Teacher resolveTeacherForWrite(User operator) {

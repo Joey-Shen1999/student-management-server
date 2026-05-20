@@ -3,7 +3,6 @@ package com.studentmanagement.studentmanagementserver.domain.graduation;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.studentmanagement.studentmanagementserver.domain.enums.TeacherStudentStatus;
 import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
 import com.studentmanagement.studentmanagementserver.domain.student.Student;
 import com.studentmanagement.studentmanagementserver.domain.teacher.Teacher;
@@ -14,12 +13,10 @@ import com.studentmanagement.studentmanagementserver.repo.GraduationApplicationC
 import com.studentmanagement.studentmanagementserver.repo.GraduationApplicationRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentRepository;
 import com.studentmanagement.studentmanagementserver.repo.TeacherRepository;
-import com.studentmanagement.studentmanagementserver.repo.TeacherStudentRepository;
 import com.studentmanagement.studentmanagementserver.repo.UniversityProgramRepository;
 import com.studentmanagement.studentmanagementserver.repo.UniversityRepository;
 import com.studentmanagement.studentmanagementserver.service.AuthSessionService;
 import com.studentmanagement.studentmanagementserver.service.MustChangePasswordRequiredException;
-import com.studentmanagement.studentmanagementserver.service.TeacherBindingRequiredException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -59,7 +56,6 @@ public class GraduationApplicationService {
     private final UniversityRepository universityRepository;
     private final UniversityProgramRepository programRepository;
     private final TeacherRepository teacherRepository;
-    private final TeacherStudentRepository teacherStudentRepository;
     private final AuthSessionService authSessionService;
     private final ObjectMapper objectMapper;
 
@@ -69,7 +65,6 @@ public class GraduationApplicationService {
                                         UniversityRepository universityRepository,
                                         UniversityProgramRepository programRepository,
                                         TeacherRepository teacherRepository,
-                                        TeacherStudentRepository teacherStudentRepository,
                                         AuthSessionService authSessionService,
                                         ObjectMapper objectMapper) {
         this.applicationRepository = applicationRepository;
@@ -78,7 +73,6 @@ public class GraduationApplicationService {
         this.universityRepository = universityRepository;
         this.programRepository = programRepository;
         this.teacherRepository = teacherRepository;
-        this.teacherStudentRepository = teacherStudentRepository;
         this.authSessionService = authSessionService;
         this.objectMapper = objectMapper;
     }
@@ -643,17 +637,7 @@ public class GraduationApplicationService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: student can only access own graduation applications.");
         }
         if (operator.getRole() == UserRole.TEACHER) {
-            Teacher teacher = teacherRepository.findByUser_Id(operator.getId())
-                    .orElseThrow(TeacherBindingRequiredException::new);
-            boolean assigned = teacherStudentRepository.existsByTeacher_IdAndStudent_IdAndStatus(
-                    teacher.getId(),
-                    studentId,
-                    TeacherStudentStatus.ACTIVE
-            );
-            if (assigned) {
-                return operator;
-            }
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: student not assigned to current teacher.");
+            return operator;
         }
         throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: teacher/admin/student role required.");
     }
