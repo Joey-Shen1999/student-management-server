@@ -992,6 +992,75 @@ class StudentProfileApiTest {
     }
 
     @Test
+    void putProfile_identityFileMetadataOnlyPayload_reusesExistingIdentityFile() throws Exception {
+        Student student = createStudentAccount("profile_identity_file_metadata_only_student", "Amy", "Chen", "Amy");
+        String bearer = bearerFor(student.getUser());
+
+        Map<String, Object> payload = buildProfilePayload(
+                "Amy",
+                "Chen",
+                "Amy",
+                false,
+                Arrays.asList(buildSchool("MAIN", "Unionville High School", "2023-09-01", null)),
+                new ArrayList<Map<String, Object>>()
+        );
+
+        mockMvc.perform(put("/api/student/profile")
+                        .header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(payload)))
+                .andExpect(status().isOk());
+
+        MockMultipartFile identityFile = new MockMultipartFile(
+                "file",
+                "metadata-only-id.pdf",
+                "application/pdf",
+                "mock identity payload".getBytes(StandardCharsets.UTF_8)
+        );
+
+        mockMvc.perform(multipart("/api/student/profile/identity-files")
+                        .file(identityFile)
+                        .header("Authorization", bearer))
+                .andExpect(status().isOk());
+
+        MvcResult profileResult = mockMvc.perform(get("/api/student/profile")
+                        .header("Authorization", bearer))
+                .andExpect(status().isOk())
+                .andReturn();
+        JsonNode existingIdentityFile = objectMapper.readTree(profileResult.getResponse().getContentAsString())
+                .path("identityFiles")
+                .path(0);
+
+        Map<String, Object> identityFilePayload = new LinkedHashMap<String, Object>();
+        identityFilePayload.put("identityFileName", existingIdentityFile.path("identityFileName").asText());
+        identityFilePayload.put("identityFileSizeBytes", existingIdentityFile.path("identityFileSizeBytes").asLong());
+        identityFilePayload.put("identityFileUploadedAt", existingIdentityFile.path("identityFileUploadedAt").asText());
+
+        Map<String, Object> metadataOnlyPayload = buildProfilePayload(
+                "Amy",
+                "Chen",
+                "Amy",
+                false,
+                Arrays.asList(buildSchool("MAIN", "Unionville High School", "2023-09-01", null)),
+                new ArrayList<Map<String, Object>>()
+        );
+        metadataOnlyPayload.put("identityFiles", Arrays.asList(identityFilePayload));
+
+        reset(identityFileStorageService);
+
+        mockMvc.perform(put("/api/student/profile")
+                        .header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(metadataOnlyPayload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.identityFiles.length()").value(1))
+                .andExpect(jsonPath("$.identityFiles[0].id").value(existingIdentityFile.path("id").asLong()))
+                .andExpect(jsonPath("$.identityFiles[0].storageKey").exists());
+
+        verify(identityFileStorageService, never()).deleteRequired(anyString());
+    }
+
+    @Test
     void schoolTranscript_uploadTwice_getReturnsTwo_andDownloadByIdWorks() throws Exception {
         Student student = createStudentAccount("profile_transcript_student", "Amy", "Chen", "Amy");
         String bearer = bearerFor(student.getUser());

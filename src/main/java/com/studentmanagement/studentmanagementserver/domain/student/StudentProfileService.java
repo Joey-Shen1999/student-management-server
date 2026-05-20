@@ -1643,33 +1643,66 @@ public class StudentProfileService {
 
         List<StudentIdentityFile> finalState = new ArrayList<StudentIdentityFile>();
         Map<Long, StudentIdentityFile> legacyById = new HashMap<Long, StudentIdentityFile>();
+        Map<String, StudentIdentityFile> legacyByStorageKey = new HashMap<String, StudentIdentityFile>();
         for (StudentIdentityFile legacy : legacyIdentityFiles) {
-            legacyById.put(legacy.getId(), legacy);
+            if (legacy.getId() != null) {
+                legacyById.put(legacy.getId(), legacy);
+            }
+            String storageKey = trimToNull(legacy.getStorageKey());
+            if (storageKey != null) {
+                legacyByStorageKey.put(storageKey, legacy);
+            }
         }
 
         Set<Long> keptIds = new HashSet<Long>();
+        boolean retainUnmatchedLegacyIdentityFiles = false;
         for (NormalizedIdentityFile normalizedIdentityFile : normalizedIdentityFiles) {
+            StudentIdentityFile existing = null;
             if (normalizedIdentityFile.id != null) {
-                StudentIdentityFile existing = legacyById.get(normalizedIdentityFile.id);
-                if (existing != null) {
+                existing = legacyById.get(normalizedIdentityFile.id);
+            }
+            if (existing == null && normalizedIdentityFile.storageKey != null) {
+                existing = legacyByStorageKey.get(normalizedIdentityFile.storageKey);
+            }
+            if (existing == null) {
+                existing = findExistingIdentityFileByMetadata(legacyIdentityFiles, normalizedIdentityFile, keptIds);
+            }
+            if (existing != null) {
+                if (existing.getId() != null) {
                     keptIds.add(existing.getId());
-                    applyIdentityFileOverride(existing, normalizedIdentityFile, operatorUserId);
-                    finalState.add(existing);
-                    continue;
                 }
+                applyIdentityFileOverride(existing, normalizedIdentityFile, operatorUserId);
+                finalState.add(existing);
+                continue;
             }
 
             if (normalizedIdentityFile.storageKey == null) {
-                throw new ResponseStatusException(
-                        HttpStatus.UNPROCESSABLE_ENTITY,
-                        "Identity file entry cannot be inserted without storageKey."
+                retainUnmatchedLegacyIdentityFiles = true;
+                log.warn(
+                        "Ignoring identity file PUT entry without storageKey. traceId={}, userId={}, profileId={}, fileName={}",
+                        safeTraceId(traceId),
+                        operatorUserId,
+                        profile.getId(),
+                        normalizedIdentityFile.fileName
                 );
+                continue;
             }
             finalState.add(createIdentityFileFromRequest(profile, normalizedIdentityFile, operatorUserId));
         }
 
         for (StudentIdentityFile legacy : legacyIdentityFiles) {
             if (keptIds.contains(legacy.getId())) {
+                continue;
+            }
+            if (retainUnmatchedLegacyIdentityFiles) {
+                finalState.add(legacy);
+                log.info(
+                        "Identity file retained because incoming PUT contained metadata-only entries. traceId={}, userId={}, profileId={}, identityFileId={}",
+                        safeTraceId(traceId),
+                        operatorUserId,
+                        profile.getId(),
+                        legacy.getId()
+                );
                 continue;
             }
             deleteIdentityFileStorageOrThrow(legacy, operatorUserId, traceId, "put_sync_removed");
@@ -1694,6 +1727,40 @@ public class StudentProfileService {
             );
         }
         return persisted;
+    }
+
+    private StudentIdentityFile findExistingIdentityFileByMetadata(List<StudentIdentityFile> legacyIdentityFiles,
+                                                                   NormalizedIdentityFile normalizedIdentityFile,
+                                                                   Set<Long> keptIds) {
+        StudentIdentityFile match = null;
+        for (StudentIdentityFile legacy : legacyIdentityFiles) {
+            if (legacy.getId() != null && keptIds.contains(legacy.getId())) {
+                continue;
+            }
+            if (!matchesIdentityFileMetadata(legacy, normalizedIdentityFile)) {
+                continue;
+            }
+            if (match != null) {
+                return null;
+            }
+            match = legacy;
+        }
+        return match;
+    }
+
+    private boolean matchesIdentityFileMetadata(StudentIdentityFile legacy,
+                                                NormalizedIdentityFile normalizedIdentityFile) {
+        String fileName = trimToNull(normalizedIdentityFile.fileName);
+        if (fileName == null || !fileName.equals(trimToNull(legacy.getOriginalFilename()))) {
+            return false;
+        }
+        if (normalizedIdentityFile.sizeBytes != null && !normalizedIdentityFile.sizeBytes.equals(legacy.getSizeBytes())) {
+            return false;
+        }
+        if (normalizedIdentityFile.uploadedAt != null && !normalizedIdentityFile.uploadedAt.equals(legacy.getUploadedAt())) {
+            return false;
+        }
+        return true;
     }
 
     private StudentIdentityFile createIdentityFileFromRequest(StudentProfile profile,
