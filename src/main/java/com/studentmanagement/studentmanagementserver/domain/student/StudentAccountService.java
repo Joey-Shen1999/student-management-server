@@ -1,7 +1,6 @@
 package com.studentmanagement.studentmanagementserver.domain.student;
 
 import com.studentmanagement.studentmanagementserver.domain.enums.SchoolType;
-import com.studentmanagement.studentmanagementserver.domain.enums.TeacherStudentStatus;
 import com.studentmanagement.studentmanagementserver.domain.enums.UserAccountStatus;
 import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
 import com.studentmanagement.studentmanagementserver.domain.user.User;
@@ -11,7 +10,6 @@ import com.studentmanagement.studentmanagementserver.repo.StudentProfileReposito
 import com.studentmanagement.studentmanagementserver.repo.StudentRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentSchoolRecordRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentVolunteerTrackingRepository;
-import com.studentmanagement.studentmanagementserver.repo.TeacherStudentRepository;
 import com.studentmanagement.studentmanagementserver.repo.UserRepository;
 import com.studentmanagement.studentmanagementserver.repo.UserSessionRepository;
 import com.studentmanagement.studentmanagementserver.service.TemporaryPasswordGenerator;
@@ -42,7 +40,6 @@ public class StudentAccountService {
     private final StudentSchoolRecordRepository studentSchoolRecordRepository;
     private final StudentVolunteerTrackingRepository studentVolunteerTrackingRepository;
     private final GraduationApplicationRepository graduationApplicationRepository;
-    private final TeacherStudentRepository teacherStudentRepository;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final TemporaryPasswordGenerator temporaryPasswordGenerator;
@@ -53,7 +50,6 @@ public class StudentAccountService {
                                  StudentSchoolRecordRepository studentSchoolRecordRepository,
                                  StudentVolunteerTrackingRepository studentVolunteerTrackingRepository,
                                  GraduationApplicationRepository graduationApplicationRepository,
-                                 TeacherStudentRepository teacherStudentRepository,
                                  UserRepository userRepository,
                                  PasswordEncoder passwordEncoder,
                                  TemporaryPasswordGenerator temporaryPasswordGenerator,
@@ -63,7 +59,6 @@ public class StudentAccountService {
         this.studentSchoolRecordRepository = studentSchoolRecordRepository;
         this.studentVolunteerTrackingRepository = studentVolunteerTrackingRepository;
         this.graduationApplicationRepository = graduationApplicationRepository;
-        this.teacherStudentRepository = teacherStudentRepository;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.temporaryPasswordGenerator = temporaryPasswordGenerator;
@@ -80,16 +75,8 @@ public class StudentAccountService {
         if (operator == null) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: teacher/admin role required.");
         }
-        if (operator.getRole() == UserRole.ADMIN) {
+        if (operator.getRole() == UserRole.ADMIN || operator.getRole() == UserRole.TEACHER) {
             return buildStudentAccountItems(studentRepository.findAllWithUser());
-        }
-        if (operator.getRole() == UserRole.TEACHER) {
-            return buildStudentAccountItems(
-                    teacherStudentRepository.findDistinctStudentsByTeacherUserIdAndStatusWithUser(
-                            operator.getId(),
-                            TeacherStudentStatus.ACTIVE
-                    )
-            );
         }
         throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: teacher/admin role required.");
     }
@@ -430,18 +417,10 @@ public class StudentAccountService {
         if (operator == null) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: teacher/admin role required.");
         }
-        if (operator.getRole() == UserRole.ADMIN) {
+        if (operator.getRole() == UserRole.ADMIN || operator.getRole() == UserRole.TEACHER) {
             return;
         }
-        if (operator.getRole() == UserRole.TEACHER &&
-                teacherStudentRepository.existsByTeacher_User_IdAndStudent_IdAndStatus(
-                        operator.getId(),
-                        studentId,
-                        TeacherStudentStatus.ACTIVE
-                )) {
-            return;
-        }
-        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: student not assigned to current teacher.");
+        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: teacher/admin role required.");
     }
 
     public static class StudentAccountItem {

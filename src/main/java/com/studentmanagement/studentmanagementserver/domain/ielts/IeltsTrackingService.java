@@ -1,12 +1,10 @@
 package com.studentmanagement.studentmanagementserver.domain.ielts;
 
 import com.studentmanagement.studentmanagementserver.domain.enums.SchoolType;
-import com.studentmanagement.studentmanagementserver.domain.enums.TeacherStudentStatus;
 import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
 import com.studentmanagement.studentmanagementserver.domain.student.Student;
 import com.studentmanagement.studentmanagementserver.domain.student.StudentProfile;
 import com.studentmanagement.studentmanagementserver.domain.student.StudentSchoolRecord;
-import com.studentmanagement.studentmanagementserver.domain.teacher.Teacher;
 import com.studentmanagement.studentmanagementserver.domain.user.User;
 import com.studentmanagement.studentmanagementserver.repo.StudentIeltsModuleRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentIeltsManualStatusAuditLogRepository;
@@ -14,12 +12,9 @@ import com.studentmanagement.studentmanagementserver.repo.StudentIeltsRecordRepo
 import com.studentmanagement.studentmanagementserver.repo.StudentProfileRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentSchoolRecordRepository;
-import com.studentmanagement.studentmanagementserver.repo.TeacherRepository;
-import com.studentmanagement.studentmanagementserver.repo.TeacherStudentRepository;
 import com.studentmanagement.studentmanagementserver.service.ApiRequestException;
 import com.studentmanagement.studentmanagementserver.service.AuthSessionService;
 import com.studentmanagement.studentmanagementserver.service.ManagementAccessService;
-import com.studentmanagement.studentmanagementserver.service.TeacherBindingRequiredException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -96,8 +91,6 @@ public class IeltsTrackingService {
     private final AuthSessionService authSessionService;
     private final ManagementAccessService managementAccessService;
     private final StudentRepository studentRepository;
-    private final TeacherRepository teacherRepository;
-    private final TeacherStudentRepository teacherStudentRepository;
     private final StudentProfileRepository studentProfileRepository;
     private final StudentSchoolRecordRepository studentSchoolRecordRepository;
     private final StudentIeltsModuleRepository studentIeltsModuleRepository;
@@ -107,8 +100,6 @@ public class IeltsTrackingService {
     public IeltsTrackingService(AuthSessionService authSessionService,
                                 ManagementAccessService managementAccessService,
                                 StudentRepository studentRepository,
-                                TeacherRepository teacherRepository,
-                                TeacherStudentRepository teacherStudentRepository,
                                 StudentProfileRepository studentProfileRepository,
                                 StudentSchoolRecordRepository studentSchoolRecordRepository,
                                 StudentIeltsModuleRepository studentIeltsModuleRepository,
@@ -117,8 +108,6 @@ public class IeltsTrackingService {
         this.authSessionService = authSessionService;
         this.managementAccessService = managementAccessService;
         this.studentRepository = studentRepository;
-        this.teacherRepository = teacherRepository;
-        this.teacherStudentRepository = teacherStudentRepository;
         this.studentProfileRepository = studentProfileRepository;
         this.studentSchoolRecordRepository = studentSchoolRecordRepository;
         this.studentIeltsModuleRepository = studentIeltsModuleRepository;
@@ -1388,23 +1377,10 @@ public class IeltsTrackingService {
     }
 
     private void ensureTeacherCanAccessStudent(User operator, Long studentId) {
-        if (operator.getRole() == UserRole.ADMIN) {
+        if (operator.getRole() == UserRole.ADMIN || operator.getRole() == UserRole.TEACHER) {
             return;
         }
-        if (operator.getRole() != UserRole.TEACHER) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: teacher/admin role required.");
-        }
-
-        Teacher teacher = teacherRepository.findByUser_Id(operator.getId())
-                .orElseThrow(TeacherBindingRequiredException::new);
-        boolean assigned = teacherStudentRepository.existsByTeacher_IdAndStudent_IdAndStatus(
-                teacher.getId(),
-                studentId,
-                TeacherStudentStatus.ACTIVE
-        );
-        if (!assigned) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: student not assigned to current teacher.");
-        }
+        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: teacher/admin role required.");
     }
 
     private Long requirePositiveId(Long id, String fieldName) {

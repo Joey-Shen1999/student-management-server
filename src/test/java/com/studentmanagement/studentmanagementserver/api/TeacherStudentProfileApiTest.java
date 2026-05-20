@@ -345,40 +345,36 @@ class TeacherStudentProfileApiTest {
     }
 
     @Test
-    void teacherProfile_teacherUnassigned_getAndPut403() throws Exception {
+    void teacherProfile_teacherUnassigned_getAndPut200() throws Exception {
         Teacher teacher = createTeacherAccount("phase2_teacher_unassigned", "Teacher Unassigned");
         Student student = createStudentAccount("phase2_student_unassigned", "Amy", "Chen", "Amy");
 
         mockMvc.perform(get("/api/teacher/students/{studentId}/profile", student.getId())
                         .header("Authorization", bearerFor(teacher.getUser())))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+                .andExpect(status().isOk());
 
         mockMvc.perform(put("/api/teacher/students/{studentId}/profile", student.getId())
                         .header("Authorization", bearerFor(teacher.getUser()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(toJson(buildProfilePayload())))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+                .andExpect(status().isOk());
     }
 
     @Test
-    void teacherProfile_teacherArchivedRelation_getAndPut403() throws Exception {
+    void teacherProfile_teacherArchivedRelation_getAndPut200() throws Exception {
         Teacher teacher = createTeacherAccount("phase2_teacher_archived", "Teacher Archived");
         Student student = createStudentAccount("phase2_student_archived", "Amy", "Chen", "Amy");
         assignTeacherStudent(teacher, student, TeacherStudentStatus.ARCHIVED);
 
         mockMvc.perform(get("/api/teacher/students/{studentId}/profile", student.getId())
                         .header("Authorization", bearerFor(teacher.getUser())))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+                .andExpect(status().isOk());
 
         mockMvc.perform(put("/api/teacher/students/{studentId}/profile", student.getId())
                         .header("Authorization", bearerFor(teacher.getUser()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(toJson(buildProfilePayload())))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+                .andExpect(status().isOk());
     }
 
     @Test

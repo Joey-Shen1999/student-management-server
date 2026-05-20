@@ -354,7 +354,7 @@ class IeltsTrackingApiTest {
     }
 
     @Test
-    void teacherUnassignedCannotReadStudentIeltsModule_returns403() throws Exception {
+    void teacherCanReadAnyStudentIeltsModule_returns200() throws Exception {
         Teacher teacherA = createTeacherAccount("ielts_teacher_scope_a", "IELTS Scope A");
         Teacher teacherB = createTeacherAccount("ielts_teacher_scope_b", "IELTS Scope B");
         Student student = createStudentAccount("ielts_scope_student", "IELTS", "Scope", "Scope");
@@ -362,8 +362,8 @@ class IeltsTrackingApiTest {
 
         mockMvc.perform(get("/api/teacher/students/{studentId}/ielts-module", student.getId())
                         .header("Authorization", bearerFor(teacherA.getUser())))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.studentId").value(student.getId()));
     }
 
     @Test

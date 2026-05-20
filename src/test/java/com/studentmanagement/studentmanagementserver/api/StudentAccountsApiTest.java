@@ -89,7 +89,7 @@ class StudentAccountsApiTest {
     private ObjectMapper objectMapper;
 
     @Test
-    void listStudentAccounts_teacherCanAccessAndSeeStatus() throws Exception {
+    void listStudentAccounts_teacherCanAccessAllStudentsAndSeeStatus() throws Exception {
         User teacherOperator = createTeacherUser("student_list_teacher");
         Student assigned = createStudentAccount("student_list_target", "List", "Target", "LT", UserAccountStatus.ACTIVE);
         createStudentAccount("student_list_unassigned", "List", "Unassigned", "LU", UserAccountStatus.ACTIVE);
@@ -105,7 +105,7 @@ class StudentAccountsApiTest {
         JsonNode assignedRow = findByUsername(data, "student_list_target");
         assertNotNull(assignedRow);
         assertEquals("ACTIVE", assignedRow.path("status").asText());
-        assertNull(findByUsername(data, "student_list_unassigned"));
+        assertNotNull(findByUsername(data, "student_list_unassigned"));
     }
 
     @Test
@@ -307,7 +307,7 @@ class StudentAccountsApiTest {
     }
 
     @Test
-    void resetStudentPassword_unassignedTeacherForbidden() throws Exception {
+    void resetStudentPassword_unassignedTeacherCanManageStudent() throws Exception {
         User teacherOperator = createTeacherUser("student_reset_unassigned_teacher");
         Student student = createStudentAccount("student_reset_unassigned_target", "Reset", "Unassigned", "RU", UserAccountStatus.ACTIVE);
 
@@ -315,9 +315,9 @@ class StudentAccountsApiTest {
                         .header("Authorization", bearerFor(teacherOperator))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.message").value("Forbidden: student not assigned to current teacher."))
-                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.studentId").value(student.getId()))
+                .andExpect(jsonPath("$.username").value("student_reset_unassigned_target"));
     }
 
     @Test
@@ -360,7 +360,7 @@ class StudentAccountsApiTest {
     }
 
     @Test
-    void patchStatus_unassignedTeacherForbidden() throws Exception {
+    void patchStatus_unassignedTeacherCanManageStudent() throws Exception {
         User teacherOperator = createTeacherUser("student_status_unassigned_teacher");
         Student student = createStudentAccount("student_status_unassigned_target", "Status", "Unassigned", "SU", UserAccountStatus.ACTIVE);
 
@@ -368,9 +368,9 @@ class StudentAccountsApiTest {
                         .header("Authorization", bearerFor(teacherOperator))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"status\":\"ARCHIVED\"}"))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.message").value("Forbidden: student not assigned to current teacher."))
-                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.studentId").value(student.getId()))
+                .andExpect(jsonPath("$.status").value("ARCHIVED"));
     }
 
     @Test

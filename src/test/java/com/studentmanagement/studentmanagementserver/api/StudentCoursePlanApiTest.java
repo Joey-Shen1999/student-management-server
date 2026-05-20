@@ -119,7 +119,7 @@ class StudentCoursePlanApiTest {
     }
 
     @Test
-    void teacherAssignedCanReadWrite_unassignedTeacherForbidden() throws Exception {
+    void teacherCanReadWriteAnyStudentCoursePlan() throws Exception {
         Teacher assignedTeacher = createTeacherAccount("course_plan_teacher_assigned", "Course Plan Assigned");
         Teacher unassignedTeacher = createTeacherAccount("course_plan_teacher_unassigned", "Course Plan Unassigned");
         Student student = createStudentAccount("course_plan_student_teacher_access", "Teacher", "Access", "Student");
@@ -141,13 +141,15 @@ class StudentCoursePlanApiTest {
 
         mockMvc.perform(get("/api/teacher/students/{studentId}/course-plan", student.getId())
                         .header("Authorization", bearerFor(unassignedTeacher.getUser())))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.currentGradeLevel").value(10));
 
         mockMvc.perform(put("/api/teacher/students/{studentId}/course-plan", student.getId())
                         .header("Authorization", bearerFor(unassignedTeacher.getUser()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(createTeacherPayload())))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.currentGradeLevel").value(10));
     }
 
     @Test

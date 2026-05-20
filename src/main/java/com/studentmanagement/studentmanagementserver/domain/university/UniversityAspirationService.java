@@ -1,19 +1,14 @@
 package com.studentmanagement.studentmanagementserver.domain.university;
 
-import com.studentmanagement.studentmanagementserver.domain.enums.TeacherStudentStatus;
 import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
 import com.studentmanagement.studentmanagementserver.domain.student.Student;
-import com.studentmanagement.studentmanagementserver.domain.teacher.Teacher;
 import com.studentmanagement.studentmanagementserver.domain.user.User;
 import com.studentmanagement.studentmanagementserver.repo.StudentRepository;
-import com.studentmanagement.studentmanagementserver.repo.TeacherRepository;
-import com.studentmanagement.studentmanagementserver.repo.TeacherStudentRepository;
 import com.studentmanagement.studentmanagementserver.repo.UniversityAspirationRepository;
 import com.studentmanagement.studentmanagementserver.repo.UniversityProgramRepository;
 import com.studentmanagement.studentmanagementserver.repo.UniversityRepository;
 import com.studentmanagement.studentmanagementserver.service.AuthSessionService;
 import com.studentmanagement.studentmanagementserver.service.MustChangePasswordRequiredException;
-import com.studentmanagement.studentmanagementserver.service.TeacherBindingRequiredException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,23 +33,17 @@ public class UniversityAspirationService {
     private final UniversityRepository universityRepository;
     private final UniversityProgramRepository programRepository;
     private final StudentRepository studentRepository;
-    private final TeacherRepository teacherRepository;
-    private final TeacherStudentRepository teacherStudentRepository;
     private final AuthSessionService authSessionService;
 
     public UniversityAspirationService(UniversityAspirationRepository aspirationRepository,
                                        UniversityRepository universityRepository,
                                        UniversityProgramRepository programRepository,
                                        StudentRepository studentRepository,
-                                       TeacherRepository teacherRepository,
-                                       TeacherStudentRepository teacherStudentRepository,
                                        AuthSessionService authSessionService) {
         this.aspirationRepository = aspirationRepository;
         this.universityRepository = universityRepository;
         this.programRepository = programRepository;
         this.studentRepository = studentRepository;
-        this.teacherRepository = teacherRepository;
-        this.teacherStudentRepository = teacherStudentRepository;
         this.authSessionService = authSessionService;
     }
 
@@ -251,17 +240,7 @@ public class UniversityAspirationService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: student can only access own aspirations.");
         }
         if (operator.getRole() == UserRole.TEACHER) {
-            Teacher teacher = teacherRepository.findByUser_Id(operator.getId())
-                    .orElseThrow(TeacherBindingRequiredException::new);
-            boolean assigned = teacherStudentRepository.existsByTeacher_IdAndStudent_IdAndStatus(
-                    teacher.getId(),
-                    studentId,
-                    TeacherStudentStatus.ACTIVE
-            );
-            if (assigned) {
-                return;
-            }
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: student not assigned to current teacher.");
+            return;
         }
         throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: teacher/admin/student role required.");
     }

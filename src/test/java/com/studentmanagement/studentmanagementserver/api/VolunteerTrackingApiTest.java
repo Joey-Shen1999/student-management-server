@@ -286,7 +286,7 @@ class VolunteerTrackingApiTest {
     }
 
     @Test
-    void volunteerTrackingPermissions_teacherScopeAdminAndStudentRules_work() throws Exception {
+    void volunteerTrackingPermissions_teacherAdminAndStudentRules_work() throws Exception {
         Teacher teacherA = createTeacherAccount("vol_teacher_scope_a", "Volunteer Scope A");
         Teacher teacherB = createTeacherAccount("vol_teacher_scope_b", "Volunteer Scope B");
         User admin = createAdmin("vol_admin_scope");
@@ -303,15 +303,15 @@ class VolunteerTrackingApiTest {
 
         mockMvc.perform(get("/api/teacher/students/{studentId}/volunteer-tracking", student.getId())
                         .header("Authorization", bearerFor(teacherA.getUser())))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.studentId").value(student.getId()));
 
         mockMvc.perform(put("/api/teacher/students/{studentId}/volunteer-tracking", student.getId())
                         .header("Authorization", bearerFor(teacherA.getUser()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(payload)))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.studentId").value(student.getId()));
 
         mockMvc.perform(put("/api/teacher/students/{studentId}/volunteer-tracking", student.getId())
                         .header("Authorization", bearerFor(admin))
@@ -421,8 +421,8 @@ class VolunteerTrackingApiTest {
                         .header("Authorization", bearerFor(teacherA.getUser()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(buildBatchSummaryPayload(Arrays.asList(student.getId())))))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].studentId").value(student.getId()));
 
         mockMvc.perform(post("/api/teacher/students/volunteer-tracking/batch-summary")
                         .header("Authorization", bearerFor(admin))

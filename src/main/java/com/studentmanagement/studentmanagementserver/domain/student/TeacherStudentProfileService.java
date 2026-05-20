@@ -1,13 +1,8 @@
 package com.studentmanagement.studentmanagementserver.domain.student;
 
-import com.studentmanagement.studentmanagementserver.domain.enums.TeacherStudentStatus;
 import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
-import com.studentmanagement.studentmanagementserver.domain.teacher.Teacher;
 import com.studentmanagement.studentmanagementserver.domain.user.User;
-import com.studentmanagement.studentmanagementserver.repo.TeacherRepository;
-import com.studentmanagement.studentmanagementserver.repo.TeacherStudentRepository;
 import com.studentmanagement.studentmanagementserver.service.ManagementAccessService;
-import com.studentmanagement.studentmanagementserver.service.TeacherBindingRequiredException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -20,17 +15,11 @@ public class TeacherStudentProfileService {
 
     private final ManagementAccessService managementAccessService;
     private final StudentProfileService studentProfileService;
-    private final TeacherRepository teacherRepository;
-    private final TeacherStudentRepository teacherStudentRepository;
 
     public TeacherStudentProfileService(ManagementAccessService managementAccessService,
-                                        StudentProfileService studentProfileService,
-                                        TeacherRepository teacherRepository,
-                                        TeacherStudentRepository teacherStudentRepository) {
+                                        StudentProfileService studentProfileService) {
         this.managementAccessService = managementAccessService;
         this.studentProfileService = studentProfileService;
-        this.teacherRepository = teacherRepository;
-        this.teacherStudentRepository = teacherStudentRepository;
     }
 
     public TeacherStudentProfileDto getProfile(Long studentId, HttpServletRequest request) {
@@ -153,22 +142,9 @@ public class TeacherStudentProfileService {
     }
 
     private void ensureTeacherCanAccessStudent(User operator, Long studentId) {
-        if (operator.getRole() == UserRole.ADMIN) {
+        if (operator.getRole() == UserRole.ADMIN || operator.getRole() == UserRole.TEACHER) {
             return;
         }
-        if (operator.getRole() != UserRole.TEACHER) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: teacher/admin role required.");
-        }
-
-        Teacher teacher = teacherRepository.findByUser_Id(operator.getId())
-                .orElseThrow(TeacherBindingRequiredException::new);
-        boolean assigned = teacherStudentRepository.existsByTeacher_IdAndStudent_IdAndStatus(
-                teacher.getId(),
-                studentId,
-                TeacherStudentStatus.ACTIVE
-        );
-        if (!assigned) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: student not assigned to current teacher.");
-        }
+        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: teacher/admin role required.");
     }
 }
