@@ -1787,6 +1787,7 @@ public class StudentProfileService {
     private StudentSchoolTranscriptDto.TranscriptItemDto toTranscriptItemDto(StudentSchoolTranscript transcript) {
         StudentSchoolTranscriptDto.TranscriptItemDto dto = new StudentSchoolTranscriptDto.TranscriptItemDto();
         dto.setId(transcript.getId());
+        dto.setStorageKey(transcript.getStorageKey());
         dto.setTranscriptFileName(transcript.getOriginalFilename());
         dto.setTranscriptContentType(transcript.getMimeType());
         dto.setTranscriptSizeBytes(transcript.getSizeBytes());
