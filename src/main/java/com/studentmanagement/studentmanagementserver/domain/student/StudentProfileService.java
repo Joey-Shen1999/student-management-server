@@ -677,13 +677,15 @@ public class StudentProfileService {
                 changeSource
         );
 
-        return toTranscriptDto(
+        StudentSchoolTranscriptDto dto = toTranscriptDto(
                 school,
                 transcripts,
                 academicUploadMetadata.academicRecordType,
                 academicUploadMetadata.reportYear,
                 academicUploadMetadata.reportMonth
         );
+        dto.setVersion(Long.valueOf(safeProfileVersion(profile.getProfileVersion())));
+        return dto;
     }
 
     private SchoolTranscriptDownload downloadSchoolTranscriptForStudent(Student student, Long schoolRecordId) {
@@ -818,7 +820,9 @@ public class StudentProfileService {
                 changeSource
         );
 
-        return toIdentityFileUploadDto(identityFiles);
+        StudentIdentityFileUploadDto dto = toIdentityFileUploadDto(identityFiles);
+        dto.setVersion(Long.valueOf(safeProfileVersion(profile.getProfileVersion())));
+        return dto;
     }
 
     private IdentityFileDownload downloadIdentityFileForStudentById(Student student, Long identityFileId) {

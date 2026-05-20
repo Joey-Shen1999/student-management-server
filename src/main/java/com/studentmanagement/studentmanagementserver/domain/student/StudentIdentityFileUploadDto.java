@@ -11,6 +11,7 @@ public class StudentIdentityFileUploadDto {
     private String identityFileUploadedAt;
     private Boolean hasIdentityFile;
     private List<IdentityFileItemDto> identityFiles;
+    private Long version;
 
     public Long getIdentityFileId() {
         return identityFileId;
@@ -66,6 +67,14 @@ public class StudentIdentityFileUploadDto {
 
     public void setIdentityFiles(List<IdentityFileItemDto> identityFiles) {
         this.identityFiles = identityFiles;
+    }
+
+    public Long getVersion() {
+        return version;
+    }
+
+    public void setVersion(Long version) {
+        this.version = version;
     }
 
     public static class IdentityFileItemDto {

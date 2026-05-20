@@ -17,6 +17,7 @@ public class StudentSchoolTranscriptDto {
     private String reportMonth;
     private Boolean hasTranscript;
     private List<TranscriptItemDto> transcripts;
+    private Long version;
 
     public Long getSchoolRecordId() {
         return schoolRecordId;
@@ -96,6 +97,14 @@ public class StudentSchoolTranscriptDto {
 
     public void setTranscripts(List<TranscriptItemDto> transcripts) {
         this.transcripts = transcripts;
+    }
+
+    public Long getVersion() {
+        return version;
+    }
+
+    public void setVersion(Long version) {
+        this.version = version;
     }
 
     @JsonIgnore
