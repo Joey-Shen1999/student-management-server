@@ -114,6 +114,7 @@ public class StudentSchoolTranscriptDto {
 
     public static class TranscriptItemDto {
         private Long id;
+        private String storageKey;
         private String transcriptFileName;
         private String transcriptContentType;
         private Long transcriptSizeBytes;
@@ -129,6 +130,14 @@ public class StudentSchoolTranscriptDto {
 
         public void setId(Long id) {
             this.id = id;
+        }
+
+        public String getStorageKey() {
+            return storageKey;
+        }
+
+        public void setStorageKey(String storageKey) {
+            this.storageKey = storageKey;
         }
 
         public String getTranscriptFileName() {

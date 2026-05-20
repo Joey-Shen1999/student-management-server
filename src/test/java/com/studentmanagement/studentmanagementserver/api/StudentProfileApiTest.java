@@ -1035,6 +1035,7 @@ class StudentProfileApiTest {
                 .andExpect(jsonPath("$.transcriptFileName").value("unionville-transcript-1.pdf"))
                 .andExpect(jsonPath("$.hasTranscript").value(true))
                 .andExpect(jsonPath("$.transcripts.length()").value(1))
+                .andExpect(jsonPath("$.transcripts[0].storageKey").exists())
                 .andExpect(jsonPath("$.version").value(2))
                 .andReturn();
         long transcriptId1 = objectMapper.readTree(uploadResult1.getResponse().getContentAsString())
@@ -1061,6 +1062,8 @@ class StudentProfileApiTest {
                 .andExpect(jsonPath("$.transcriptFileName").value("unionville-transcript-2.pdf"))
                 .andExpect(jsonPath("$.hasTranscript").value(true))
                 .andExpect(jsonPath("$.transcripts.length()").value(2))
+                .andExpect(jsonPath("$.transcripts[0].storageKey").exists())
+                .andExpect(jsonPath("$.transcripts[1].storageKey").exists())
                 .andExpect(jsonPath("$.version").value(3))
                 .andReturn();
         long transcriptId2 = objectMapper.readTree(uploadResult2.getResponse().getContentAsString())
