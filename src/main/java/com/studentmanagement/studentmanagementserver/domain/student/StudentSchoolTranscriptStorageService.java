@@ -1,30 +1,29 @@
 package com.studentmanagement.studentmanagementserver.domain.student;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.server.ResponseStatusException;
 
-import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.NoSuchFileException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.util.Locale;
 import java.util.UUID;
 
 @Service
 public class StudentSchoolTranscriptStorageService {
 
+    private static final String NAMESPACE = "student-school-transcripts";
+
     private final Path rootDirectory;
+    private final StudentFileStorageBackend storageBackend;
 
     public StudentSchoolTranscriptStorageService(
-            @Value("${app.student-profile.transcript-dir:uploads/student-school-transcripts}") String rootDir
+            @Value("${app.student-profile.transcript-dir:uploads/student-school-transcripts}") String rootDir,
+            StudentFileStorageBackend storageBackend
     ) {
         this.rootDirectory = Paths.get(rootDir).toAbsolutePath().normalize();
+        this.storageBackend = storageBackend;
     }
 
     public StoredTranscript store(Long studentId, Long schoolRecordId, MultipartFile file) {
@@ -38,8 +37,6 @@ public class StudentSchoolTranscriptStorageService {
             throw new IllegalArgumentException("schoolRecordId must be positive");
         }
 
-        ensureRootDirectory();
-
         String originalFilename = sanitizeOriginalFilename(file.getOriginalFilename());
         String extension = extractExtension(originalFilename);
         String storageKey = "student-" + studentId
@@ -47,10 +44,9 @@ public class StudentSchoolTranscriptStorageService {
                 + "_" + UUID.randomUUID().toString().replace("-", "")
                 + extension;
 
-        Path targetPath = resolveStoragePath(storageKey);
         try (InputStream inputStream = file.getInputStream()) {
-            Files.copy(inputStream, targetPath, StandardCopyOption.REPLACE_EXISTING);
-        } catch (IOException ex) {
+            storageBackend.store(NAMESPACE, rootDirectory, storageKey, inputStream, file.getSize(), normalizeContentType(file.getContentType()));
+        } catch (Exception ex) {
             throw new IllegalStateException("Failed to store transcript file");
         }
 
@@ -64,60 +60,15 @@ public class StudentSchoolTranscriptStorageService {
     }
 
     public byte[] readAllBytes(String storageKey) {
-        Path path = resolveStoragePath(storageKey);
-        try {
-            return Files.readAllBytes(path);
-        } catch (IOException ex) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Transcript file not found.");
-        }
+        return storageBackend.readAllBytes(NAMESPACE, rootDirectory, storageKey, "Transcript file not found.");
     }
 
     public void deleteIfExists(String storageKey) {
-        if (storageKey == null || storageKey.trim().isEmpty()) {
-            return;
-        }
-
-        Path path = resolveStoragePath(storageKey);
-        try {
-            Files.deleteIfExists(path);
-        } catch (IOException ignored) {
-            // Best effort cleanup.
-        }
+        storageBackend.deleteIfExists(NAMESPACE, rootDirectory, storageKey);
     }
 
     public void deleteRequired(String storageKey) {
-        Path path = resolveStoragePath(storageKey);
-        try {
-            Files.delete(path);
-        } catch (NoSuchFileException ex) {
-            // Treat missing file as already deleted.
-        } catch (IOException ex) {
-            throw new IllegalStateException("Failed to delete transcript file");
-        }
-    }
-
-    private void ensureRootDirectory() {
-        try {
-            Files.createDirectories(rootDirectory);
-        } catch (IOException ex) {
-            throw new IllegalStateException("Failed to initialize transcript storage directory");
-        }
-    }
-
-    private Path resolveStoragePath(String storageKey) {
-        String key = storageKey == null ? "" : storageKey.trim();
-        if (key.isEmpty()) {
-            throw new IllegalArgumentException("transcript storage key is required");
-        }
-        if (key.contains("..") || key.contains("/") || key.contains("\\")) {
-            throw new IllegalArgumentException("invalid transcript storage key");
-        }
-
-        Path path = rootDirectory.resolve(key).normalize();
-        if (!path.startsWith(rootDirectory)) {
-            throw new IllegalArgumentException("invalid transcript storage key");
-        }
-        return path;
+        storageBackend.deleteRequired(NAMESPACE, rootDirectory, storageKey);
     }
 
     private String sanitizeOriginalFilename(String originalFilename) {

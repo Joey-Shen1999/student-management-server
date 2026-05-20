@@ -52,7 +52,7 @@ public class StudentDocumentService {
     public static final String HISTORY_ACTION_UPLOAD = "UPLOAD";
     public static final String HISTORY_ACTION_DELETE = "DELETE";
 
-    private static final long MAX_UPLOAD_SIZE_BYTES = 50L * 1024L * 1024L;
+    private static final long MAX_UPLOAD_SIZE_BYTES = 20L * 1024L * 1024L;
     private static final int MIN_REPORT_YEAR = 1900;
     private static final int MAX_REPORT_YEAR = 2200;
     private static final int DEFAULT_HISTORY_PAGE = 0;
