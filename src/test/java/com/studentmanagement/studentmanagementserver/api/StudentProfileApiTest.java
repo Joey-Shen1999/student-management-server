@@ -895,14 +895,14 @@ class StudentProfileApiTest {
                 .andExpect(jsonPath("$.hasIdentityFile").value(true))
                 .andExpect(jsonPath("$.identityFiles.length()").value(2));
 
-        MockMultipartFile file45Mb = new MockMultipartFile(
+        MockMultipartFile file10Mb = new MockMultipartFile(
                 "file",
-                "id-45mb.pdf",
+                "id-10mb.pdf",
                 "application/pdf",
-                new byte[45 * 1024 * 1024]
+                new byte[10 * 1024 * 1024]
         );
         mockMvc.perform(multipart("/api/student/profile/identity-files")
-                        .file(file45Mb)
+                        .file(file10Mb)
                         .header("Authorization", bearer))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.hasIdentityFile").value(true))
@@ -969,14 +969,14 @@ class StudentProfileApiTest {
     }
 
     @Test
-    void identityFiles_upload60Mb_returns413() throws Exception {
+    void identityFiles_upload21Mb_returns413() throws Exception {
         Student student = createStudentAccount("profile_identity_file_413_student", "Amy", "Chen", "Amy");
 
         MockMultipartFile tooLarge = new MockMultipartFile(
                 "file",
-                "id-60mb.pdf",
+                "id-21mb.pdf",
                 "application/pdf",
-                new byte[60 * 1024 * 1024]
+                new byte[21 * 1024 * 1024]
         );
 
         mockMvc.perform(multipart("/api/student/profile/identity-files")
@@ -984,7 +984,7 @@ class StudentProfileApiTest {
                         .header("Authorization", bearerFor(student.getUser())))
                 .andExpect(status().isPayloadTooLarge())
                 .andExpect(jsonPath("$.code").value("FILE_TOO_LARGE"))
-                .andExpect(jsonPath("$.message").value("Max upload size is 50MB"));
+                .andExpect(jsonPath("$.message").value("Max upload size is 20MB"));
     }
 
     @Test

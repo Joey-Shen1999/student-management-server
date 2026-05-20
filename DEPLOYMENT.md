@@ -3,6 +3,9 @@
 DB safety runbook:
 - `docs/db-preflight-and-rollback.md`
 
+S3 upload storage runbook:
+- `docs/S3_UPLOAD_STORAGE_RUNBOOK.md`
+
 ## 1. GitHub Actions Configuration
 Configure in `Repository -> Settings -> Secrets and variables -> Actions`.
 

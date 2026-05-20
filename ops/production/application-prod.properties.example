@@ -23,3 +23,9 @@ spring.flyway.validate-on-migrate=true
 spring.flyway.clean-disabled=true
 
 app.cors.allowed-origins=https://globalvip-studentportal.ca,https://www.globalvip-studentportal.ca
+
+# Upload files are private. Use APP_STORAGE_TYPE=s3 in production.env after the EC2 IAM role is attached.
+app.storage.type=${APP_STORAGE_TYPE:local}
+app.storage.s3.region=${APP_STORAGE_S3_REGION:us-east-2}
+app.storage.s3.bucket=${APP_STORAGE_S3_BUCKET:}
+app.storage.s3.prefix=${APP_STORAGE_S3_PREFIX:student-management-prod}

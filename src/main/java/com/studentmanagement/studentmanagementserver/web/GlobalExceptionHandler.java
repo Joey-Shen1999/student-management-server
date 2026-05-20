@@ -247,7 +247,7 @@ public class GlobalExceptionHandler {
     private ApiError fileTooLargeError() {
         return new ApiError(
                 HttpStatus.PAYLOAD_TOO_LARGE.value(),
-                "Max upload size is 50MB",
+                "Max upload size is 20MB",
                 "FILE_TOO_LARGE",
                 Collections.<String>emptyList()
         );

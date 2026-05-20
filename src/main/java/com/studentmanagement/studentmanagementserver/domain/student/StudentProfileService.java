@@ -67,7 +67,7 @@ public class StudentProfileService {
     private static final int MAX_SCHOOL_BOARD_LENGTH = 64;
     private static final int MAX_UNIQUE_SCHOOLS_PER_PROFILE = 100;
     private static final int MAX_TEACHER_NOTE_LENGTH = 5000;
-    private static final long MAX_UPLOAD_SIZE_BYTES = 50L * 1024L * 1024L;
+    private static final long MAX_UPLOAD_SIZE_BYTES = 20L * 1024L * 1024L;
     private static final int DEFAULT_HISTORY_PAGE = 0;
     private static final int DEFAULT_HISTORY_SIZE = 20;
     private static final int MAX_HISTORY_SIZE = 100;
