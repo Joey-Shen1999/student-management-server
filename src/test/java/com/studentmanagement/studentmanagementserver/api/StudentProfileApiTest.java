@@ -880,7 +880,8 @@ class StudentProfileApiTest {
                         .header("Authorization", bearer))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.hasIdentityFile").value(true))
-                .andExpect(jsonPath("$.identityFiles.length()").value(1));
+                .andExpect(jsonPath("$.identityFiles.length()").value(1))
+                .andExpect(jsonPath("$.version").value(2));
 
         MockMultipartFile file20Mb = new MockMultipartFile(
                 "identity",
@@ -893,7 +894,8 @@ class StudentProfileApiTest {
                         .header("Authorization", bearer))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.hasIdentityFile").value(true))
-                .andExpect(jsonPath("$.identityFiles.length()").value(2));
+                .andExpect(jsonPath("$.identityFiles.length()").value(2))
+                .andExpect(jsonPath("$.version").value(3));
 
         MockMultipartFile file10Mb = new MockMultipartFile(
                 "file",
@@ -906,7 +908,8 @@ class StudentProfileApiTest {
                         .header("Authorization", bearer))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.hasIdentityFile").value(true))
-                .andExpect(jsonPath("$.identityFiles.length()").value(3));
+                .andExpect(jsonPath("$.identityFiles.length()").value(3))
+                .andExpect(jsonPath("$.version").value(4));
 
         MvcResult profileResult = mockMvc.perform(get("/api/student/profile")
                         .header("Authorization", bearer))
@@ -1032,6 +1035,7 @@ class StudentProfileApiTest {
                 .andExpect(jsonPath("$.transcriptFileName").value("unionville-transcript-1.pdf"))
                 .andExpect(jsonPath("$.hasTranscript").value(true))
                 .andExpect(jsonPath("$.transcripts.length()").value(1))
+                .andExpect(jsonPath("$.version").value(2))
                 .andReturn();
         long transcriptId1 = objectMapper.readTree(uploadResult1.getResponse().getContentAsString())
                 .path("transcripts")
@@ -1057,6 +1061,7 @@ class StudentProfileApiTest {
                 .andExpect(jsonPath("$.transcriptFileName").value("unionville-transcript-2.pdf"))
                 .andExpect(jsonPath("$.hasTranscript").value(true))
                 .andExpect(jsonPath("$.transcripts.length()").value(2))
+                .andExpect(jsonPath("$.version").value(3))
                 .andReturn();
         long transcriptId2 = objectMapper.readTree(uploadResult2.getResponse().getContentAsString())
                 .path("transcripts")
