@@ -2,14 +2,17 @@ package com.studentmanagement.studentmanagementserver.api;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.studentmanagement.studentmanagementserver.domain.enums.SchoolType;
 import com.studentmanagement.studentmanagementserver.domain.enums.TeacherStudentStatus;
 import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
 import com.studentmanagement.studentmanagementserver.domain.student.Student;
+import com.studentmanagement.studentmanagementserver.domain.student.StudentSchoolRecord;
 import com.studentmanagement.studentmanagementserver.domain.teacher.Teacher;
 import com.studentmanagement.studentmanagementserver.domain.teacher.TeacherStudent;
 import com.studentmanagement.studentmanagementserver.domain.university.University;
 import com.studentmanagement.studentmanagementserver.domain.university.UniversityProgram;
 import com.studentmanagement.studentmanagementserver.domain.user.User;
+import com.studentmanagement.studentmanagementserver.repo.StudentSchoolRecordRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentRepository;
 import com.studentmanagement.studentmanagementserver.repo.TeacherRepository;
 import com.studentmanagement.studentmanagementserver.repo.TeacherStudentRepository;
@@ -27,6 +30,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
 import java.util.LinkedHashMap;
@@ -51,6 +55,9 @@ class GraduationApplicationApiTest {
 
     @Autowired
     private StudentRepository studentRepository;
+
+    @Autowired
+    private StudentSchoolRecordRepository studentSchoolRecordRepository;
 
     @Autowired
     private TeacherRepository teacherRepository;
@@ -183,7 +190,7 @@ class GraduationApplicationApiTest {
         Map<String, Object> updatePayload = new LinkedHashMap<String, Object>();
         updatePayload.put("universityId", university.getId());
         updatePayload.put("programId", secondProgram.getId());
-        updatePayload.put("status", "SUBMITTED");
+        updatePayload.put("status", "OFFER_ACCEPTED");
         mockMvc.perform(put("/api/graduation-applications/{applicationId}", applicationId)
                         .header("Authorization", teacherBearer)
                         .header("X-Trace-Id", "graduation-audit-update")
@@ -191,7 +198,7 @@ class GraduationApplicationApiTest {
                         .content(objectMapper.writeValueAsString(updatePayload)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.programName").value("Life Sciences"))
-                .andExpect(jsonPath("$.status").value("SUBMITTED"));
+                .andExpect(jsonPath("$.status").value("OFFER_ACCEPTED"));
 
         mockMvc.perform(delete("/api/graduation-applications/{applicationId}", applicationId)
                         .header("Authorization", teacherBearer)
@@ -213,6 +220,175 @@ class GraduationApplicationApiTest {
                 .andExpect(jsonPath("$.items[3].changedFields[0].path").value("graduationStage"))
                 .andExpect(jsonPath("$.items[3].changedFields[0].before").value(false))
                 .andExpect(jsonPath("$.items[3].changedFields[0].after").value(true));
+    }
+
+    @Test
+    void teacherCanReadAndUpdateUniversityPortalCredential() throws Exception {
+        Teacher teacher = createTeacherAccount("graduation_teacher_portal", "Graduation Portal Teacher");
+        Student student = createStudentAccount("graduation_student_portal", "Grad", "Portal", "Credential");
+        assignTeacherStudent(teacher, student, TeacherStudentStatus.ACTIVE);
+        studentSchoolRecordRepository.save(new StudentSchoolRecord(
+                student,
+                SchoolType.MAIN,
+                "Portal Test High School",
+                LocalDate.of(2024, 9, 1),
+                LocalDate.of(2027, 6, 30)
+        ));
+        University university = universityRepository.save(new University(
+                "Graduation Portal University",
+                "Ontario",
+                "Toronto",
+                "Canada",
+                null
+        ));
+        String teacherBearer = bearerFor(teacher.getUser());
+
+        mockMvc.perform(get(
+                                "/api/students/{studentId}/graduation-applications/universities/{universityId}/portal",
+                                student.getId(),
+                                university.getId()
+                        )
+                        .header("Authorization", teacherBearer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.studentId").value(student.getId()))
+                .andExpect(jsonPath("$.universityId").value(university.getId()))
+                .andExpect(jsonPath("$.schoolAccount").value(""))
+                .andExpect(jsonPath("$.schoolEmail").value("gradportalvip2027@outlook.com"))
+                .andExpect(jsonPath("$.schoolPassword").value("ZAQ!2wsxcde3"))
+                .andExpect(jsonPath("$.studentVisible").value(false))
+                .andExpect(jsonPath("$.interviewRequired").value(false))
+                .andExpect(jsonPath("$.languageScoreRequired").value(false));
+
+        mockMvc.perform(get(
+                                "/api/students/{studentId}/graduation-applications/universities/{universityId}/portal",
+                                student.getId(),
+                                university.getId()
+                        )
+                .header("Authorization", bearerFor(student.getUser())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.studentVisible").value(false))
+                .andExpect(jsonPath("$.interviewRequired").value(false))
+                .andExpect(jsonPath("$.languageScoreRequired").value(false))
+                .andExpect(jsonPath("$.schoolAccount").value(""))
+                .andExpect(jsonPath("$.schoolEmail").value(""))
+                .andExpect(jsonPath("$.schoolPassword").value(""));
+
+        Map<String, Object> updatePayload = new LinkedHashMap<String, Object>();
+        updatePayload.put("schoolAccount", "portal-user-123");
+        updatePayload.put("schoolEmail", "custom.portal@outlook.com");
+        updatePayload.put("schoolPassword", "Changed!234");
+        updatePayload.put("studentVisible", true);
+        updatePayload.put("interviewRequired", true);
+        updatePayload.put("languageScoreRequired", true);
+        mockMvc.perform(put(
+                                "/api/students/{studentId}/graduation-applications/universities/{universityId}/portal",
+                                student.getId(),
+                                university.getId()
+                        )
+                        .header("Authorization", teacherBearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updatePayload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.schoolAccount").value("portal-user-123"))
+                .andExpect(jsonPath("$.schoolEmail").value("custom.portal@outlook.com"))
+                .andExpect(jsonPath("$.schoolPassword").value("Changed!234"))
+                .andExpect(jsonPath("$.studentVisible").value(true))
+                .andExpect(jsonPath("$.interviewRequired").value(true))
+                .andExpect(jsonPath("$.languageScoreRequired").value(true));
+
+        mockMvc.perform(get(
+                                "/api/students/{studentId}/graduation-applications/universities/{universityId}/portal",
+                                student.getId(),
+                                university.getId()
+                        )
+                .header("Authorization", bearerFor(student.getUser())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.studentVisible").value(true))
+                .andExpect(jsonPath("$.interviewRequired").value(true))
+                .andExpect(jsonPath("$.languageScoreRequired").value(true))
+                .andExpect(jsonPath("$.schoolAccount").value("portal-user-123"))
+                .andExpect(jsonPath("$.schoolEmail").value("custom.portal@outlook.com"))
+                .andExpect(jsonPath("$.schoolPassword").value("Changed!234"));
+
+        mockMvc.perform(get("/api/students/{studentId}/graduation-applications/history", student.getId())
+                        .header("Authorization", teacherBearer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].operation").value("UPDATE_PORTAL_CREDENTIAL"))
+                .andExpect(jsonPath("$.items[0].changedFields[0].path").value("schoolAccount"))
+                .andExpect(jsonPath("$.items[0].changedFields[2].path").value("schoolPassword"))
+                .andExpect(jsonPath("$.items[0].changedFields[2].before").value("已设置"))
+                .andExpect(jsonPath("$.items[0].changedFields[2].after").value("已设置"));
+    }
+
+    @Test
+    void teacherCanUpdateSharedApplicationAccountAndSyncPortalCredentials() throws Exception {
+        Teacher teacher = createTeacherAccount("graduation_teacher_account", "Graduation Account Teacher");
+        Student student = createStudentAccount("graduation_student_account", "Grad", "Account", "Credential");
+        assignTeacherStudent(teacher, student, TeacherStudentStatus.ACTIVE);
+        studentSchoolRecordRepository.save(new StudentSchoolRecord(
+                student,
+                SchoolType.MAIN,
+                "Account Test High School",
+                LocalDate.of(2024, 9, 1),
+                LocalDate.of(2027, 6, 30)
+        ));
+        University university = universityRepository.save(new University(
+                "Graduation Account University",
+                "Ontario",
+                "Toronto",
+                "Canada",
+                null
+        ));
+        String teacherBearer = bearerFor(teacher.getUser());
+
+        mockMvc.perform(get("/api/students/{studentId}/graduation-applications/account", student.getId())
+                        .header("Authorization", teacherBearer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.applicationEmail").value("gradaccountvip2027@outlook.com"))
+                .andExpect(jsonPath("$.applicationPassword").value("ZAQ!2wsxcde3"));
+
+        Map<String, Object> portalPayload = new LinkedHashMap<String, Object>();
+        portalPayload.put("schoolAccount", "school-login");
+        portalPayload.put("schoolEmail", "old.application@outlook.com");
+        portalPayload.put("schoolPassword", "Old!234");
+        mockMvc.perform(put(
+                                "/api/students/{studentId}/graduation-applications/universities/{universityId}/portal",
+                                student.getId(),
+                                university.getId()
+                        )
+                        .header("Authorization", teacherBearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(portalPayload)))
+                .andExpect(status().isOk());
+
+        Map<String, Object> accountPayload = new LinkedHashMap<String, Object>();
+        accountPayload.put("applicationEmail", "shared.application@outlook.com");
+        accountPayload.put("applicationPassword", "Shared!234");
+        mockMvc.perform(put("/api/students/{studentId}/graduation-applications/account", student.getId())
+                        .header("Authorization", teacherBearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(accountPayload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.applicationEmail").value("shared.application@outlook.com"))
+                .andExpect(jsonPath("$.applicationPassword").value("Shared!234"));
+
+        mockMvc.perform(get(
+                                "/api/students/{studentId}/graduation-applications/universities/{universityId}/portal",
+                                student.getId(),
+                                university.getId()
+                        )
+                        .header("Authorization", teacherBearer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.schoolAccount").value("school-login"))
+                .andExpect(jsonPath("$.schoolEmail").value("shared.application@outlook.com"))
+                .andExpect(jsonPath("$.schoolPassword").value("Shared!234"));
+
+        mockMvc.perform(get("/api/students/{studentId}/graduation-applications/history", student.getId())
+                        .header("Authorization", teacherBearer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].operation").value("UPDATE_APPLICATION_ACCOUNT_CREDENTIAL"))
+                .andExpect(jsonPath("$.items[0].changedFields[0].path").value("applicationEmail"))
+                .andExpect(jsonPath("$.items[0].changedFields[1].path").value("applicationPassword"));
     }
 
     private Map<String, Object> confirmPayload(Long universityId, Long programId, String status) {
