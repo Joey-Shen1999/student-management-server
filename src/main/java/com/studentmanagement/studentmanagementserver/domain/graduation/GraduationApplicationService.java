@@ -3,15 +3,20 @@ package com.studentmanagement.studentmanagementserver.domain.graduation;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.studentmanagement.studentmanagementserver.domain.enums.SchoolType;
 import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
 import com.studentmanagement.studentmanagementserver.domain.student.Student;
+import com.studentmanagement.studentmanagementserver.domain.student.StudentSchoolRecord;
 import com.studentmanagement.studentmanagementserver.domain.teacher.Teacher;
 import com.studentmanagement.studentmanagementserver.domain.university.University;
 import com.studentmanagement.studentmanagementserver.domain.university.UniversityProgram;
 import com.studentmanagement.studentmanagementserver.domain.user.User;
 import com.studentmanagement.studentmanagementserver.repo.GraduationApplicationChangeEventRepository;
+import com.studentmanagement.studentmanagementserver.repo.GraduationApplicationAccountCredentialRepository;
+import com.studentmanagement.studentmanagementserver.repo.GraduationApplicationPortalCredentialRepository;
 import com.studentmanagement.studentmanagementserver.repo.GraduationApplicationRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentRepository;
+import com.studentmanagement.studentmanagementserver.repo.StudentSchoolRecordRepository;
 import com.studentmanagement.studentmanagementserver.repo.TeacherRepository;
 import com.studentmanagement.studentmanagementserver.repo.UniversityProgramRepository;
 import com.studentmanagement.studentmanagementserver.repo.UniversityRepository;
@@ -27,6 +32,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import javax.servlet.http.HttpServletRequest;
+import java.text.Normalizer;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -36,6 +43,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -49,10 +57,16 @@ public class GraduationApplicationService {
     private static final String OPERATION_UPDATE_APPLICATION = "UPDATE_APPLICATION";
     private static final String OPERATION_DELETE_APPLICATION = "DELETE_APPLICATION";
     private static final String OPERATION_REORDER_APPLICATIONS = "REORDER_APPLICATIONS";
+    private static final String OPERATION_UPDATE_APPLICATION_ACCOUNT_CREDENTIAL = "UPDATE_APPLICATION_ACCOUNT_CREDENTIAL";
+    private static final String OPERATION_UPDATE_PORTAL_CREDENTIAL = "UPDATE_PORTAL_CREDENTIAL";
+    private static final String DEFAULT_SCHOOL_PASSWORD = "ZAQ!2wsxcde3";
 
     private final GraduationApplicationRepository applicationRepository;
     private final GraduationApplicationChangeEventRepository changeEventRepository;
+    private final GraduationApplicationAccountCredentialRepository accountCredentialRepository;
+    private final GraduationApplicationPortalCredentialRepository portalCredentialRepository;
     private final StudentRepository studentRepository;
+    private final StudentSchoolRecordRepository studentSchoolRecordRepository;
     private final UniversityRepository universityRepository;
     private final UniversityProgramRepository programRepository;
     private final TeacherRepository teacherRepository;
@@ -61,7 +75,10 @@ public class GraduationApplicationService {
 
     public GraduationApplicationService(GraduationApplicationRepository applicationRepository,
                                         GraduationApplicationChangeEventRepository changeEventRepository,
+                                        GraduationApplicationAccountCredentialRepository accountCredentialRepository,
+                                        GraduationApplicationPortalCredentialRepository portalCredentialRepository,
                                         StudentRepository studentRepository,
+                                        StudentSchoolRecordRepository studentSchoolRecordRepository,
                                         UniversityRepository universityRepository,
                                         UniversityProgramRepository programRepository,
                                         TeacherRepository teacherRepository,
@@ -69,7 +86,10 @@ public class GraduationApplicationService {
                                         ObjectMapper objectMapper) {
         this.applicationRepository = applicationRepository;
         this.changeEventRepository = changeEventRepository;
+        this.accountCredentialRepository = accountCredentialRepository;
+        this.portalCredentialRepository = portalCredentialRepository;
         this.studentRepository = studentRepository;
+        this.studentSchoolRecordRepository = studentSchoolRecordRepository;
         this.universityRepository = universityRepository;
         this.programRepository = programRepository;
         this.teacherRepository = teacherRepository;
@@ -106,6 +126,128 @@ public class GraduationApplicationService {
         response.setPage(normalizedPage);
         response.setSize(normalizedSize);
         return response;
+    }
+
+    @Transactional(readOnly = true)
+    public GraduationApplicationAccountCredentialDto getApplicationAccountCredential(Long studentId,
+                                                                                    HttpServletRequest request) {
+        Student student = requireStudent(studentId);
+        requireStudentAccess(student.getId(), request, false);
+        GraduationApplicationAccountCredential credential = accountCredentialRepository
+                .findByStudent_Id(student.getId())
+                .orElse(null);
+        return toApplicationAccountCredentialDto(student, credential);
+    }
+
+    @Transactional
+    public GraduationApplicationAccountCredentialDto updateApplicationAccountCredential(
+            Long studentId,
+            GraduationApplicationAccountCredentialRequest requestBody,
+            HttpServletRequest request) {
+        Student student = requireStudent(studentId);
+        User operator = requireStudentAccess(student.getId(), request, true);
+
+        GraduationApplicationAccountCredential credential = accountCredentialRepository
+                .findByStudent_Id(student.getId())
+                .orElse(new GraduationApplicationAccountCredential(student));
+        Map<String, Object> beforeSnapshot = snapshotApplicationAccountCredential(student, credential);
+
+        String applicationEmail = firstNonBlank(
+                requestBody == null ? null : requestBody.getApplicationEmail(),
+                buildDefaultSchoolEmail(student)
+        );
+        String applicationPassword = firstNonBlank(
+                requestBody == null ? null : requestBody.getApplicationPassword(),
+                DEFAULT_SCHOOL_PASSWORD
+        );
+        credential.updateAccountInfo(applicationEmail, applicationPassword);
+        GraduationApplicationAccountCredential saved = accountCredentialRepository.save(credential);
+
+        List<GraduationApplicationPortalCredential> portalCredentials =
+                portalCredentialRepository.findByStudent_Id(student.getId());
+        for (GraduationApplicationPortalCredential portalCredential : portalCredentials) {
+            portalCredential.updatePortalInfo(
+                    portalCredential.getSchoolAccount(),
+                    applicationEmail,
+                    applicationPassword
+            );
+        }
+        if (!portalCredentials.isEmpty()) {
+            portalCredentialRepository.saveAll(portalCredentials);
+        }
+
+        Map<String, Object> afterSnapshot = snapshotApplicationAccountCredential(student, saved);
+        List<GraduationApplicationHistoryListDto.FieldChangeDto> changes =
+                buildApplicationAccountCredentialChanges(beforeSnapshot, afterSnapshot);
+        if (!changes.isEmpty()) {
+            recordHistory(
+                    student,
+                    null,
+                    OPERATION_UPDATE_APPLICATION_ACCOUNT_CREDENTIAL,
+                    changes,
+                    operator,
+                    resolveTraceId(request)
+            );
+        }
+        return toApplicationAccountCredentialDto(student, saved);
+    }
+
+    @Transactional(readOnly = true)
+    public GraduationApplicationPortalCredentialDto getPortalCredential(Long studentId,
+                                                                        Long universityId,
+                                                                        HttpServletRequest request) {
+        Student student = requireStudent(studentId);
+        requireStudentAccess(student.getId(), request, false);
+        University university = requireUniversity(universityId);
+        GraduationApplicationPortalCredential credential = portalCredentialRepository
+                .findByStudent_IdAndUniversity_Id(student.getId(), university.getId())
+                .orElse(null);
+        return toPortalCredentialDto(student, university, credential);
+    }
+
+    @Transactional
+    public GraduationApplicationPortalCredentialDto updatePortalCredential(
+            Long studentId,
+            Long universityId,
+            GraduationApplicationPortalCredentialRequest requestBody,
+            HttpServletRequest request) {
+        Student student = requireStudent(studentId);
+        User operator = requireStudentAccess(student.getId(), request, true);
+        University university = requireUniversity(universityId);
+
+        GraduationApplicationPortalCredential credential = portalCredentialRepository
+                .findByStudent_IdAndUniversity_Id(student.getId(), university.getId())
+                .orElse(new GraduationApplicationPortalCredential(student, university));
+        Map<String, Object> beforeSnapshot = snapshotPortalCredential(student, university, credential);
+        String defaultApplicationEmail = resolveApplicationEmail(student);
+        String defaultApplicationPassword = resolveApplicationPassword(student);
+
+        credential.updatePortalInfo(
+                trimToNull(requestBody == null ? null : requestBody.getSchoolAccount()),
+                firstNonBlank(
+                        requestBody == null ? null : requestBody.getSchoolEmail(),
+                        defaultApplicationEmail
+                ),
+                firstNonBlank(
+                        requestBody == null ? null : requestBody.getSchoolPassword(),
+                        defaultApplicationPassword
+                )
+        );
+        GraduationApplicationPortalCredential saved = portalCredentialRepository.save(credential);
+        Map<String, Object> afterSnapshot = snapshotPortalCredential(student, university, saved);
+        List<GraduationApplicationHistoryListDto.FieldChangeDto> changes =
+                buildPortalCredentialChanges(beforeSnapshot, afterSnapshot);
+        if (!changes.isEmpty()) {
+            recordHistory(
+                    student,
+                    null,
+                    OPERATION_UPDATE_PORTAL_CREDENTIAL,
+                    changes,
+                    operator,
+                    resolveTraceId(request)
+            );
+        }
+        return toPortalCredentialDto(student, university, saved);
     }
 
     @Transactional
@@ -341,6 +483,14 @@ public class GraduationApplicationService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Graduation application not found: " + applicationId));
     }
 
+    private University requireUniversity(Long universityId) {
+        if (universityId == null || universityId.longValue() <= 0L) {
+            throw new IllegalArgumentException("universityId is required");
+        }
+        return universityRepository.findById(universityId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "University not found: " + universityId));
+    }
+
     private University requireActiveUniversity(Long universityId) {
         if (universityId == null || universityId.longValue() <= 0L) {
             throw new IllegalArgumentException("universityId is required");
@@ -439,6 +589,50 @@ public class GraduationApplicationService {
         return changes;
     }
 
+    private List<GraduationApplicationHistoryListDto.FieldChangeDto> buildPortalCredentialChanges(
+            Map<String, Object> before,
+            Map<String, Object> after) {
+        List<GraduationApplicationHistoryListDto.FieldChangeDto> changes =
+                new ArrayList<GraduationApplicationHistoryListDto.FieldChangeDto>();
+        addChangeIfDifferent(changes, "schoolAccount", "学校账号", before, after, "schoolAccount");
+        addChangeIfDifferent(changes, "schoolEmail", "申请邮箱", before, after, "schoolEmail");
+        Object beforePassword = before == null ? null : before.get("schoolPassword");
+        Object afterPassword = after == null ? null : after.get("schoolPassword");
+        if (!Objects.equals(beforePassword, afterPassword)) {
+            changes.add(new GraduationApplicationHistoryListDto.FieldChangeDto(
+                    "schoolPassword",
+                    "学校密码",
+                    maskPasswordForHistory(beforePassword),
+                    maskPasswordForHistory(afterPassword)
+            ));
+        }
+        return changes;
+    }
+
+    private List<GraduationApplicationHistoryListDto.FieldChangeDto> buildApplicationAccountCredentialChanges(
+            Map<String, Object> before,
+            Map<String, Object> after) {
+        List<GraduationApplicationHistoryListDto.FieldChangeDto> changes =
+                new ArrayList<GraduationApplicationHistoryListDto.FieldChangeDto>();
+        addChangeIfDifferent(changes, "applicationEmail", "申请邮箱", before, after, "applicationEmail");
+        Object beforePassword = before == null ? null : before.get("applicationPassword");
+        Object afterPassword = after == null ? null : after.get("applicationPassword");
+        if (!Objects.equals(beforePassword, afterPassword)) {
+            changes.add(new GraduationApplicationHistoryListDto.FieldChangeDto(
+                    "applicationPassword",
+                    "申请密码",
+                    maskPasswordForHistory(beforePassword),
+                    maskPasswordForHistory(afterPassword)
+            ));
+        }
+        return changes;
+    }
+
+    private String maskPasswordForHistory(Object value) {
+        String text = value == null ? null : trimToNull(String.valueOf(value));
+        return text == null ? "未设置" : "已设置";
+    }
+
     private void addChangeIfDifferent(List<GraduationApplicationHistoryListDto.FieldChangeDto> changes,
                                       String path,
                                       String label,
@@ -470,6 +664,54 @@ public class GraduationApplicationService {
         snapshot.put("status", application.getStatus() == null ? null : application.getStatus().name());
         snapshot.put("sortOrder", Integer.valueOf(application.getSortOrder()));
         snapshot.put("sourceAspirationId", application.getSourceAspirationId());
+        return snapshot;
+    }
+
+    private Map<String, Object> snapshotApplicationAccountCredential(
+            Student student,
+            GraduationApplicationAccountCredential credential) {
+        Map<String, Object> snapshot = new LinkedHashMap<String, Object>();
+        snapshot.put("studentId", student == null ? null : student.getId());
+        snapshot.put(
+                "applicationEmail",
+                credential == null
+                        ? buildDefaultSchoolEmail(student)
+                        : firstNonBlank(credential.getApplicationEmail(), buildDefaultSchoolEmail(student))
+        );
+        snapshot.put(
+                "applicationPassword",
+                credential == null
+                        ? DEFAULT_SCHOOL_PASSWORD
+                        : firstNonBlank(credential.getApplicationPassword(), DEFAULT_SCHOOL_PASSWORD)
+        );
+        return snapshot;
+    }
+
+    private Map<String, Object> snapshotPortalCredential(Student student,
+                                                         University university,
+                                                         GraduationApplicationPortalCredential credential) {
+        String defaultApplicationEmail = resolveApplicationEmail(student);
+        String defaultApplicationPassword = resolveApplicationPassword(student);
+        Map<String, Object> snapshot = new LinkedHashMap<String, Object>();
+        snapshot.put("studentId", student == null ? null : student.getId());
+        snapshot.put("universityId", university == null ? null : university.getId());
+        snapshot.put("universityName", university == null ? null : university.getName());
+        snapshot.put(
+                "schoolAccount",
+                credential == null ? "" : safeString(credential.getSchoolAccount())
+        );
+        snapshot.put(
+                "schoolEmail",
+                credential == null
+                        ? defaultApplicationEmail
+                        : firstNonBlank(credential.getSchoolEmail(), defaultApplicationEmail)
+        );
+        snapshot.put(
+                "schoolPassword",
+                credential == null
+                        ? defaultApplicationPassword
+                        : firstNonBlank(credential.getSchoolPassword(), defaultApplicationPassword)
+        );
         return snapshot;
     }
 
@@ -586,6 +828,145 @@ public class GraduationApplicationService {
         return trimmed.isEmpty() ? null : trimmed;
     }
 
+    private String firstNonBlank(String first, String fallback) {
+        String normalizedFirst = trimToNull(first);
+        if (normalizedFirst != null) {
+            return normalizedFirst;
+        }
+        return trimToNull(fallback);
+    }
+
+    private String safeString(String value) {
+        String text = trimToNull(value);
+        return text == null ? "" : text;
+    }
+
+    private String buildDefaultSchoolEmail(Student student) {
+        int applicationYear = resolveApplicationYear(student);
+        String firstName = normalizeEmailToken(student == null ? null : student.getFirstName());
+        String lastName = normalizeEmailToken(student == null ? null : student.getLastName());
+        String namePrefix = firstName + lastName;
+        if (namePrefix.isEmpty() && student != null && student.getId() != null) {
+            namePrefix = "student" + student.getId();
+        }
+        if (namePrefix.isEmpty()) {
+            namePrefix = "student";
+        }
+        return namePrefix + "vip" + applicationYear + "@outlook.com";
+    }
+
+    private String resolveApplicationEmail(Student student) {
+        String defaultEmail = buildDefaultSchoolEmail(student);
+        if (student == null || student.getId() == null) {
+            return defaultEmail;
+        }
+        GraduationApplicationAccountCredential credential = accountCredentialRepository
+                .findByStudent_Id(student.getId())
+                .orElse(null);
+        return credential == null ? defaultEmail : firstNonBlank(credential.getApplicationEmail(), defaultEmail);
+    }
+
+    private String resolveApplicationPassword(Student student) {
+        if (student == null || student.getId() == null) {
+            return DEFAULT_SCHOOL_PASSWORD;
+        }
+        GraduationApplicationAccountCredential credential = accountCredentialRepository
+                .findByStudent_Id(student.getId())
+                .orElse(null);
+        return credential == null
+                ? DEFAULT_SCHOOL_PASSWORD
+                : firstNonBlank(credential.getApplicationPassword(), DEFAULT_SCHOOL_PASSWORD);
+    }
+
+    private String normalizeEmailToken(String value) {
+        String text = trimToNull(value);
+        if (text == null) {
+            return "";
+        }
+        String normalized = Normalizer.normalize(text, Normalizer.Form.NFKD);
+        return normalized
+                .replaceAll("\\p{M}+", "")
+                .replaceAll("[^A-Za-z0-9]+", "")
+                .toLowerCase(Locale.ROOT);
+    }
+
+    private int resolveApplicationYear(Student student) {
+        if (student != null && student.getId() != null) {
+            StudentSchoolRecord primarySchool = findPrimarySchool(
+                    studentSchoolRecordRepository.findByStudent_IdOrderByIdAsc(student.getId())
+            );
+            if (primarySchool != null && primarySchool.getEndTime() != null) {
+                return primarySchool.getEndTime().getYear();
+            }
+        }
+        return LocalDate.now().getYear();
+    }
+
+    private StudentSchoolRecord findPrimarySchool(List<StudentSchoolRecord> schoolRecords) {
+        StudentSchoolRecord primarySchool = null;
+        if (schoolRecords == null) {
+            return null;
+        }
+        for (StudentSchoolRecord schoolRecord : schoolRecords) {
+            if (shouldReplacePrimarySchool(primarySchool, schoolRecord)) {
+                primarySchool = schoolRecord;
+            }
+        }
+        return primarySchool;
+    }
+
+    private boolean shouldReplacePrimarySchool(StudentSchoolRecord current, StudentSchoolRecord candidate) {
+        if (candidate == null) {
+            return false;
+        }
+        if (current == null) {
+            return true;
+        }
+
+        int currentTypeRank = schoolTypeRank(current.getSchoolType());
+        int candidateTypeRank = schoolTypeRank(candidate.getSchoolType());
+        if (candidateTypeRank != currentTypeRank) {
+            return candidateTypeRank < currentTypeRank;
+        }
+
+        int endTimeCompare = compareDateDescNullLast(candidate.getEndTime(), current.getEndTime());
+        if (endTimeCompare != 0) {
+            return endTimeCompare < 0;
+        }
+
+        int startTimeCompare = compareDateDescNullLast(candidate.getStartTime(), current.getStartTime());
+        if (startTimeCompare != 0) {
+            return startTimeCompare < 0;
+        }
+
+        Long currentId = current.getId() == null ? 0L : current.getId();
+        Long candidateId = candidate.getId() == null ? 0L : candidate.getId();
+        return candidateId > currentId;
+    }
+
+    private int schoolTypeRank(SchoolType schoolType) {
+        if (schoolType == SchoolType.MAIN) {
+            return 0;
+        }
+        if (schoolType == SchoolType.OTHER) {
+            return 1;
+        }
+        return 2;
+    }
+
+    private int compareDateDescNullLast(LocalDate left, LocalDate right) {
+        if (left == null && right == null) {
+            return 0;
+        }
+        if (left == null) {
+            return 1;
+        }
+        if (right == null) {
+            return -1;
+        }
+        return right.compareTo(left);
+    }
+
     private AuditActor resolveAuditActor(User operator, Student targetStudent) {
         if (operator == null) {
             return new AuditActor(null, "SYSTEM", "System");
@@ -668,6 +1049,53 @@ public class GraduationApplicationService {
         dto.setSourceAspirationId(application.getSourceAspirationId());
         dto.setCreatedAt(application.getCreatedAt());
         dto.setUpdatedAt(application.getUpdatedAt());
+        return dto;
+    }
+
+    private GraduationApplicationAccountCredentialDto toApplicationAccountCredentialDto(
+            Student student,
+            GraduationApplicationAccountCredential credential) {
+        String defaultEmail = buildDefaultSchoolEmail(student);
+        GraduationApplicationAccountCredentialDto dto = new GraduationApplicationAccountCredentialDto();
+        dto.setStudentId(student == null ? null : student.getId());
+        dto.setApplicationEmail(
+                credential == null
+                        ? defaultEmail
+                        : firstNonBlank(credential.getApplicationEmail(), defaultEmail)
+        );
+        dto.setApplicationPassword(
+                credential == null
+                        ? DEFAULT_SCHOOL_PASSWORD
+                        : firstNonBlank(credential.getApplicationPassword(), DEFAULT_SCHOOL_PASSWORD)
+        );
+        dto.setDefaultApplicationEmail(defaultEmail);
+        dto.setDefaultApplicationPassword(DEFAULT_SCHOOL_PASSWORD);
+        dto.setCreatedAt(credential == null ? null : credential.getCreatedAt());
+        dto.setUpdatedAt(credential == null ? null : credential.getUpdatedAt());
+        return dto;
+    }
+
+    private GraduationApplicationPortalCredentialDto toPortalCredentialDto(
+            Student student,
+            University university,
+            GraduationApplicationPortalCredential credential) {
+        String defaultEmail = resolveApplicationEmail(student);
+        String defaultPassword = resolveApplicationPassword(student);
+        GraduationApplicationPortalCredentialDto dto = new GraduationApplicationPortalCredentialDto();
+        dto.setStudentId(student == null ? null : student.getId());
+        dto.setUniversityId(university == null ? null : university.getId());
+        dto.setUniversityName(university == null ? null : university.getName());
+        dto.setSchoolAccount(credential == null ? "" : safeString(credential.getSchoolAccount()));
+        dto.setSchoolEmail(credential == null ? defaultEmail : firstNonBlank(credential.getSchoolEmail(), defaultEmail));
+        dto.setSchoolPassword(
+                credential == null
+                        ? defaultPassword
+                        : firstNonBlank(credential.getSchoolPassword(), defaultPassword)
+        );
+        dto.setDefaultSchoolEmail(defaultEmail);
+        dto.setDefaultSchoolPassword(defaultPassword);
+        dto.setCreatedAt(credential == null ? null : credential.getCreatedAt());
+        dto.setUpdatedAt(credential == null ? null : credential.getUpdatedAt());
         return dto;
     }
 

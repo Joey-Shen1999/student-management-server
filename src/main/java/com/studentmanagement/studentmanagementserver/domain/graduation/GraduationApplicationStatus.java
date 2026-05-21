@@ -5,5 +5,6 @@ public enum GraduationApplicationStatus {
     READY_TO_SUBMIT,
     SUBMITTED,
     WAITING_RESULT,
-    OFFER_RECEIVED
+    OFFER_RECEIVED,
+    OFFER_ACCEPTED
 }

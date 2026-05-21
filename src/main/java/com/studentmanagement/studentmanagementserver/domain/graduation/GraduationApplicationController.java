@@ -39,6 +39,42 @@ public class GraduationApplicationController {
         return ResponseEntity.ok(graduationApplicationService.listHistory(studentId, page, size, request));
     }
 
+    @GetMapping("/students/{studentId}/graduation-applications/account")
+    public ResponseEntity<GraduationApplicationAccountCredentialDto> getApplicationAccountCredential(
+            @PathVariable Long studentId,
+            HttpServletRequest request) {
+        return ResponseEntity.ok(graduationApplicationService.getApplicationAccountCredential(studentId, request));
+    }
+
+    @PutMapping("/students/{studentId}/graduation-applications/account")
+    public ResponseEntity<GraduationApplicationAccountCredentialDto> updateApplicationAccountCredential(
+            @PathVariable Long studentId,
+            @RequestBody(required = false) GraduationApplicationAccountCredentialRequest requestBody,
+            HttpServletRequest request) {
+        return ResponseEntity.ok(
+                graduationApplicationService.updateApplicationAccountCredential(studentId, requestBody, request)
+        );
+    }
+
+    @GetMapping("/students/{studentId}/graduation-applications/universities/{universityId}/portal")
+    public ResponseEntity<GraduationApplicationPortalCredentialDto> getPortalCredential(
+            @PathVariable Long studentId,
+            @PathVariable Long universityId,
+            HttpServletRequest request) {
+        return ResponseEntity.ok(graduationApplicationService.getPortalCredential(studentId, universityId, request));
+    }
+
+    @PutMapping("/students/{studentId}/graduation-applications/universities/{universityId}/portal")
+    public ResponseEntity<GraduationApplicationPortalCredentialDto> updatePortalCredential(
+            @PathVariable Long studentId,
+            @PathVariable Long universityId,
+            @RequestBody(required = false) GraduationApplicationPortalCredentialRequest requestBody,
+            HttpServletRequest request) {
+        return ResponseEntity.ok(
+                graduationApplicationService.updatePortalCredential(studentId, universityId, requestBody, request)
+        );
+    }
+
     @PutMapping("/students/{studentId}/graduation-applications/confirm")
     public ResponseEntity<List<GraduationApplicationDto>> confirm(
             @PathVariable Long studentId,
