@@ -44,6 +44,15 @@ public class GraduationApplicationPortalCredential extends BaseEntity {
     @Column(name = "school_password", length = 200)
     private String schoolPassword;
 
+    @Column(name = "student_visible", nullable = false)
+    private boolean studentVisible = false;
+
+    @Column(name = "interview_required", nullable = false)
+    private boolean interviewRequired = false;
+
+    @Column(name = "language_score_required", nullable = false)
+    private boolean languageScoreRequired = false;
+
     protected GraduationApplicationPortalCredential() {
     }
 
@@ -72,9 +81,29 @@ public class GraduationApplicationPortalCredential extends BaseEntity {
         return schoolPassword;
     }
 
-    public void updatePortalInfo(String schoolAccount, String schoolEmail, String schoolPassword) {
+    public boolean isStudentVisible() {
+        return studentVisible;
+    }
+
+    public boolean isInterviewRequired() {
+        return interviewRequired;
+    }
+
+    public boolean isLanguageScoreRequired() {
+        return languageScoreRequired;
+    }
+
+    public void updatePortalInfo(String schoolAccount,
+                                 String schoolEmail,
+                                 String schoolPassword,
+                                 boolean studentVisible,
+                                 boolean interviewRequired,
+                                 boolean languageScoreRequired) {
         this.schoolAccount = schoolAccount;
         this.schoolEmail = schoolEmail;
         this.schoolPassword = schoolPassword;
+        this.studentVisible = studentVisible;
+        this.interviewRequired = interviewRequired;
+        this.languageScoreRequired = languageScoreRequired;
     }
 }

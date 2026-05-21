@@ -11,6 +11,9 @@ public class GraduationApplicationPortalCredentialDto {
     private String schoolPassword;
     private String defaultSchoolEmail;
     private String defaultSchoolPassword;
+    private boolean studentVisible;
+    private boolean interviewRequired;
+    private boolean languageScoreRequired;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -76,6 +79,30 @@ public class GraduationApplicationPortalCredentialDto {
 
     public void setDefaultSchoolPassword(String defaultSchoolPassword) {
         this.defaultSchoolPassword = defaultSchoolPassword;
+    }
+
+    public boolean isStudentVisible() {
+        return studentVisible;
+    }
+
+    public void setStudentVisible(boolean studentVisible) {
+        this.studentVisible = studentVisible;
+    }
+
+    public boolean isInterviewRequired() {
+        return interviewRequired;
+    }
+
+    public void setInterviewRequired(boolean interviewRequired) {
+        this.interviewRequired = interviewRequired;
+    }
+
+    public boolean isLanguageScoreRequired() {
+        return languageScoreRequired;
+    }
+
+    public void setLanguageScoreRequired(boolean languageScoreRequired) {
+        this.languageScoreRequired = languageScoreRequired;
     }
 
     public LocalDateTime getCreatedAt() {

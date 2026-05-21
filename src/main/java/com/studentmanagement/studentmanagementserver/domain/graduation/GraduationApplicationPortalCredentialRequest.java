@@ -4,6 +4,9 @@ public class GraduationApplicationPortalCredentialRequest {
     private String schoolAccount;
     private String schoolEmail;
     private String schoolPassword;
+    private Boolean studentVisible;
+    private Boolean interviewRequired;
+    private Boolean languageScoreRequired;
 
     public String getSchoolAccount() {
         return schoolAccount;
@@ -27,5 +30,29 @@ public class GraduationApplicationPortalCredentialRequest {
 
     public void setSchoolPassword(String schoolPassword) {
         this.schoolPassword = schoolPassword;
+    }
+
+    public Boolean getStudentVisible() {
+        return studentVisible;
+    }
+
+    public void setStudentVisible(Boolean studentVisible) {
+        this.studentVisible = studentVisible;
+    }
+
+    public Boolean getInterviewRequired() {
+        return interviewRequired;
+    }
+
+    public void setInterviewRequired(Boolean interviewRequired) {
+        this.interviewRequired = interviewRequired;
+    }
+
+    public Boolean getLanguageScoreRequired() {
+        return languageScoreRequired;
+    }
+
+    public void setLanguageScoreRequired(Boolean languageScoreRequired) {
+        this.languageScoreRequired = languageScoreRequired;
     }
 }

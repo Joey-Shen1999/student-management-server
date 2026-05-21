@@ -254,12 +254,32 @@ class GraduationApplicationApiTest {
                 .andExpect(jsonPath("$.universityId").value(university.getId()))
                 .andExpect(jsonPath("$.schoolAccount").value(""))
                 .andExpect(jsonPath("$.schoolEmail").value("gradportalvip2027@outlook.com"))
-                .andExpect(jsonPath("$.schoolPassword").value("ZAQ!2wsxcde3"));
+                .andExpect(jsonPath("$.schoolPassword").value("ZAQ!2wsxcde3"))
+                .andExpect(jsonPath("$.studentVisible").value(false))
+                .andExpect(jsonPath("$.interviewRequired").value(false))
+                .andExpect(jsonPath("$.languageScoreRequired").value(false));
+
+        mockMvc.perform(get(
+                                "/api/students/{studentId}/graduation-applications/universities/{universityId}/portal",
+                                student.getId(),
+                                university.getId()
+                        )
+                .header("Authorization", bearerFor(student.getUser())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.studentVisible").value(false))
+                .andExpect(jsonPath("$.interviewRequired").value(false))
+                .andExpect(jsonPath("$.languageScoreRequired").value(false))
+                .andExpect(jsonPath("$.schoolAccount").value(""))
+                .andExpect(jsonPath("$.schoolEmail").value(""))
+                .andExpect(jsonPath("$.schoolPassword").value(""));
 
         Map<String, Object> updatePayload = new LinkedHashMap<String, Object>();
         updatePayload.put("schoolAccount", "portal-user-123");
         updatePayload.put("schoolEmail", "custom.portal@outlook.com");
         updatePayload.put("schoolPassword", "Changed!234");
+        updatePayload.put("studentVisible", true);
+        updatePayload.put("interviewRequired", true);
+        updatePayload.put("languageScoreRequired", true);
         mockMvc.perform(put(
                                 "/api/students/{studentId}/graduation-applications/universities/{universityId}/portal",
                                 student.getId(),
@@ -269,6 +289,23 @@ class GraduationApplicationApiTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(updatePayload)))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.schoolAccount").value("portal-user-123"))
+                .andExpect(jsonPath("$.schoolEmail").value("custom.portal@outlook.com"))
+                .andExpect(jsonPath("$.schoolPassword").value("Changed!234"))
+                .andExpect(jsonPath("$.studentVisible").value(true))
+                .andExpect(jsonPath("$.interviewRequired").value(true))
+                .andExpect(jsonPath("$.languageScoreRequired").value(true));
+
+        mockMvc.perform(get(
+                                "/api/students/{studentId}/graduation-applications/universities/{universityId}/portal",
+                                student.getId(),
+                                university.getId()
+                        )
+                .header("Authorization", bearerFor(student.getUser())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.studentVisible").value(true))
+                .andExpect(jsonPath("$.interviewRequired").value(true))
+                .andExpect(jsonPath("$.languageScoreRequired").value(true))
                 .andExpect(jsonPath("$.schoolAccount").value("portal-user-123"))
                 .andExpect(jsonPath("$.schoolEmail").value("custom.portal@outlook.com"))
                 .andExpect(jsonPath("$.schoolPassword").value("Changed!234"));

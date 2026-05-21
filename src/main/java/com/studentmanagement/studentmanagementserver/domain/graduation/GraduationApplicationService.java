@@ -169,7 +169,10 @@ public class GraduationApplicationService {
             portalCredential.updatePortalInfo(
                     portalCredential.getSchoolAccount(),
                     applicationEmail,
-                    applicationPassword
+                    applicationPassword,
+                    portalCredential.isStudentVisible(),
+                    portalCredential.isInterviewRequired(),
+                    portalCredential.isLanguageScoreRequired()
             );
         }
         if (!portalCredentials.isEmpty()) {
@@ -197,12 +200,14 @@ public class GraduationApplicationService {
                                                                         Long universityId,
                                                                         HttpServletRequest request) {
         Student student = requireStudent(studentId);
-        requireStudentAccess(student.getId(), request, false);
+        User operator = requireStudentAccess(student.getId(), request, false);
         University university = requireUniversity(universityId);
         GraduationApplicationPortalCredential credential = portalCredentialRepository
                 .findByStudent_IdAndUniversity_Id(student.getId(), university.getId())
                 .orElse(null);
-        return toPortalCredentialDto(student, university, credential);
+        boolean exposeSensitive = operator.getRole() != UserRole.STUDENT
+                || (credential != null && credential.isStudentVisible());
+        return toPortalCredentialDto(student, university, credential, exposeSensitive);
     }
 
     @Transactional
@@ -221,6 +226,15 @@ public class GraduationApplicationService {
         Map<String, Object> beforeSnapshot = snapshotPortalCredential(student, university, credential);
         String defaultApplicationEmail = resolveApplicationEmail(student);
         String defaultApplicationPassword = resolveApplicationPassword(student);
+        boolean studentVisible = requestBody != null && requestBody.getStudentVisible() != null
+                ? requestBody.getStudentVisible().booleanValue()
+                : credential.isStudentVisible();
+        boolean interviewRequired = requestBody != null && requestBody.getInterviewRequired() != null
+                ? requestBody.getInterviewRequired().booleanValue()
+                : credential.isInterviewRequired();
+        boolean languageScoreRequired = requestBody != null && requestBody.getLanguageScoreRequired() != null
+                ? requestBody.getLanguageScoreRequired().booleanValue()
+                : credential.isLanguageScoreRequired();
 
         credential.updatePortalInfo(
                 trimToNull(requestBody == null ? null : requestBody.getSchoolAccount()),
@@ -231,7 +245,10 @@ public class GraduationApplicationService {
                 firstNonBlank(
                         requestBody == null ? null : requestBody.getSchoolPassword(),
                         defaultApplicationPassword
-                )
+                ),
+                studentVisible,
+                interviewRequired,
+                languageScoreRequired
         );
         GraduationApplicationPortalCredential saved = portalCredentialRepository.save(credential);
         Map<String, Object> afterSnapshot = snapshotPortalCredential(student, university, saved);
@@ -606,6 +623,9 @@ public class GraduationApplicationService {
                     maskPasswordForHistory(afterPassword)
             ));
         }
+        addChangeIfDifferent(changes, "studentVisible", "学生可见", before, after, "studentVisible");
+        addChangeIfDifferent(changes, "interviewRequired", "面试提醒", before, after, "interviewRequired");
+        addChangeIfDifferent(changes, "languageScoreRequired", "语言成绩提醒", before, after, "languageScoreRequired");
         return changes;
     }
 
@@ -712,6 +732,9 @@ public class GraduationApplicationService {
                         ? defaultApplicationPassword
                         : firstNonBlank(credential.getSchoolPassword(), defaultApplicationPassword)
         );
+        snapshot.put("studentVisible", credential != null && credential.isStudentVisible());
+        snapshot.put("interviewRequired", credential != null && credential.isInterviewRequired());
+        snapshot.put("languageScoreRequired", credential != null && credential.isLanguageScoreRequired());
         return snapshot;
     }
 
@@ -1079,21 +1102,40 @@ public class GraduationApplicationService {
             Student student,
             University university,
             GraduationApplicationPortalCredential credential) {
+        return toPortalCredentialDto(student, university, credential, true);
+    }
+
+    private GraduationApplicationPortalCredentialDto toPortalCredentialDto(
+            Student student,
+            University university,
+            GraduationApplicationPortalCredential credential,
+            boolean exposeSensitive) {
         String defaultEmail = resolveApplicationEmail(student);
         String defaultPassword = resolveApplicationPassword(student);
         GraduationApplicationPortalCredentialDto dto = new GraduationApplicationPortalCredentialDto();
         dto.setStudentId(student == null ? null : student.getId());
         dto.setUniversityId(university == null ? null : university.getId());
         dto.setUniversityName(university == null ? null : university.getName());
-        dto.setSchoolAccount(credential == null ? "" : safeString(credential.getSchoolAccount()));
-        dto.setSchoolEmail(credential == null ? defaultEmail : firstNonBlank(credential.getSchoolEmail(), defaultEmail));
-        dto.setSchoolPassword(
-                credential == null
-                        ? defaultPassword
-                        : firstNonBlank(credential.getSchoolPassword(), defaultPassword)
-        );
-        dto.setDefaultSchoolEmail(defaultEmail);
-        dto.setDefaultSchoolPassword(defaultPassword);
+        dto.setStudentVisible(credential != null && credential.isStudentVisible());
+        dto.setInterviewRequired(credential != null && credential.isInterviewRequired());
+        dto.setLanguageScoreRequired(credential != null && credential.isLanguageScoreRequired());
+        if (exposeSensitive) {
+            dto.setSchoolAccount(credential == null ? "" : safeString(credential.getSchoolAccount()));
+            dto.setSchoolEmail(credential == null ? defaultEmail : firstNonBlank(credential.getSchoolEmail(), defaultEmail));
+            dto.setSchoolPassword(
+                    credential == null
+                            ? defaultPassword
+                            : firstNonBlank(credential.getSchoolPassword(), defaultPassword)
+            );
+            dto.setDefaultSchoolEmail(defaultEmail);
+            dto.setDefaultSchoolPassword(defaultPassword);
+        } else {
+            dto.setSchoolAccount("");
+            dto.setSchoolEmail("");
+            dto.setSchoolPassword("");
+            dto.setDefaultSchoolEmail("");
+            dto.setDefaultSchoolPassword("");
+        }
         dto.setCreatedAt(credential == null ? null : credential.getCreatedAt());
         dto.setUpdatedAt(credential == null ? null : credential.getUpdatedAt());
         return dto;
