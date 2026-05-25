@@ -30,6 +30,19 @@ public class GraduationApplicationController {
         return ResponseEntity.ok(graduationApplicationService.listByStudent(studentId, request));
     }
 
+    @GetMapping("/graduation-applications/universities/summary")
+    public ResponseEntity<List<GraduationApplicationUniversitySummaryDto>> listUniversitySummaries(
+            HttpServletRequest request) {
+        return ResponseEntity.ok(graduationApplicationService.listUniversitySummaries(request));
+    }
+
+    @GetMapping("/graduation-applications/universities/{universityId}/students")
+    public ResponseEntity<List<GraduationApplicationUniversityStudentDto>> listStudentsByUniversity(
+            @PathVariable Long universityId,
+            HttpServletRequest request) {
+        return ResponseEntity.ok(graduationApplicationService.listStudentsByUniversity(universityId, request));
+    }
+
     @GetMapping("/students/{studentId}/graduation-applications/history")
     public ResponseEntity<GraduationApplicationHistoryListDto> listHistory(
             @PathVariable Long studentId,
