@@ -105,6 +105,54 @@ public class GraduationApplicationService {
     }
 
     @Transactional(readOnly = true)
+    public List<GraduationApplicationUniversityStudentDto> listStudentsByUniversity(Long universityId,
+                                                                                    HttpServletRequest request) {
+        requireApplicationOverviewAccess(request);
+        University university = requireUniversity(universityId);
+        List<GraduationApplication> applications =
+                applicationRepository.findActiveStudentApplicationsByUniversityId(university.getId());
+        Map<Long, GraduationApplicationUniversityStudentDto> studentsById =
+                new LinkedHashMap<Long, GraduationApplicationUniversityStudentDto>();
+
+        for (GraduationApplication application : applications) {
+            if (application == null || application.getStudent() == null || application.getStudent().getId() == null) {
+                continue;
+            }
+            Student student = application.getStudent();
+            Long studentId = student.getId();
+            GraduationApplicationUniversityStudentDto studentDto = studentsById.get(studentId);
+            if (studentDto == null) {
+                studentDto = new GraduationApplicationUniversityStudentDto();
+                studentDto.setStudentId(studentId);
+                studentDto.setStudentName(buildStudentApplicationDisplayName(student));
+                studentDto.setUsername(student.getUser() == null ? null : student.getUser().getUsername());
+                studentsById.put(studentId, studentDto);
+            }
+            studentDto.getApplications().add(toDto(application));
+        }
+
+        return new ArrayList<GraduationApplicationUniversityStudentDto>(studentsById.values());
+    }
+
+    @Transactional(readOnly = true)
+    public List<GraduationApplicationUniversitySummaryDto> listUniversitySummaries(HttpServletRequest request) {
+        requireApplicationOverviewAccess(request);
+        List<GraduationApplicationRepository.UniversityApplicationSummaryView> rows =
+                applicationRepository.summarizeActiveApplicationsByUniversity();
+        List<GraduationApplicationUniversitySummaryDto> result =
+                new ArrayList<GraduationApplicationUniversitySummaryDto>(rows.size());
+        for (GraduationApplicationRepository.UniversityApplicationSummaryView row : rows) {
+            GraduationApplicationUniversitySummaryDto dto = new GraduationApplicationUniversitySummaryDto();
+            dto.setUniversityId(row.getUniversityId());
+            dto.setUniversityName(row.getUniversityName());
+            dto.setStudentCount(safeInt(row.getStudentCount()));
+            dto.setApplicationCount(safeInt(row.getApplicationCount()));
+            result.add(dto);
+        }
+        return result;
+    }
+
+    @Transactional(readOnly = true)
     public GraduationApplicationHistoryListDto listHistory(Long studentId,
                                                            Integer page,
                                                            Integer size,
@@ -545,6 +593,13 @@ public class GraduationApplicationService {
 
     private Long normalizePositiveId(Long value) {
         return value == null || value.longValue() <= 0L ? null : value;
+    }
+
+    private int safeInt(Long value) {
+        if (value == null || value.longValue() <= 0L) {
+            return 0;
+        }
+        return value.longValue() > Integer.MAX_VALUE ? Integer.MAX_VALUE : value.intValue();
     }
 
     private void recordHistory(Student student,
@@ -1044,6 +1099,34 @@ public class GraduationApplicationService {
             return operator;
         }
         throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: teacher/admin/student role required.");
+    }
+
+    private User requireApplicationOverviewAccess(HttpServletRequest request) {
+        User operator = authSessionService.requireAuthenticatedUser(request);
+        if (operator.isMustChangePassword()) {
+            throw new MustChangePasswordRequiredException();
+        }
+        if (operator.getRole() == UserRole.ADMIN || operator.getRole() == UserRole.TEACHER) {
+            return operator;
+        }
+        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: teacher/admin role required.");
+    }
+
+    private String buildStudentApplicationDisplayName(Student student) {
+        if (student == null) {
+            return "";
+        }
+        String nickName = trimToNull(student.getNickName());
+        if (nickName != null) {
+            return nickName;
+        }
+        String firstName = trimToNull(student.getFirstName());
+        String lastName = trimToNull(student.getLastName());
+        String fullName = trimToNull((firstName == null ? "" : firstName) + " " + (lastName == null ? "" : lastName));
+        if (fullName != null) {
+            return fullName;
+        }
+        return student.getUser() == null ? "" : safeString(student.getUser().getUsername());
     }
 
     private List<GraduationApplicationDto> toDtos(List<GraduationApplication> applications) {

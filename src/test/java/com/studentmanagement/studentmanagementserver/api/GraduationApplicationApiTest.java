@@ -143,6 +143,88 @@ class GraduationApplicationApiTest {
     }
 
     @Test
+    void teacherCanListApplicationStudentsByUniversity() throws Exception {
+        Teacher teacher = createTeacherAccount("graduation_teacher_university_overview", "Graduation Overview Teacher");
+        Student alice = createStudentAccount("graduation_student_university_alice", "Alice", "Anderson", "Alice Nick");
+        Student bob = createStudentAccount("graduation_student_university_bob", "Bob", "Brown", "");
+        assignTeacherStudent(teacher, alice, TeacherStudentStatus.ACTIVE);
+        assignTeacherStudent(teacher, bob, TeacherStudentStatus.ACTIVE);
+        University university = universityRepository.save(new University(
+                "Graduation Overview University",
+                "Ontario",
+                "Toronto",
+                "Canada",
+                null
+        ));
+        University otherUniversity = universityRepository.save(new University(
+                "Graduation Other University",
+                "Ontario",
+                "Waterloo",
+                "Canada",
+                null
+        ));
+        UniversityProgram computerScience = universityProgramRepository.save(new UniversityProgram(
+                university,
+                "Computer Science",
+                "Faculty of Arts and Science",
+                "BSc"
+        ));
+        UniversityProgram lifeSciences = universityProgramRepository.save(new UniversityProgram(
+                university,
+                "Life Sciences",
+                "Faculty of Arts and Science",
+                "BSc"
+        ));
+        UniversityProgram otherProgram = universityProgramRepository.save(new UniversityProgram(
+                otherUniversity,
+                "Engineering",
+                "Faculty of Engineering",
+                "BEng"
+        ));
+        String teacherBearer = bearerFor(teacher.getUser());
+
+        mockMvc.perform(put("/api/students/{studentId}/graduation-applications/confirm", alice.getId())
+                        .header("Authorization", teacherBearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(confirmPayload(Arrays.asList(
+                                applicationPayload(university.getId(), computerScience.getId(), "SUBMITTED"),
+                                applicationPayload(university.getId(), lifeSciences.getId(), "OFFER_RECEIVED")
+                        )))))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(put("/api/students/{studentId}/graduation-applications/confirm", bob.getId())
+                        .header("Authorization", teacherBearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(confirmPayload(Arrays.asList(
+                                applicationPayload(university.getId(), computerScience.getId(), "NOT_ADMITTED"),
+                                applicationPayload(otherUniversity.getId(), otherProgram.getId(), "SUBMITTED")
+                        )))))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/graduation-applications/universities/{universityId}/students", university.getId())
+                        .header("Authorization", teacherBearer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].studentId").value(alice.getId()))
+                .andExpect(jsonPath("$[0].studentName").value("Alice Nick"))
+                .andExpect(jsonPath("$[0].applications.length()").value(2))
+                .andExpect(jsonPath("$[0].applications[0].programName").value("Computer Science"))
+                .andExpect(jsonPath("$[0].applications[1].programName").value("Life Sciences"))
+                .andExpect(jsonPath("$[1].studentId").value(bob.getId()))
+                .andExpect(jsonPath("$[1].studentName").value("Bob Brown"))
+                .andExpect(jsonPath("$[1].applications.length()").value(1))
+                .andExpect(jsonPath("$[1].applications[0].universityName").value("Graduation Overview University"))
+                .andExpect(jsonPath("$[1].applications[0].status").value("NOT_ADMITTED"));
+
+        mockMvc.perform(get("/api/graduation-applications/universities/summary")
+                        .header("Authorization", teacherBearer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].universityId").value(university.getId()))
+                .andExpect(jsonPath("$[0].universityName").value("Graduation Overview University"))
+                .andExpect(jsonPath("$[0].studentCount").value(2))
+                .andExpect(jsonPath("$[0].applicationCount").value(3));
+    }
+
+    @Test
     void graduationApplicationMutationsAreAudited() throws Exception {
         Teacher teacher = createTeacherAccount("graduation_teacher_audit", "Graduation Audit Teacher");
         Student student = createStudentAccount("graduation_student_audit", "Grad", "Student", "Audit");
@@ -400,6 +482,20 @@ class GraduationApplicationApiTest {
         Map<String, Object> payload = new LinkedHashMap<String, Object>();
         payload.put("applications", Arrays.asList(application));
         return payload;
+    }
+
+    private Map<String, Object> confirmPayload(List<Map<String, Object>> applications) {
+        Map<String, Object> payload = new LinkedHashMap<String, Object>();
+        payload.put("applications", applications);
+        return payload;
+    }
+
+    private Map<String, Object> applicationPayload(Long universityId, Long programId, String status) {
+        Map<String, Object> application = new LinkedHashMap<String, Object>();
+        application.put("universityId", universityId);
+        application.put("programId", programId);
+        application.put("status", status);
+        return application;
     }
 
     private Teacher createTeacherAccount(String username, String displayName) {
