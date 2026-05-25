@@ -875,6 +875,7 @@ public class StudentProfileService {
                                     boolean includeTeacherNote) {
         StudentProfileDto dto = includeTeacherNote ? new TeacherStudentProfileDto() : new StudentProfileDto();
 
+        dto.setStudentId(student == null ? null : student.getId());
         dto.setLegalFirstName(student.getFirstName());
         dto.setLegalLastName(student.getLastName());
         dto.setPreferredName(student.getNickName());

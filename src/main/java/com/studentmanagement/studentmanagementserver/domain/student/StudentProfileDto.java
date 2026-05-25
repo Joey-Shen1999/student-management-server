@@ -10,6 +10,7 @@ import java.util.List;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class StudentProfileDto {
 
+    private Long studentId;
     private String legalFirstName;
     private String legalLastName;
     private String preferredName;
@@ -48,6 +49,14 @@ public class StudentProfileDto {
     private List<CourseDto> otherCourses;
     // Backward-compatible alias for external courses.
     private List<CourseDto> externalCourses;
+
+    public Long getStudentId() {
+        return studentId;
+    }
+
+    public void setStudentId(Long studentId) {
+        this.studentId = studentId;
+    }
 
     public String getLegalFirstName() {
         return legalFirstName;
