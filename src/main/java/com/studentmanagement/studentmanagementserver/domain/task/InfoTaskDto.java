@@ -12,6 +12,7 @@ public class InfoTaskDto {
     private Long goalId;
     private String taskGroupId;
     private InfoTaskVolunteerDto volunteer;
+    private List<InfoTaskAttachmentDto> attachments;
     private List<Long> recipientStudentIds;
     private int targetStudentCount;
     private Long publishedByTeacherId;
@@ -30,6 +31,7 @@ public class InfoTaskDto {
                        Long goalId,
                        String taskGroupId,
                        InfoTaskVolunteerDto volunteer,
+                       List<InfoTaskAttachmentDto> attachments,
                        List<Long> recipientStudentIds,
                        int targetStudentCount,
                        Long publishedByTeacherId,
@@ -47,6 +49,7 @@ public class InfoTaskDto {
         this.goalId = goalId;
         this.taskGroupId = taskGroupId;
         this.volunteer = volunteer;
+        this.attachments = attachments;
         this.recipientStudentIds = recipientStudentIds;
         this.targetStudentCount = targetStudentCount;
         this.publishedByTeacherId = publishedByTeacherId;
@@ -91,6 +94,10 @@ public class InfoTaskDto {
 
     public InfoTaskVolunteerDto getVolunteer() {
         return volunteer;
+    }
+
+    public List<InfoTaskAttachmentDto> getAttachments() {
+        return attachments;
     }
 
     public List<Long> getRecipientStudentIds() {

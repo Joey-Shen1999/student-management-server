@@ -32,6 +32,7 @@ import org.springframework.test.web.servlet.MvcResult;
 import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,8 +40,10 @@ import java.util.Map;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
@@ -207,12 +210,20 @@ class TaskCenterInfoDllApiTest {
                                 && recipients.contains("info.student.a@example.com")
                                 && recipients.contains("info.student.b@example.com")),
                 argThat((String subject) ->
-                        subject != null && subject.contains("College checklist")),
+                        subject != null
+                                && subject.contains("学生平台通知：")
+                                && subject.contains("College checklist")),
                 argThat((String body) ->
                         body != null
                                 && body.contains("College checklist")
                                 && body.contains("Please review the new checklist")
-                                && body.contains("Info Email Teacher"))
+                                && body.contains("Info Email Teacher")
+                                && body.contains("通知类型：活动")
+                                && body.contains("发布老师：Info Email Teacher")
+                                && body.contains("请登录学生平台查看完整通知详情。")
+                                && !body.contains("Category: ACTIVITY")
+                                && !body.contains("A task has been assigned")),
+                eq(Collections.emptyList())
         );
     }
 
@@ -272,7 +283,8 @@ class TaskCenterInfoDllApiTest {
                 argThat((String body) ->
                         body != null
                                 && body.contains("Task group email v2")
-                                && body.contains("second content"))
+                                && body.contains("second content")),
+                eq(Collections.emptyList())
         );
     }
 
@@ -506,6 +518,42 @@ class TaskCenterInfoDllApiTest {
                         )))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("volunteer.tasks must contain at least one item"));
+    }
+
+    @Test
+    void createVolunteerInfoWithoutOptionalHoursAndVerifier_persistsSuccessfully() throws Exception {
+        Teacher teacher = createTeacherAccount("info_teacher_vol_optional", "Volunteer Optional Teacher");
+        Student student = createStudentAccount("info_vol_optional_student", "Vol", "Optional", "VolOptional");
+        assignTeacherStudent(teacher, student, TeacherStudentStatus.ACTIVE);
+
+        Map<String, Object> volunteer = buildVolunteerPayload(Arrays.asList(
+                buildVolunteerTask("Task A", "Desc A", null, "2026-03-01", "2026-03-01", null)
+        ));
+
+        MvcResult result = mockMvc.perform(post("/api/teacher/tasks/infos")
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createInfoPayload(
+                                "Volunteer optional fields",
+                                "optional payload",
+                                "VOLUNTEER",
+                                Arrays.asList("Volunteer"),
+                                Arrays.asList(student.getId()),
+                                null,
+                                null,
+                                volunteer
+                        )))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.volunteer.tasks.length()").value(1))
+                .andExpect(jsonPath("$.volunteer.totalHours").value(0.0))
+                .andReturn();
+
+        long infoId = objectMapper.readTree(result.getResponse().getContentAsString()).path("id").asLong();
+        List<com.studentmanagement.studentmanagementserver.domain.task.InfoVolunteerTaskItem> storedTasks =
+                infoVolunteerTaskItemRepository.findByInfoTask_IdOrderByIdAsc(infoId);
+        assertEquals(1, storedTasks.size());
+        assertNull(storedTasks.get(0).getDurationHours());
+        assertNull(storedTasks.get(0).getVerifierContact());
     }
 
     @Test

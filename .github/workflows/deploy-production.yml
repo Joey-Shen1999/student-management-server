@@ -99,6 +99,11 @@ jobs:
           PROD_USER: ${{ secrets.PROD_USER }}
           PROD_PORT: ${{ secrets.PROD_PORT }}
           PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
+          SPRING_MAIL_USERNAME: ${{ vars.SPRING_MAIL_USERNAME }}
+          SPRING_MAIL_PASSWORD: ${{ secrets.SPRING_MAIL_PASSWORD }}
+          APP_MAIL_FROM: ${{ vars.APP_MAIL_FROM }}
+          APP_INFO_TASK_EMAIL_REMINDERS_ENABLED: ${{ vars.APP_INFO_TASK_EMAIL_REMINDERS_ENABLED }}
+          APP_TASK_TRACKING_EMAIL_REMINDERS_ENABLED: ${{ vars.APP_TASK_TRACKING_EMAIL_REMINDERS_ENABLED }}
         run: |
           set -euo pipefail
           release_jar="${GITHUB_SHA}.jar"
@@ -109,6 +114,31 @@ jobs:
             "${PROD_USER}@${PROD_HOST}:${PROD_DEPLOY_PATH}/releases/${release_jar}"
           ssh -i "${SSH_KEY_PATH}" -p "${PROD_PORT}" "${PROD_USER}@${PROD_HOST}" \
             "cd '${PROD_DEPLOY_PATH}' && ln -sfn 'releases/${release_jar}' '${JAR_NAME}' && chmod 600 '${PROD_DEPLOY_PATH}/releases/${release_jar}'"
+
+          if [[ -n "${SPRING_MAIL_PASSWORD:-}" ]]; then
+            ssh -i "${SSH_KEY_PATH}" -p "${PROD_PORT}" "${PROD_USER}@${PROD_HOST}" \
+              "mkdir -p '${PROD_DEPLOY_PATH}/config' && chmod 700 '${PROD_DEPLOY_PATH}/config'"
+
+            tmp_mail_config="$(mktemp)"
+            umask 077
+            {
+              printf 'spring.mail.username=%s\n' "${SPRING_MAIL_USERNAME:-noreply@global-vip.ca}"
+              printf 'spring.mail.password=%s\n' "$(printf '%s' "${SPRING_MAIL_PASSWORD}" | tr -d '[:space:]')"
+              printf 'app.mail.from=%s\n' "${APP_MAIL_FROM:-noreply@global-vip.ca}"
+              printf 'app.info-task.email-reminders.enabled=%s\n' "${APP_INFO_TASK_EMAIL_REMINDERS_ENABLED:-true}"
+              printf 'app.task-tracking.email-reminders.enabled=%s\n' "${APP_TASK_TRACKING_EMAIL_REMINDERS_ENABLED:-true}"
+            } > "${tmp_mail_config}"
+
+            rsync -az -e "ssh -i ${SSH_KEY_PATH} -p ${PROD_PORT}" \
+              "${tmp_mail_config}" \
+              "${PROD_USER}@${PROD_HOST}:${PROD_DEPLOY_PATH}/config/local-secrets.properties"
+            rm -f "${tmp_mail_config}"
+
+            ssh -i "${SSH_KEY_PATH}" -p "${PROD_PORT}" "${PROD_USER}@${PROD_HOST}" \
+              "chmod 600 '${PROD_DEPLOY_PATH}/config/local-secrets.properties'"
+          else
+            echo "SPRING_MAIL_PASSWORD secret is not configured; keeping any existing server mail secrets file."
+          fi
 
       - name: Restart and verify service
         shell: bash

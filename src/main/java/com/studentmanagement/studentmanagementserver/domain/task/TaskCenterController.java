@@ -1,7 +1,9 @@
 package com.studentmanagement.studentmanagementserver.domain.task;
 
 import com.studentmanagement.studentmanagementserver.service.ApiRequestException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -12,9 +14,13 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.http.ContentDisposition;
 
 import javax.servlet.http.HttpServletRequest;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 @RestController
@@ -139,11 +145,19 @@ public class TaskCenterController {
         return ResponseEntity.ok(goalTaskCenterService.updateGoal(goalId, requestBody, request));
     }
 
-    @PostMapping("/api/teacher/tasks/infos")
+    @PostMapping(value = "/api/teacher/tasks/infos", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<InfoTaskDto> createInfo(
             @RequestBody(required = false) CreateInfoRequestDto requestBody,
             HttpServletRequest request) {
         return ResponseEntity.ok(infoTaskCenterService.createInfo(requestBody, request));
+    }
+
+    @PostMapping(value = "/api/teacher/tasks/infos", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<InfoTaskDto> createInfoWithAttachments(
+            @RequestPart("request") CreateInfoRequestDto requestBody,
+            @RequestPart(value = "attachments", required = false) List<MultipartFile> attachments,
+            HttpServletRequest request) {
+        return ResponseEntity.ok(infoTaskCenterService.createInfo(requestBody, attachments, request));
     }
 
     @DeleteMapping("/api/teacher/tasks/info-groups/{taskGroupId}")
@@ -152,6 +166,22 @@ public class TaskCenterController {
             HttpServletRequest request) {
         infoTaskCenterService.deleteInfoGroup(taskGroupId, request);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/api/tasks/infos/{infoId}/attachments/{attachmentId}/file")
+    public ResponseEntity<byte[]> downloadInfoAttachment(@PathVariable Long infoId,
+                                                         @PathVariable Long attachmentId,
+                                                         HttpServletRequest request) {
+        InfoTaskCenterService.InfoAttachmentDownload download =
+                infoTaskCenterService.downloadInfoAttachment(infoId, attachmentId, request);
+        ContentDisposition disposition = ContentDisposition.attachment()
+                .filename(download.getFileName(), StandardCharsets.UTF_8)
+                .build();
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
+                .contentType(MediaType.parseMediaType(download.getContentType()))
+                .contentLength(download.getContent().length)
+                .body(download.getContent());
     }
 
     @PostMapping("/api/teacher/tasks/dll-templates")
