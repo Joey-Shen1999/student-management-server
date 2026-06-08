@@ -101,9 +101,17 @@ jobs:
           APP_TASK_TRACKING_EMAIL_REMINDERS_ENABLED="${13:-}"
 
           cd "$DEPLOY_PATH"
+
+          existing_mail_config=""
+          if [ -f config/local-secrets.properties ]; then
+            existing_mail_config="$(mktemp)"
+            cp config/local-secrets.properties "$existing_mail_config"
+            chmod 600 "$existing_mail_config"
+          fi
+
           git fetch --all --prune
           git reset --hard origin/main
-          git clean -fd
+          git clean -fd -e config/local-secrets.properties
 
           if [ -n "$SPRING_MAIL_PASSWORD" ]; then
             mkdir -p config
@@ -116,8 +124,19 @@ jobs:
               printf 'app.info-task.email-reminders.enabled=%s\n' "${APP_INFO_TASK_EMAIL_REMINDERS_ENABLED:-true}"
               printf 'app.task-tracking.email-reminders.enabled=%s\n' "${APP_TASK_TRACKING_EMAIL_REMINDERS_ENABLED:-true}"
             } > config/local-secrets.properties
+            chmod 600 config/local-secrets.properties
           else
-            echo "SPRING_MAIL_PASSWORD secret is not configured; keeping any existing server mail secrets file."
+            if [ -n "$existing_mail_config" ] && [ -f "$existing_mail_config" ]; then
+              mkdir -p config
+              cp "$existing_mail_config" config/local-secrets.properties
+              chmod 600 config/local-secrets.properties
+              echo "SPRING_MAIL_PASSWORD secret is not configured; restored existing server mail secrets file."
+            else
+              echo "SPRING_MAIL_PASSWORD secret is not configured and no existing server mail secrets file was found."
+            fi
+          fi
+          if [ -n "$existing_mail_config" ]; then
+            rm -f "$existing_mail_config"
           fi
 
           PRECHECK_FILE="scripts/ops/preflight_release_20260330.sql"
