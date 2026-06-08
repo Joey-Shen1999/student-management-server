@@ -8,7 +8,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.mail.MailException;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -62,7 +61,7 @@ public class NotificationController {
             response.put("status", "sent");
             response.put("message", "Test email sent.");
             return ResponseEntity.ok(response);
-        } catch (MailException ex) {
+        } catch (RuntimeException ex) {
             log.warn("Failed to send test email.", ex);
             response.put("status", "failed");
             response.put("message", "Failed to send test email. Check SMTP host, username, password, TLS, and provider policy.");

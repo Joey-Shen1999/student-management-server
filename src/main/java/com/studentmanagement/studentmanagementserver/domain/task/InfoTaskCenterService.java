@@ -4,13 +4,16 @@ import com.studentmanagement.studentmanagementserver.domain.enums.TeacherStudent
 import com.studentmanagement.studentmanagementserver.domain.enums.UserAccountStatus;
 import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
 import com.studentmanagement.studentmanagementserver.domain.notification.EmailService;
+import com.studentmanagement.studentmanagementserver.domain.notification.EmailService.EmailAttachment;
 import com.studentmanagement.studentmanagementserver.domain.student.Student;
 import com.studentmanagement.studentmanagementserver.domain.student.StudentProfile;
 import com.studentmanagement.studentmanagementserver.domain.teacher.Teacher;
 import com.studentmanagement.studentmanagementserver.domain.teacher.TeacherStudent;
 import com.studentmanagement.studentmanagementserver.domain.user.User;
+import com.studentmanagement.studentmanagementserver.domain.task.InfoTaskAttachmentStorageService.StoredAttachment;
 import com.studentmanagement.studentmanagementserver.repo.InfoTaskRecipientRepository;
 import com.studentmanagement.studentmanagementserver.repo.InfoTaskRepository;
+import com.studentmanagement.studentmanagementserver.repo.InfoTaskAttachmentRepository;
 import com.studentmanagement.studentmanagementserver.repo.InfoVolunteerTaskItemRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentProfileRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentRepository;
@@ -28,6 +31,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import javax.servlet.http.HttpServletRequest;
@@ -60,6 +64,7 @@ public class InfoTaskCenterService {
     private static final int VOLUNTEER_TASK_NAME_MAX_LENGTH = 200;
     private static final int VOLUNTEER_TASK_DESCRIPTION_MAX_LENGTH = 2000;
     private static final int VOLUNTEER_VERIFIER_CONTACT_MAX_LENGTH = 255;
+    private static final long ATTACHMENT_MAX_UPLOAD_SIZE_BYTES = 20L * 1024L * 1024L;
     private static final int EMAIL_CONTENT_PREVIEW_MAX_LENGTH = 800;
     private static final int EMAIL_SUBJECT_MAX_LENGTH = 200;
     private static final String INFO_TASK_EMAIL_SUBJECT_PREFIX = "Task reminder: ";
@@ -69,36 +74,42 @@ public class InfoTaskCenterService {
     private final AuthSessionService authSessionService;
     private final InfoTaskRepository infoTaskRepository;
     private final InfoTaskRecipientRepository infoTaskRecipientRepository;
+    private final InfoTaskAttachmentRepository infoTaskAttachmentRepository;
     private final InfoVolunteerTaskItemRepository infoVolunteerTaskItemRepository;
     private final StudentRepository studentRepository;
     private final StudentProfileRepository studentProfileRepository;
     private final TeacherRepository teacherRepository;
     private final TeacherStudentRepository teacherStudentRepository;
     private final EmailService emailService;
+    private final InfoTaskAttachmentStorageService infoTaskAttachmentStorageService;
     private final TaskExecutor taskExecutor;
     private final boolean infoTaskEmailRemindersEnabled;
 
     public InfoTaskCenterService(AuthSessionService authSessionService,
                                  InfoTaskRepository infoTaskRepository,
                                  InfoTaskRecipientRepository infoTaskRecipientRepository,
+                                 InfoTaskAttachmentRepository infoTaskAttachmentRepository,
                                  InfoVolunteerTaskItemRepository infoVolunteerTaskItemRepository,
                                  StudentRepository studentRepository,
                                  StudentProfileRepository studentProfileRepository,
                                  TeacherRepository teacherRepository,
                                  TeacherStudentRepository teacherStudentRepository,
                                  EmailService emailService,
+                                 InfoTaskAttachmentStorageService infoTaskAttachmentStorageService,
                                  TaskExecutor taskExecutor,
                                  @Value("${app.info-task.email-reminders.enabled:false}")
                                  boolean infoTaskEmailRemindersEnabled) {
         this.authSessionService = authSessionService;
         this.infoTaskRepository = infoTaskRepository;
         this.infoTaskRecipientRepository = infoTaskRecipientRepository;
+        this.infoTaskAttachmentRepository = infoTaskAttachmentRepository;
         this.infoVolunteerTaskItemRepository = infoVolunteerTaskItemRepository;
         this.studentRepository = studentRepository;
         this.studentProfileRepository = studentProfileRepository;
         this.teacherRepository = teacherRepository;
         this.teacherStudentRepository = teacherStudentRepository;
         this.emailService = emailService;
+        this.infoTaskAttachmentStorageService = infoTaskAttachmentStorageService;
         this.taskExecutor = taskExecutor;
         this.infoTaskEmailRemindersEnabled = infoTaskEmailRemindersEnabled;
     }
@@ -135,12 +146,16 @@ public class InfoTaskCenterService {
         );
 
         List<InfoTaskRecipient> studentRecipients = infoPage.getContent();
+        List<Long> infoTaskIds = collectInfoTaskIdsFromRecipients(studentRecipients);
+        Map<Long, List<InfoTaskAttachmentDto>> attachmentsByInfoTaskId =
+                loadAttachmentDtosByInfoTaskIds(infoTaskIds);
         List<InfoTaskDto> items = new ArrayList<InfoTaskDto>(studentRecipients.size());
         for (InfoTaskRecipient recipient : studentRecipients) {
             items.add(toStudentInfoTaskDto(
                     recipient.getInfoTask(),
                     recipient.isRead(),
-                    recipient.getReadAt()
+                    recipient.getReadAt(),
+                    attachmentsByInfoTaskId.get(recipient.getInfoTask().getId())
             ));
         }
         return new InfoListResponseDto(items, infoPage.getTotalElements(), page, size);
@@ -183,6 +198,8 @@ public class InfoTaskCenterService {
                 loadRecipientStudentIdsByInfoTaskIds(infoTaskIds);
         Map<Long, InfoTaskVolunteerDto> volunteerByInfoTaskId =
                 loadVolunteerByInfoTaskIds(infoTaskIds);
+        Map<Long, List<InfoTaskAttachmentDto>> attachmentsByInfoTaskId =
+                loadAttachmentDtosByInfoTaskIds(infoTaskIds);
 
         List<InfoTaskDto> items = new ArrayList<InfoTaskDto>(infoTasks.size());
         for (InfoTask infoTask : infoTasks) {
@@ -191,7 +208,8 @@ public class InfoTaskCenterService {
                     false,
                     null,
                     recipientStudentIdsByInfoTaskId.get(infoTask.getId()),
-                    volunteerByInfoTaskId.get(infoTask.getId())
+                    volunteerByInfoTaskId.get(infoTask.getId()),
+                    attachmentsByInfoTaskId.get(infoTask.getId())
             ));
         }
         return new InfoListResponseDto(items, infoPage.getTotalElements(), page, size);
@@ -199,6 +217,13 @@ public class InfoTaskCenterService {
 
     @Transactional
     public InfoTaskDto createInfo(CreateInfoRequestDto requestBody, HttpServletRequest request) {
+        return createInfo(requestBody, Collections.<MultipartFile>emptyList(), request);
+    }
+
+    @Transactional
+    public InfoTaskDto createInfo(CreateInfoRequestDto requestBody,
+                                  List<MultipartFile> attachments,
+                                  HttpServletRequest request) {
         if (requestBody == null) {
             throw badRequest("request body is required");
         }
@@ -239,13 +264,16 @@ public class InfoTaskCenterService {
             infoTask = infoTaskRepository.save(infoTask);
             List<Student> newlyAddedStudents = overwriteRecipients(infoTask, targetStudents);
             overwriteVolunteerItems(infoTask, volunteerPayload);
-            sendInfoTaskEmailReminder(infoTask, newlyAddedStudents);
+            List<InfoTaskAttachment> savedAttachments =
+                    overwriteAttachments(infoTask, attachments);
+            sendInfoTaskEmailReminder(infoTask, newlyAddedStudents, savedAttachments);
             return toInfoTaskDto(
                     infoTask,
                     false,
                     null,
                     findRecipientStudentIdsByInfoTaskId(infoTask.getId()),
-                    findVolunteerByInfoTaskId(infoTask.getId())
+                    findVolunteerByInfoTaskId(infoTask.getId()),
+                    findAttachmentsByInfoTaskId(infoTask.getId())
             );
         }
 
@@ -262,13 +290,15 @@ public class InfoTaskCenterService {
         infoTask = infoTaskRepository.save(infoTask);
         saveRecipients(infoTask, targetStudents);
         overwriteVolunteerItems(infoTask, volunteerPayload);
-        sendInfoTaskEmailReminder(infoTask, targetStudents);
+        List<InfoTaskAttachment> savedAttachments = saveAttachments(infoTask, attachments);
+        sendInfoTaskEmailReminder(infoTask, targetStudents, savedAttachments);
         return toInfoTaskDto(
                 infoTask,
                 false,
                 null,
                 findRecipientStudentIdsByInfoTaskId(infoTask.getId()),
-                findVolunteerByInfoTaskId(infoTask.getId())
+                findVolunteerByInfoTaskId(infoTask.getId()),
+                findAttachmentsByInfoTaskId(infoTask.getId())
         );
     }
 
@@ -290,7 +320,8 @@ public class InfoTaskCenterService {
         return toStudentInfoTaskDto(
                 saved.getInfoTask(),
                 saved.isRead(),
-                saved.getReadAt()
+                saved.getReadAt(),
+                findAttachmentsByInfoTaskId(saved.getInfoTask().getId())
         );
     }
 
@@ -316,9 +347,35 @@ public class InfoTaskCenterService {
         }
 
         Long infoTaskId = infoTask.getId();
+        infoTaskAttachmentRepository.deleteByInfoTask_Id(infoTaskId);
         infoVolunteerTaskItemRepository.deleteByInfoTask_Id(infoTaskId);
         infoTaskRecipientRepository.deleteByInfoTask_Id(infoTaskId);
         infoTaskRepository.delete(infoTask);
+    }
+
+    @Transactional(readOnly = true)
+    public InfoAttachmentDownload downloadInfoAttachment(Long infoId,
+                                                         Long attachmentId,
+                                                         HttpServletRequest request) {
+        Long normalizedInfoId = requirePositiveId(infoId, "infoId");
+        Long normalizedAttachmentId = requirePositiveId(attachmentId, "attachmentId");
+
+        User operator = authSessionService.requireAuthenticatedUser(request);
+        InfoTask infoTask = requireAccessibleInfoTask(normalizedInfoId, operator);
+        InfoTaskAttachment attachment = infoTaskAttachmentRepository
+                .findByIdAndInfoTask_Id(normalizedAttachmentId, infoTask.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Info attachment not found."));
+
+        byte[] content = infoTaskAttachmentStorageService.readAllBytes(attachment.getStorageKey());
+        String fileName = trimToNull(attachment.getOriginalFilename());
+        if (fileName == null) {
+            fileName = "attachment.bin";
+        }
+        String contentType = trimToNull(attachment.getMimeType());
+        if (contentType == null) {
+            contentType = "application/octet-stream";
+        }
+        return new InfoAttachmentDownload(fileName, contentType, content);
     }
 
     private List<Long> normalizeStudentIds(List<Long> rawStudentIds) {
@@ -388,17 +445,9 @@ public class InfoTaskCenterService {
                     pathPrefix + ".description",
                     VOLUNTEER_TASK_DESCRIPTION_MAX_LENGTH
             );
-            String verifierContact = requireNonBlank(
-                    rawTask.getVerifierContact(),
-                    pathPrefix + ".verifierContact",
-                    VOLUNTEER_VERIFIER_CONTACT_MAX_LENGTH
-            );
 
             BigDecimal durationHours = rawTask.getDurationHours();
-            if (durationHours == null) {
-                throw badRequest(pathPrefix + ".durationHours is required");
-            }
-            if (durationHours.compareTo(BigDecimal.ZERO) <= 0) {
+            if (durationHours != null && durationHours.compareTo(BigDecimal.ZERO) <= 0) {
                 throw badRequest(pathPrefix + ".durationHours must be greater than 0");
             }
 
@@ -420,9 +469,11 @@ public class InfoTaskCenterService {
                     durationHours,
                     startDate,
                     endDate,
-                    verifierContact
+                    trimToNull(rawTask.getVerifierContact())
             ));
-            totalHours = totalHours.add(durationHours);
+            if (durationHours != null) {
+                totalHours = totalHours.add(durationHours);
+            }
         }
         return new NormalizedVolunteerPayload(totalHours, normalizedTasks);
     }
@@ -508,7 +559,9 @@ public class InfoTaskCenterService {
         return newlyAddedStudents;
     }
 
-    private void sendInfoTaskEmailReminder(InfoTask infoTask, List<Student> recipients) {
+    private void sendInfoTaskEmailReminder(InfoTask infoTask,
+                                           List<Student> recipients,
+                                           List<InfoTaskAttachment> attachments) {
         if (!infoTaskEmailRemindersEnabled || recipients == null || recipients.isEmpty()) {
             return;
         }
@@ -521,9 +574,17 @@ public class InfoTaskCenterService {
         final Long infoTaskId = infoTask == null ? null : infoTask.getId();
         final String subject = buildInfoTaskEmailSubject(infoTask);
         final String body = buildInfoTaskEmailBody(infoTask);
+        List<EmailAttachment> emailAttachmentsTmp;
+        try {
+            emailAttachmentsTmp = buildEmailAttachments(attachments);
+        } catch (RuntimeException ex) {
+            log.warn("Failed to load info task email attachments for infoTaskId={}", infoTaskId, ex);
+            emailAttachmentsTmp = Collections.emptyList();
+        }
+        final List<EmailAttachment> emailAttachments = emailAttachmentsTmp;
         taskExecutor.execute(() -> {
             try {
-                emailService.sendTextEmail(emails, subject, body);
+                emailService.sendTextEmail(emails, subject, body, emailAttachments);
             } catch (RuntimeException ex) {
                 log.warn("Failed to send info task reminder email for infoTaskId={}", infoTaskId, ex);
             }
@@ -615,6 +676,26 @@ public class InfoTaskCenterService {
         }
         body.append("\nPlease sign in to the student portal to view the full task details.");
         return body.toString();
+    }
+
+    private List<EmailAttachment> buildEmailAttachments(List<InfoTaskAttachment> attachments) {
+        if (attachments == null || attachments.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<EmailAttachment> emailAttachments = new ArrayList<EmailAttachment>(attachments.size());
+        for (InfoTaskAttachment attachment : attachments) {
+            if (attachment == null || attachment.getStorageKey() == null) {
+                continue;
+            }
+            byte[] content = infoTaskAttachmentStorageService.readAllBytes(attachment.getStorageKey());
+            emailAttachments.add(new EmailAttachment(
+                    attachment.getOriginalFilename(),
+                    attachment.getMimeType(),
+                    content
+            ));
+        }
+        return emailAttachments;
     }
 
     private String abbreviateForEmail(String value, int maxLength) {
@@ -840,11 +921,41 @@ public class InfoTaskCenterService {
                 .orElseThrow(TeacherBindingRequiredException::new);
     }
 
+    private InfoTask requireAccessibleInfoTask(Long infoId, User operator) {
+        if (operator.getRole() == UserRole.ADMIN) {
+            return infoTaskRepository.findById(infoId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Info task not found."));
+        }
+        if (operator.getRole() == UserRole.TEACHER) {
+            Teacher teacher = requireTeacherByUser(operator);
+            InfoTask infoTask = infoTaskRepository.findById(infoId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Info task not found."));
+            if (infoTask.getPublishedByTeacher() == null
+                    || infoTask.getPublishedByTeacher().getId() == null
+                    || !infoTask.getPublishedByTeacher().getId().equals(teacher.getId())) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Info task not found.");
+            }
+            return infoTask;
+        }
+
+        if (operator.getRole() == UserRole.STUDENT) {
+            Student student = studentRepository.findByUser_Id(operator.getId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Student profile not found."));
+            InfoTaskRecipient recipient = infoTaskRecipientRepository
+                    .findByInfoTask_IdAndStudent_Id(infoId, student.getId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Info task not found."));
+            return recipient.getInfoTask();
+        }
+
+        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden.");
+    }
+
     private InfoTaskDto toInfoTaskDto(InfoTask infoTask,
                                       boolean read,
                                       LocalDateTime readAt,
                                       List<Long> recipientStudentIds,
-                                      InfoTaskVolunteerDto volunteer) {
+                                      InfoTaskVolunteerDto volunteer,
+                                      List<InfoTaskAttachmentDto> attachments) {
         Teacher publisher = infoTask.getPublishedByTeacher();
         return new InfoTaskDto(
                 infoTask.getId(),
@@ -856,6 +967,7 @@ public class InfoTaskCenterService {
                 infoTask.getGoalId(),
                 infoTask.getTaskGroupId(),
                 volunteer,
+                attachments == null ? Collections.<InfoTaskAttachmentDto>emptyList() : attachments,
                 recipientStudentIds == null ? Collections.<Long>emptyList() : recipientStudentIds,
                 infoTask.getTargetStudentCount(),
                 publisher.getId(),
@@ -869,7 +981,8 @@ public class InfoTaskCenterService {
 
     private InfoTaskDto toStudentInfoTaskDto(InfoTask infoTask,
                                              boolean read,
-                                             LocalDateTime readAt) {
+                                             LocalDateTime readAt,
+                                             List<InfoTaskAttachmentDto> attachments) {
         Teacher publisher = infoTask.getPublishedByTeacher();
         return new InfoTaskDto(
                 infoTask.getId(),
@@ -881,6 +994,7 @@ public class InfoTaskCenterService {
                 null,
                 null,
                 null,
+                attachments == null ? Collections.<InfoTaskAttachmentDto>emptyList() : attachments,
                 Collections.<Long>emptyList(),
                 0,
                 publisher.getId(),
@@ -889,6 +1003,121 @@ public class InfoTaskCenterService {
                 infoTask.getUpdatedAt() == null ? null : infoTask.getUpdatedAt().toString(),
                 read,
                 readAt == null ? null : readAt.toString()
+        );
+    }
+
+    private Map<Long, List<InfoTaskAttachmentDto>> loadAttachmentDtosByInfoTaskIds(List<Long> infoTaskIds) {
+        if (infoTaskIds == null || infoTaskIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        LinkedHashSet<Long> deduplicatedInfoTaskIds = new LinkedHashSet<Long>();
+        for (Long infoTaskId : infoTaskIds) {
+            if (infoTaskId != null) {
+                deduplicatedInfoTaskIds.add(infoTaskId);
+            }
+        }
+        if (deduplicatedInfoTaskIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        Map<Long, List<InfoTaskAttachmentDto>> attachmentsByInfoTaskId =
+                new LinkedHashMap<Long, List<InfoTaskAttachmentDto>>(deduplicatedInfoTaskIds.size());
+        for (Long infoTaskId : deduplicatedInfoTaskIds) {
+            attachmentsByInfoTaskId.put(infoTaskId, new ArrayList<InfoTaskAttachmentDto>());
+        }
+
+        List<InfoTaskAttachment> attachments =
+                infoTaskAttachmentRepository.findByInfoTask_IdInOrderByInfoTask_IdAscIdAsc(
+                        new ArrayList<Long>(deduplicatedInfoTaskIds)
+                );
+        for (InfoTaskAttachment attachment : attachments) {
+            if (attachment == null || attachment.getInfoTask() == null || attachment.getInfoTask().getId() == null) {
+                continue;
+            }
+            List<InfoTaskAttachmentDto> items = attachmentsByInfoTaskId.get(attachment.getInfoTask().getId());
+            if (items != null) {
+                items.add(toAttachmentDto(attachment));
+            }
+        }
+        return attachmentsByInfoTaskId;
+    }
+
+    private List<InfoTaskAttachmentDto> findAttachmentsByInfoTaskId(Long infoTaskId) {
+        if (infoTaskId == null || infoTaskId.longValue() <= 0L) {
+            return Collections.emptyList();
+        }
+        List<InfoTaskAttachment> attachments =
+                infoTaskAttachmentRepository.findByInfoTask_IdOrderByCreatedAtAscIdAsc(infoTaskId);
+        List<InfoTaskAttachmentDto> items = new ArrayList<InfoTaskAttachmentDto>(attachments.size());
+        for (InfoTaskAttachment attachment : attachments) {
+            items.add(toAttachmentDto(attachment));
+        }
+        return items;
+    }
+
+    private List<InfoTaskAttachment> saveAttachments(InfoTask infoTask, List<MultipartFile> attachments) {
+        if (infoTask == null || attachments == null || attachments.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<InfoTaskAttachment> savedAttachments = new ArrayList<InfoTaskAttachment>();
+        for (MultipartFile file : attachments) {
+            if (file == null || file.isEmpty()) {
+                continue;
+            }
+            assertAttachmentSizeWithinLimit(file);
+            StoredAttachment stored = infoTaskAttachmentStorageService.store(infoTask.getId(), file);
+            InfoTaskAttachment attachment = new InfoTaskAttachment(
+                    infoTask,
+                    stored.getStorageKey(),
+                    stored.getOriginalFilename(),
+                    stored.getContentType(),
+                    Long.valueOf(stored.getSizeBytes())
+            );
+            savedAttachments.add(infoTaskAttachmentRepository.save(attachment));
+        }
+        return savedAttachments;
+    }
+
+    private List<InfoTaskAttachment> overwriteAttachments(InfoTask infoTask, List<MultipartFile> attachments) {
+        if (infoTask == null || attachments == null || attachments.isEmpty()) {
+            return findAttachmentsByEntity(infoTask);
+        }
+        List<InfoTaskAttachment> existingAttachments = findAttachmentsByEntity(infoTask);
+        List<InfoTaskAttachment> newAttachments = saveAttachments(infoTask, attachments);
+        if (!existingAttachments.isEmpty()) {
+            infoTaskAttachmentRepository.deleteAll(existingAttachments);
+            for (InfoTaskAttachment attachment : existingAttachments) {
+                infoTaskAttachmentStorageService.deleteIfExists(attachment.getStorageKey());
+            }
+        }
+        return newAttachments;
+    }
+
+    private List<InfoTaskAttachment> findAttachmentsByEntity(InfoTask infoTask) {
+        if (infoTask == null || infoTask.getId() == null) {
+            return Collections.emptyList();
+        }
+        return infoTaskAttachmentRepository.findByInfoTask_IdOrderByCreatedAtAscIdAsc(infoTask.getId());
+    }
+
+    private void assertAttachmentSizeWithinLimit(MultipartFile file) {
+        if (file.getSize() > ATTACHMENT_MAX_UPLOAD_SIZE_BYTES) {
+            throw badRequest("attachment too large; max is 20MB");
+        }
+    }
+
+    private InfoTaskAttachmentDto toAttachmentDto(InfoTaskAttachment attachment) {
+        if (attachment == null) {
+            return null;
+        }
+        return new InfoTaskAttachmentDto(
+                attachment.getId(),
+                attachment.getOriginalFilename(),
+                attachment.getMimeType(),
+                attachment.getSizeBytes(),
+                attachment.getCreatedAt() == null ? null : attachment.getCreatedAt().toString()
         );
     }
 
@@ -1071,6 +1300,30 @@ public class InfoTaskCenterService {
         }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    public static class InfoAttachmentDownload {
+        private final String fileName;
+        private final String contentType;
+        private final byte[] content;
+
+        public InfoAttachmentDownload(String fileName, String contentType, byte[] content) {
+            this.fileName = fileName;
+            this.contentType = contentType;
+            this.content = content == null ? new byte[0] : content.clone();
+        }
+
+        public String getFileName() {
+            return fileName;
+        }
+
+        public String getContentType() {
+            return contentType;
+        }
+
+        public byte[] getContent() {
+            return content.clone();
+        }
     }
 
     private static class NormalizedVolunteerPayload {

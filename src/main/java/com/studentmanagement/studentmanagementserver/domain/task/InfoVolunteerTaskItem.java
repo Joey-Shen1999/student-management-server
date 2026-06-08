@@ -31,7 +31,7 @@ public class InfoVolunteerTaskItem extends BaseEntity {
     @Column(name = "description", nullable = false, length = 2000)
     private String description;
 
-    @Column(name = "duration_hours", nullable = false, precision = 12, scale = 2)
+    @Column(name = "duration_hours", nullable = true, precision = 12, scale = 2)
     private BigDecimal durationHours;
 
     @Column(name = "start_date", nullable = false)
@@ -40,7 +40,7 @@ public class InfoVolunteerTaskItem extends BaseEntity {
     @Column(name = "end_date", nullable = false)
     private LocalDate endDate;
 
-    @Column(name = "verifier_contact", nullable = false, length = 255)
+    @Column(name = "verifier_contact", nullable = true, length = 255)
     private String verifierContact;
 
     protected InfoVolunteerTaskItem() {
