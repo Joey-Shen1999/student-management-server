@@ -67,7 +67,7 @@ public class InfoTaskCenterService {
     private static final long ATTACHMENT_MAX_UPLOAD_SIZE_BYTES = 20L * 1024L * 1024L;
     private static final int EMAIL_CONTENT_PREVIEW_MAX_LENGTH = 800;
     private static final int EMAIL_SUBJECT_MAX_LENGTH = 200;
-    private static final String INFO_TASK_EMAIL_SUBJECT_PREFIX = "Task reminder: ";
+    private static final String INFO_TASK_EMAIL_SUBJECT_PREFIX = "学生平台通知：";
     private static final String STUDENT_NOT_ASSIGNABLE_CODE = "STUDENT_NOT_ASSIGNABLE";
     private static final String STUDENT_ARCHIVED_CODE = "STUDENT_ARCHIVED";
 
@@ -649,33 +649,46 @@ public class InfoTaskCenterService {
         String content = infoTask == null ? null : trimToNull(infoTask.getContent());
         String category = infoTask == null || infoTask.getCategory() == null
                 ? null
-                : infoTask.getCategory().name();
+                : infoTaskCategoryEmailLabel(infoTask.getCategory());
         String tags = infoTask == null ? null : trimToNull(infoTask.getTagsText());
         String publisherName = infoTask == null || infoTask.getPublishedByTeacher() == null
                 ? null
                 : buildTeacherDisplayName(infoTask.getPublishedByTeacher());
 
         StringBuilder body = new StringBuilder();
-        body.append("Hello,\n\n");
-        body.append("A task has been assigned to you in the Student Management Platform.\n\n");
+        body.append("同学你好，\n\n");
+        body.append("你收到了一条新的学生平台通知，请及时登录学生端查看并完成相关事项。\n\n");
         if (title != null) {
-            body.append("Title: ").append(title).append("\n");
+            body.append("通知标题：").append(title).append("\n");
         }
         if (category != null) {
-            body.append("Category: ").append(category).append("\n");
+            body.append("通知类型：").append(category).append("\n");
         }
         if (tags != null) {
-            body.append("Tags: ").append(tags).append("\n");
+            body.append("标签：").append(tags).append("\n");
         }
         if (publisherName != null) {
-            body.append("Published by: ").append(publisherName).append("\n");
+            body.append("发布老师：").append(publisherName).append("\n");
         }
         if (content != null) {
-            body.append("\nContent:\n");
+            body.append("\n通知内容：\n");
             body.append(abbreviateForEmail(content, EMAIL_CONTENT_PREVIEW_MAX_LENGTH)).append("\n");
         }
-        body.append("\nPlease sign in to the student portal to view the full task details.");
+        body.append("\n请登录学生平台查看完整通知详情。");
         return body.toString();
+    }
+
+    private String infoTaskCategoryEmailLabel(InfoTaskCategory category) {
+        if (category == null) {
+            return null;
+        }
+        switch (category) {
+            case VOLUNTEER:
+                return "义工";
+            case ACTIVITY:
+            default:
+                return "活动";
+        }
     }
 
     private List<EmailAttachment> buildEmailAttachments(List<InfoTaskAttachment> attachments) {

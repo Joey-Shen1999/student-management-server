@@ -210,12 +210,19 @@ class TaskCenterInfoDllApiTest {
                                 && recipients.contains("info.student.a@example.com")
                                 && recipients.contains("info.student.b@example.com")),
                 argThat((String subject) ->
-                        subject != null && subject.contains("College checklist")),
+                        subject != null
+                                && subject.contains("学生平台通知：")
+                                && subject.contains("College checklist")),
                 argThat((String body) ->
                         body != null
                                 && body.contains("College checklist")
                                 && body.contains("Please review the new checklist")
-                                && body.contains("Info Email Teacher")),
+                                && body.contains("Info Email Teacher")
+                                && body.contains("通知类型：活动")
+                                && body.contains("发布老师：Info Email Teacher")
+                                && body.contains("请登录学生平台查看完整通知详情。")
+                                && !body.contains("Category: ACTIVITY")
+                                && !body.contains("A task has been assigned")),
                 eq(Collections.emptyList())
         );
     }
