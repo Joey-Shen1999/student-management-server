@@ -29,3 +29,7 @@ app.storage.type=${APP_STORAGE_TYPE:local}
 app.storage.s3.region=${APP_STORAGE_S3_REGION:us-east-2}
 app.storage.s3.bucket=${APP_STORAGE_S3_BUCKET:}
 app.storage.s3.prefix=${APP_STORAGE_S3_PREFIX:student-management-prod}
+
+# Transport allowance includes multipart framing overhead. Notification attachments remain capped at 30MB each / 100MB total.
+spring.servlet.multipart.max-file-size=30MB
+spring.servlet.multipart.max-request-size=110MB

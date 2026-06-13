@@ -64,7 +64,8 @@ public class InfoTaskCenterService {
     private static final int VOLUNTEER_TASK_NAME_MAX_LENGTH = 200;
     private static final int VOLUNTEER_TASK_DESCRIPTION_MAX_LENGTH = 2000;
     private static final int VOLUNTEER_VERIFIER_CONTACT_MAX_LENGTH = 255;
-    private static final long ATTACHMENT_MAX_UPLOAD_SIZE_BYTES = 20L * 1024L * 1024L;
+    private static final long ATTACHMENT_MAX_UPLOAD_SIZE_BYTES = 30L * 1024L * 1024L;
+    private static final long ATTACHMENTS_MAX_TOTAL_SIZE_BYTES = 100L * 1024L * 1024L;
     private static final int EMAIL_CONTENT_PREVIEW_MAX_LENGTH = 800;
     private static final int EMAIL_SUBJECT_MAX_LENGTH = 200;
     private static final String INFO_TASK_EMAIL_SUBJECT_PREFIX = "学生平台通知：";
@@ -227,6 +228,7 @@ public class InfoTaskCenterService {
         if (requestBody == null) {
             throw badRequest("request body is required");
         }
+        assertAttachmentsWithinLimits(attachments);
 
         User operator = authSessionService.requireAuthenticatedUser(request);
         if (operator.getRole() != UserRole.TEACHER && operator.getRole() != UserRole.ADMIN) {
@@ -1117,7 +1119,25 @@ public class InfoTaskCenterService {
 
     private void assertAttachmentSizeWithinLimit(MultipartFile file) {
         if (file.getSize() > ATTACHMENT_MAX_UPLOAD_SIZE_BYTES) {
-            throw badRequest("attachment too large; max is 20MB");
+            throw badRequest("attachment too large; max is 30MB");
+        }
+    }
+
+    void assertAttachmentsWithinLimits(List<MultipartFile> attachments) {
+        if (attachments == null || attachments.isEmpty()) {
+            return;
+        }
+
+        long totalSize = 0L;
+        for (MultipartFile file : attachments) {
+            if (file == null || file.isEmpty()) {
+                continue;
+            }
+            assertAttachmentSizeWithinLimit(file);
+            if (file.getSize() > ATTACHMENTS_MAX_TOTAL_SIZE_BYTES - totalSize) {
+                throw badRequest("attachments too large; combined max is 100MB");
+            }
+            totalSize += file.getSize();
         }
     }
 
