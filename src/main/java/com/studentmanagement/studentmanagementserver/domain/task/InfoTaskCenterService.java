@@ -267,7 +267,7 @@ public class InfoTaskCenterService {
             List<Student> newlyAddedStudents = overwriteRecipients(infoTask, targetStudents);
             overwriteVolunteerItems(infoTask, volunteerPayload);
             List<InfoTaskAttachment> savedAttachments =
-                    overwriteAttachments(infoTask, attachments);
+                    appendAttachments(infoTask, attachments);
             sendInfoTaskEmailReminder(infoTask, newlyAddedStudents, savedAttachments);
             return toInfoTaskDto(
                     infoTask,
@@ -1095,19 +1095,25 @@ public class InfoTaskCenterService {
         return savedAttachments;
     }
 
-    private List<InfoTaskAttachment> overwriteAttachments(InfoTask infoTask, List<MultipartFile> attachments) {
+    private List<InfoTaskAttachment> appendAttachments(InfoTask infoTask, List<MultipartFile> attachments) {
         if (infoTask == null || attachments == null || attachments.isEmpty()) {
             return findAttachmentsByEntity(infoTask);
         }
         List<InfoTaskAttachment> existingAttachments = findAttachmentsByEntity(infoTask);
-        List<InfoTaskAttachment> newAttachments = saveAttachments(infoTask, attachments);
-        if (!existingAttachments.isEmpty()) {
-            infoTaskAttachmentRepository.deleteAll(existingAttachments);
-            for (InfoTaskAttachment attachment : existingAttachments) {
-                infoTaskAttachmentStorageService.deleteIfExists(attachment.getStorageKey());
+        long existingTotalSizeBytes = 0L;
+        for (InfoTaskAttachment attachment : existingAttachments) {
+            Long sizeBytes = attachment.getSizeBytes();
+            if (sizeBytes != null && sizeBytes.longValue() > 0L) {
+                existingTotalSizeBytes += sizeBytes.longValue();
             }
         }
-        return newAttachments;
+        assertAttachmentsWithinLimits(existingTotalSizeBytes, attachments);
+        List<InfoTaskAttachment> newAttachments = saveAttachments(infoTask, attachments);
+        List<InfoTaskAttachment> allAttachments =
+                new ArrayList<InfoTaskAttachment>(existingAttachments.size() + newAttachments.size());
+        allAttachments.addAll(existingAttachments);
+        allAttachments.addAll(newAttachments);
+        return allAttachments;
     }
 
     private List<InfoTaskAttachment> findAttachmentsByEntity(InfoTask infoTask) {
@@ -1124,11 +1130,15 @@ public class InfoTaskCenterService {
     }
 
     void assertAttachmentsWithinLimits(List<MultipartFile> attachments) {
+        assertAttachmentsWithinLimits(0L, attachments);
+    }
+
+    void assertAttachmentsWithinLimits(long existingTotalSizeBytes, List<MultipartFile> attachments) {
         if (attachments == null || attachments.isEmpty()) {
             return;
         }
 
-        long totalSize = 0L;
+        long totalSize = Math.max(0L, existingTotalSizeBytes);
         for (MultipartFile file : attachments) {
             if (file == null || file.isEmpty()) {
                 continue;
