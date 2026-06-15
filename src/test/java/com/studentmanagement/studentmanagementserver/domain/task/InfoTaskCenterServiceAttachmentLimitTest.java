@@ -58,6 +58,22 @@ class InfoTaskCenterServiceAttachmentLimitTest {
         )));
     }
 
+    @Test
+    void acceptsNewAttachmentsWhenExistingAndNewTotalIsAtLimit() {
+        InfoTaskCenterService service = createService();
+
+        assertDoesNotThrow(() ->
+                service.assertAttachmentsWithinLimits(70L * MB, Arrays.asList(file("new.bin", 30L * MB))));
+    }
+
+    @Test
+    void rejectsNewAttachmentsWhenExistingAndNewTotalExceedsLimit() {
+        InfoTaskCenterService service = createService();
+
+        assertThrows(ApiRequestException.class, () ->
+                service.assertAttachmentsWithinLimits(70L * MB, Arrays.asList(file("new.bin", 30L * MB + 1L))));
+    }
+
     private MultipartFile file(String name, long size) {
         MultipartFile file = mock(MultipartFile.class);
         when(file.isEmpty()).thenReturn(false);

@@ -25,11 +25,13 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -49,6 +51,7 @@ import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -133,6 +136,78 @@ class TaskCenterInfoDllApiTest {
                 .andExpect(jsonPath("$.items[*].id", hasItem((int) infoId)))
                 .andExpect(jsonPath("$.items[0].recipientStudentIds", hasItem(studentA.getId().intValue())))
                 .andExpect(jsonPath("$.items[0].recipientStudentIds", hasItem(studentB.getId().intValue())));
+    }
+
+    @Test
+    void overwriteInfoWithNewAttachment_keepsExistingAttachment() throws Exception {
+        Teacher teacher = createTeacherAccount("info_teacher_append_attachment", "Attachment Teacher");
+        Student student = createStudentAccount("info_attachment_student", "Attachment", "Student", "Attachment");
+        assignTeacherStudent(teacher, student, TeacherStudentStatus.ACTIVE);
+        String taskGroupId = "info-append-attachment-001";
+
+        String firstPayload = createInfoPayload(
+                "Attachment notice",
+                "First version",
+                "ACTIVITY",
+                Arrays.asList("Attachment"),
+                Arrays.asList(student.getId()),
+                taskGroupId,
+                null
+        );
+        MockMultipartFile firstRequest = new MockMultipartFile(
+                "request",
+                "request.json",
+                MediaType.APPLICATION_JSON_VALUE,
+                firstPayload.getBytes(StandardCharsets.UTF_8)
+        );
+        MockMultipartFile firstAttachment = new MockMultipartFile(
+                "attachments",
+                "first.txt",
+                MediaType.TEXT_PLAIN_VALUE,
+                "first".getBytes(StandardCharsets.UTF_8)
+        );
+
+        MvcResult firstResult = mockMvc.perform(multipart("/api/teacher/tasks/infos")
+                        .file(firstRequest)
+                        .file(firstAttachment)
+                        .header("Authorization", bearerFor(teacher.getUser())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.attachments.length()").value(1))
+                .andExpect(jsonPath("$.attachments[0].fileName").value("first.txt"))
+                .andReturn();
+        long infoId = objectMapper.readTree(firstResult.getResponse().getContentAsString()).path("id").asLong();
+
+        String secondPayload = createInfoPayload(
+                "Attachment notice updated",
+                "Second version",
+                "ACTIVITY",
+                Arrays.asList("Attachment"),
+                Arrays.asList(student.getId()),
+                taskGroupId,
+                null
+        );
+        MockMultipartFile secondRequest = new MockMultipartFile(
+                "request",
+                "request.json",
+                MediaType.APPLICATION_JSON_VALUE,
+                secondPayload.getBytes(StandardCharsets.UTF_8)
+        );
+        MockMultipartFile secondAttachment = new MockMultipartFile(
+                "attachments",
+                "second.txt",
+                MediaType.TEXT_PLAIN_VALUE,
+                "second".getBytes(StandardCharsets.UTF_8)
+        );
+
+        mockMvc.perform(multipart("/api/teacher/tasks/infos")
+                        .file(secondRequest)
+                        .file(secondAttachment)
+                        .header("Authorization", bearerFor(teacher.getUser())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(infoId))
+                .andExpect(jsonPath("$.attachments.length()").value(2))
+                .andExpect(jsonPath("$.attachments[*].fileName", hasItem("first.txt")))
+                .andExpect(jsonPath("$.attachments[*].fileName", hasItem("second.txt")));
     }
 
     @Test
