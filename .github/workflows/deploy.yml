@@ -4,234 +4,96 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 concurrency:
   group: deploy-main
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    permissions:
-      contents: read
     env:
       AWS_HOST: ${{ vars.AWS_HOST }}
       AWS_USER: ${{ vars.AWS_USER }}
       AWS_PORT: ${{ vars.AWS_PORT }}
+      AWS_HOST_KEY_FINGERPRINT: ${{ vars.AWS_HOST_KEY_FINGERPRINT }}
       DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
       SERVICE_NAME: ${{ vars.SERVICE_NAME }}
-      DB_CONTAINER_NAME: ${{ vars.DB_CONTAINER_NAME }}
-      DB_HOST: ${{ vars.DB_HOST }}
-      DB_PORT: ${{ vars.DB_PORT }}
-      DB_NAME: ${{ vars.DB_NAME }}
-      DB_USER: ${{ vars.DB_USER }}
-      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-      SPRING_MAIL_USERNAME: ${{ vars.SPRING_MAIL_USERNAME }}
-      SPRING_MAIL_PASSWORD: ${{ secrets.SPRING_MAIL_PASSWORD }}
-      APP_MAIL_FROM: ${{ vars.APP_MAIL_FROM }}
-      APP_INFO_TASK_EMAIL_REMINDERS_ENABLED: ${{ vars.APP_INFO_TASK_EMAIL_REMINDERS_ENABLED }}
-      APP_TASK_TRACKING_EMAIL_REMINDERS_ENABLED: ${{ vars.APP_TASK_TRACKING_EMAIL_REMINDERS_ENABLED }}
-    defaults:
-      run:
-        shell: bash
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Validate deployment configuration
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Build Spring Boot jar
         run: |
           set -euo pipefail
-          : "${AWS_HOST:?Missing vars.AWS_HOST}"
-          : "${AWS_USER:?Missing vars.AWS_USER}"
-          : "${DEPLOY_PATH:?Missing vars.DEPLOY_PATH}"
-          : "${SERVICE_NAME:?Missing vars.SERVICE_NAME}"
+          chmod +x ./mvnw
+          ./mvnw -B package -DskipTests
+          mkdir -p dist
+          jar_file="$(find target -maxdepth 1 -type f -name '*.jar' ! -name 'original-*' -print -quit)"
+          test -n "$jar_file"
+          cp "$jar_file" dist/student-management-server-latest.jar
 
-      - name: Prepare SSH key and known_hosts
+      - name: Configure SSH
+        env:
+          AWS_SSH_KEY: ${{ secrets.AWS_SSH_KEY }}
         run: |
           set -euo pipefail
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          printf '%s' "${{ secrets.AWS_SSH_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-
-          PORT="${AWS_PORT:-22}"
-          ssh-keyscan -p "$PORT" -H "$AWS_HOST" >> ~/.ssh/known_hosts
-          chmod 644 ~/.ssh/known_hosts
-
-      - name: Deploy on remote server
-        run: |
-          set -euo pipefail
-          PORT="${AWS_PORT:-22}"
-
-          ssh \
-            -i ~/.ssh/deploy_key \
-            -p "$PORT" \
-            -o IdentitiesOnly=yes \
-            -o StrictHostKeyChecking=yes \
-            "$AWS_USER@$AWS_HOST" \
-            bash -s -- \
-            "$DEPLOY_PATH" \
-            "$SERVICE_NAME" \
-            "${DB_CONTAINER_NAME:-}" \
-            "${DB_HOST:-}" \
-            "${DB_PORT:-}" \
-            "${DB_NAME:-}" \
-            "${DB_USER:-}" \
-            "${DB_PASSWORD:-}" \
-            "${SPRING_MAIL_USERNAME:-}" \
-            "${SPRING_MAIL_PASSWORD:-}" \
-            "${APP_MAIL_FROM:-}" \
-            "${APP_INFO_TASK_EMAIL_REMINDERS_ENABLED:-}" \
-            "${APP_TASK_TRACKING_EMAIL_REMINDERS_ENABLED:-}" <<'REMOTE_SCRIPT'
-          set -euo pipefail
-
-          DEPLOY_PATH="$1"
-          SERVICE_NAME="$2"
-          DB_CONTAINER_NAME="${3:-}"
-          DB_HOST="${4:-}"
-          DB_PORT="${5:-}"
-          DB_NAME="${6:-}"
-          DB_USER="${7:-}"
-          DB_PASSWORD="${8:-}"
-          SPRING_MAIL_USERNAME="${9:-}"
-          SPRING_MAIL_PASSWORD="${10:-}"
-          APP_MAIL_FROM="${11:-}"
-          APP_INFO_TASK_EMAIL_REMINDERS_ENABLED="${12:-}"
-          APP_TASK_TRACKING_EMAIL_REMINDERS_ENABLED="${13:-}"
-
-          cd "$DEPLOY_PATH"
-
-          existing_mail_config=""
-          if [ -f config/local-secrets.properties ]; then
-            existing_mail_config="$(mktemp)"
-            cp config/local-secrets.properties "$existing_mail_config"
-            chmod 600 "$existing_mail_config"
-          fi
-
-          git fetch --all --prune
-          git reset --hard origin/main
-          git clean -fd -e config/local-secrets.properties
-
-          if [ -n "$SPRING_MAIL_PASSWORD" ]; then
-            mkdir -p config
-            umask 077
-            SPRING_MAIL_PASSWORD_COMPACT="$(printf '%s' "$SPRING_MAIL_PASSWORD" | tr -d '[:space:]')"
-            {
-              printf 'spring.mail.username=%s\n' "${SPRING_MAIL_USERNAME:-noreply@global-vip.ca}"
-              printf 'spring.mail.password=%s\n' "$SPRING_MAIL_PASSWORD_COMPACT"
-              printf 'app.mail.from=%s\n' "${APP_MAIL_FROM:-noreply@global-vip.ca}"
-              printf 'app.info-task.email-reminders.enabled=%s\n' "${APP_INFO_TASK_EMAIL_REMINDERS_ENABLED:-true}"
-              printf 'app.task-tracking.email-reminders.enabled=%s\n' "${APP_TASK_TRACKING_EMAIL_REMINDERS_ENABLED:-true}"
-            } > config/local-secrets.properties
-            chmod 600 config/local-secrets.properties
-          else
-            if [ -n "$existing_mail_config" ] && [ -f "$existing_mail_config" ]; then
-              mkdir -p config
-              cp "$existing_mail_config" config/local-secrets.properties
-              chmod 600 config/local-secrets.properties
-              echo "SPRING_MAIL_PASSWORD secret is not configured; restored existing server mail secrets file."
-            else
-              echo "SPRING_MAIL_PASSWORD secret is not configured and no existing server mail secrets file was found."
-            fi
-          fi
-          if [ -n "$existing_mail_config" ]; then
-            rm -f "$existing_mail_config"
-          fi
-
-          PRECHECK_FILE="scripts/ops/preflight_release_20260330.sql"
-
-          MIGRATION_FILES=(
-            "scripts/migrations/20260318_teacher_student_ownership_deprecation.sql"
-            "scripts/migrations/20260323_add_student_profile_teacher_note.sql"
-            "scripts/migrations/20260327_add_performance_indexes.sql"
-          )
-
-          DB_CONTAINER_NAME="${DB_CONTAINER_NAME:-uni_apply_db}"
-          DB_HOST="${DB_HOST:-localhost}"
-          DB_PORT="${DB_PORT:-5432}"
-          DB_NAME="${DB_NAME:-uni_apply}"
-          DB_USER="${DB_USER:-postgres}"
-          DB_PASSWORD="${DB_PASSWORD:-postgres}"
-
-          sudo install -d -m 750 -o root -g ubuntu /etc/student-management/env
-          tmp_env="$(mktemp)"
-          {
-            printf 'SPRING_DATASOURCE_URL=jdbc:postgresql://%s:%s/%s\n' "$DB_HOST" "$DB_PORT" "$DB_NAME"
-            printf 'SPRING_DATASOURCE_USERNAME=%s\n' "$DB_USER"
-            printf 'SPRING_DATASOURCE_PASSWORD=%s\n' "$DB_PASSWORD"
-            printf 'SERVER_PORT=8080\n'
-          } > "$tmp_env"
-          sudo install -m 640 -o root -g ubuntu "$tmp_env" /etc/student-management/env/test.env
-          rm -f "$tmp_env"
-
-          if ! grep -q '^EnvironmentFile=/etc/student-management/env/test.env$' /etc/systemd/system/"$SERVICE_NAME".service; then
-            sudo cp /etc/systemd/system/"$SERVICE_NAME".service /etc/systemd/system/"$SERVICE_NAME".service.bak.$(date +%Y%m%d%H%M%S)
-            sudo sed -i '/^Environment=JAVA_OPTS=/a EnvironmentFile=/etc/student-management/env/test.env' /etc/systemd/system/"$SERVICE_NAME".service
-            sudo systemctl daemon-reload
-          fi
-
-          run_sql_file() {
-            local sql_file="$1"
-            local sql_mode="$2"
-            local sql_tmp="/tmp/$(basename "$sql_file")"
-            if command -v docker >/dev/null 2>&1 && docker ps --format '{{.Names}}' | grep -qx "$DB_CONTAINER_NAME"; then
-              echo "Running DB $sql_mode via Docker container: $sql_file"
-              docker cp "$sql_file" "$DB_CONTAINER_NAME:$sql_tmp"
-              docker exec \
-                -e PGPASSWORD="$DB_PASSWORD" \
-                "$DB_CONTAINER_NAME" \
-                psql -v ON_ERROR_STOP=1 -U "$DB_USER" -d "$DB_NAME" -f "$sql_tmp"
-            elif command -v psql >/dev/null 2>&1; then
-              echo "Running DB $sql_mode via local psql client: $sql_file"
-              PGPASSWORD="$DB_PASSWORD" \
-                psql \
-                  -v ON_ERROR_STOP=1 \
-                  -h "$DB_HOST" \
-                  -p "$DB_PORT" \
-                  -U "$DB_USER" \
-                  -d "$DB_NAME" \
-                  -f "$sql_file"
-            else
-              echo "No migration runner available (neither Docker DB container nor psql client found)."
-              exit 1
-            fi
-          }
-
-          if [ ! -f "$PRECHECK_FILE" ]; then
-            echo "Preflight file not found: $PRECHECK_FILE"
-            exit 1
-          fi
-          run_sql_file "$PRECHECK_FILE" "preflight"
-
-          for migration_file in "${MIGRATION_FILES[@]}"; do
-            if [ ! -f "$migration_file" ]; then
-              echo "Migration file not found: $migration_file"
-              exit 1
-            fi
-            run_sql_file "$migration_file" "migration"
+          for name in AWS_HOST AWS_USER AWS_PORT AWS_HOST_KEY_FINGERPRINT DEPLOY_PATH SERVICE_NAME AWS_SSH_KEY; do
+            test -n "${!name:-}" || { echo "Missing deployment setting: $name"; exit 1; }
           done
+          install -d -m 700 ~/.ssh
+          umask 077
+          printf '%s\n' "$AWS_SSH_KEY" > ~/.ssh/id_ed25519
+          ssh-keyscan -T 10 -t ed25519 -p "$AWS_PORT" "$AWS_HOST" 2>/dev/null > ~/.ssh/known_hosts
+          actual="$(ssh-keygen -lf ~/.ssh/known_hosts -E sha256 | awk '{print $2}')"
+          test "$actual" = "$AWS_HOST_KEY_FINGERPRINT" || { echo 'SSH host key fingerprint mismatch'; exit 1; }
 
-          if [ -f mvnw ]; then
-            chmod +x mvnw
-            ./mvnw clean package -DskipTests
-          else
-            mvn clean package -DskipTests
+      - name: Upload and activate jar
+        run: |
+          set -euo pipefail
+          ssh -p "$AWS_PORT" "$AWS_USER@$AWS_HOST" "mkdir -p '$DEPLOY_PATH/releases'"
+          rsync -az -e "ssh -p $AWS_PORT" \
+            dist/student-management-server-latest.jar \
+            "$AWS_USER@$AWS_HOST:$DEPLOY_PATH/releases/$GITHUB_SHA.jar.upload"
+          ssh -p "$AWS_PORT" "$AWS_USER@$AWS_HOST" \
+            bash -s -- "$DEPLOY_PATH" "$SERVICE_NAME" "$GITHUB_SHA" <<'REMOTE'
+          set -euo pipefail
+          deploy_path="$1"
+          service_name="$2"
+          revision="$3"
+          [[ "$revision" =~ ^[0-9a-f]{40}$ ]]
+          cd "$deploy_path"
+          mv "releases/$revision.jar.upload" "releases/$revision.jar"
+          previous="$(readlink student-management-server-latest.jar || true)"
+          ln -s "releases/$revision.jar" student-management-server-latest.jar.next
+          mv -Tf student-management-server-latest.jar.next student-management-server-latest.jar
+          sudo systemctl restart "$service_name"
+          for attempt in $(seq 1 60); do
+            if systemctl is-active --quiet "$service_name" && \
+               curl --silent --show-error --fail --max-time 3 \
+                 http://127.0.0.1:8080/api/universities >/dev/null 2>&1; then
+              echo "Backend deployment healthy: $revision"
+              exit 0
+            fi
+            sleep 2
+          done
+          if [ -n "$previous" ]; then
+            ln -s "$previous" student-management-server-latest.jar.next
+            mv -Tf student-management-server-latest.jar.next student-management-server-latest.jar
+            sudo systemctl restart "$service_name"
           fi
-
-          JAR_PATH="$(find target -maxdepth 1 -type f -name '*.jar' \
-            ! -name 'original-*.jar' \
-            ! -name '*-sources.jar' \
-            ! -name '*-javadoc.jar' \
-            -printf '%T@ %p\n' | sort -nr | head -n 1 | cut -d' ' -f2-)"
-
-          if [ -z "$JAR_PATH" ]; then
-            echo "No runnable jar found under target/"
-            exit 1
-          fi
-
-          ln -sfn "$(basename "$JAR_PATH")" target/student-management-server-latest.jar
-
-          sudo systemctl restart "$SERVICE_NAME"
-          sudo systemctl status "$SERVICE_NAME" --no-pager
-          REMOTE_SCRIPT
+          echo 'Backend deployment did not become healthy'
+          exit 1
+          REMOTE
