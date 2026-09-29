@@ -39,6 +39,7 @@ import java.util.Map;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -79,6 +80,39 @@ class GraduationApplicationApiTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Test
+    void customProgramCanBeReusedInAnApplicationAndIsNotDuplicated() throws Exception {
+        Teacher teacher = createTeacherAccount("graduation_teacher_custom_program", "Custom Program Teacher");
+        Student student = createStudentAccount("graduation_student_custom_program", "Custom", "Program", "Student");
+        assignTeacherStudent(teacher, student, TeacherStudentStatus.ACTIVE);
+        University university = universityRepository.save(new University(
+                "Custom Program University", "Ontario", "Toronto", "Canada", null));
+        String endpoint = "/api/universities/" + university.getId() + "/programs";
+
+        MvcResult created = mockMvc.perform(post(endpoint)
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"programName\":\"  Emerging Media Studies  \"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.programName").value("Emerging Media Studies"))
+                .andReturn();
+        Long programId = objectMapper.readTree(created.getResponse().getContentAsString()).get("id").asLong();
+
+        mockMvc.perform(post(endpoint)
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"programName\":\"emerging media studies\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(programId));
+
+        mockMvc.perform(put("/api/students/{studentId}/graduation-applications/confirm", student.getId())
+                        .header("Authorization", bearerFor(teacher.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(confirmPayload(university.getId(), programId, "PREPARING"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].programName").value("Emerging Media Studies"));
+    }
 
     @Test
     void teacherConfirmApplications_studentCanReadProgress() throws Exception {
@@ -205,7 +239,7 @@ class GraduationApplicationApiTest {
                         .header("Authorization", teacherBearer))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].studentId").value(alice.getId()))
-                .andExpect(jsonPath("$[0].studentName").value("Alice Nick"))
+                .andExpect(jsonPath("$[0].studentName").value("Alice Anderson"))
                 .andExpect(jsonPath("$[0].applications.length()").value(2))
                 .andExpect(jsonPath("$[0].applications[0].programName").value("Computer Science"))
                 .andExpect(jsonPath("$[0].applications[1].programName").value("Life Sciences"))
