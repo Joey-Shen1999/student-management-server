@@ -2,6 +2,10 @@ package com.studentmanagement.studentmanagementserver.domain.university;
 
 import com.studentmanagement.studentmanagementserver.repo.UniversityProgramRepository;
 import com.studentmanagement.studentmanagementserver.repo.UniversityRepository;
+import com.studentmanagement.studentmanagementserver.domain.user.User;
+import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
+import com.studentmanagement.studentmanagementserver.service.AuthSessionService;
+import com.studentmanagement.studentmanagementserver.service.MustChangePasswordRequiredException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -9,17 +13,21 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
 import java.util.List;
+import javax.servlet.http.HttpServletRequest;
 
 @Service
 public class UniversityCatalogService {
 
     private final UniversityRepository universityRepository;
     private final UniversityProgramRepository universityProgramRepository;
+    private final AuthSessionService authSessionService;
 
     public UniversityCatalogService(UniversityRepository universityRepository,
-                                    UniversityProgramRepository universityProgramRepository) {
+                                    UniversityProgramRepository universityProgramRepository,
+                                    AuthSessionService authSessionService) {
         this.universityRepository = universityRepository;
         this.universityProgramRepository = universityProgramRepository;
+        this.authSessionService = authSessionService;
     }
 
     @Transactional(readOnly = true)
@@ -44,6 +52,36 @@ public class UniversityCatalogService {
             dtos.add(toDto(program));
         }
         return dtos;
+    }
+
+    @Transactional
+    public UniversityProgramDto createCustomProgram(Long universityId,
+                                                    CustomUniversityProgramRequest body,
+                                                    HttpServletRequest request) {
+        User operator = authSessionService.requireAuthenticatedUser(request);
+        if (operator.isMustChangePassword()) {
+            throw new MustChangePasswordRequiredException();
+        }
+        if (operator.getRole() != UserRole.ADMIN && operator.getRole() != UserRole.TEACHER
+                && operator.getRole() != UserRole.STUDENT) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "University program access denied.");
+        }
+        University university = requireActiveUniversity(universityId);
+        String name = body == null || body.getProgramName() == null ? "" : body.getProgramName().trim();
+        if (name.isEmpty() || name.length() > 180 || "other".equalsIgnoreCase(name)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Program name must be 1-180 characters and cannot be Other.");
+        }
+        for (UniversityProgram existing : universityProgramRepository
+                .findByUniversity_IdOrderByProgramNameAscFacultyNameAscDegreeTypeAsc(university.getId())) {
+            if (existing.getProgramName().equalsIgnoreCase(name)) {
+                if (!existing.isActive()) {
+                    existing.setActive(true);
+                    return toDto(universityProgramRepository.save(existing));
+                }
+                return toDto(existing);
+            }
+        }
+        return toDto(universityProgramRepository.save(new UniversityProgram(university, name, null, null)));
     }
 
     private University requireActiveUniversity(Long universityId) {

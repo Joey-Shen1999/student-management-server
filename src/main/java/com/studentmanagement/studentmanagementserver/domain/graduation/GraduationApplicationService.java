@@ -1116,15 +1116,15 @@ public class GraduationApplicationService {
         if (student == null) {
             return "";
         }
-        String nickName = trimToNull(student.getNickName());
-        if (nickName != null) {
-            return nickName;
-        }
         String firstName = trimToNull(student.getFirstName());
         String lastName = trimToNull(student.getLastName());
         String fullName = trimToNull((firstName == null ? "" : firstName) + " " + (lastName == null ? "" : lastName));
         if (fullName != null) {
             return fullName;
+        }
+        String nickName = trimToNull(student.getNickName());
+        if (nickName != null) {
+            return nickName;
         }
         return student.getUser() == null ? "" : safeString(student.getUser().getUsername());
     }

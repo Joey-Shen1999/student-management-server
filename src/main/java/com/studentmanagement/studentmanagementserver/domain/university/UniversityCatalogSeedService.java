@@ -41,11 +41,13 @@ public class UniversityCatalogSeedService {
     public void seedUniversityCatalog() {
         int universities = seedUniversities();
         int programs = seedPrograms();
+        int retiredPrograms = retireSupersededPrograms();
         int retiredCampuses = retireNonTorontoCampusUniversities();
         log.info(
-                "University catalog seed complete. universitiesUpserted={}, programsInserted={}, retiredNonTorontoCampuses={}",
+                "University catalog seed complete. universitiesUpserted={}, programsInserted={}, programsRetired={}, retiredNonTorontoCampuses={}",
                 universities,
                 programs,
+                retiredPrograms,
                 retiredCampuses
         );
     }
@@ -206,6 +208,27 @@ public class UniversityCatalogSeedService {
             university.setActive(false);
             universityRepository.save(university);
             retired++;
+        }
+        return retired;
+    }
+
+    private int retireSupersededPrograms() {
+        // OUInfo merged these two Mississauga admission categories into Commerce & Management.
+        University university = universityRepository.findFirstByNameIgnoreCase("University of Toronto Mississauga")
+                .orElse(null);
+        if (university == null) {
+            return 0;
+        }
+        int retired = 0;
+        for (UniversityProgram program : universityProgramRepository
+                .findByUniversity_IdOrderByProgramNameAscFacultyNameAscDegreeTypeAsc(university.getId())) {
+            String name = program.getProgramName();
+            if (program.isActive() && ("Commerce (Including Accounting, Economics, Finance, Marketing)".equals(name)
+                    || "Management".equals(name))) {
+                program.setActive(false);
+                universityProgramRepository.save(program);
+                retired++;
+            }
         }
         return retired;
     }
