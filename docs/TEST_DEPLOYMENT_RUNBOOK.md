@@ -4,16 +4,18 @@ The `main` branch deploys to the test server through `.github/workflows/deploy.y
 
 Expected GitHub Actions variables:
 
-- `AWS_HOST=3.149.1.120`
+- `AWS_HOST=18.224.181.105` (update if the instance's non-Elastic IP changes)
 - `AWS_USER=ubuntu`
 - `AWS_PORT=22`
+- `AWS_HOST_KEY_FINGERPRINT` (the instance's verified ED25519 fingerprint)
 - `DEPLOY_PATH=/home/ubuntu/student-management-server`
 - `SERVICE_NAME=student-management-server`
 
 Expected GitHub Actions secrets:
 
 - `AWS_SSH_KEY`
-- `DB_PASSWORD`
+
+The database password stays only in the server's root-owned environment file. GitHub Actions builds the jar on its runner and uploads it over SSH; the server does not build from a Git checkout.
 
 The backend runs with the `prod` Spring profile on the test server. Because `application-prod.properties` reads datasource settings from environment variables, systemd must load:
 
