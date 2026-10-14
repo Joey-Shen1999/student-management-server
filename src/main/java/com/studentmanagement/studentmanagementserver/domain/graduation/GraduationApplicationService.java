@@ -436,6 +436,43 @@ public class GraduationApplicationService {
     }
 
     @Transactional
+    public void deleteUniversityApplications(Long studentId, Long universityId, HttpServletRequest request) {
+        Student student = requireStudent(studentId);
+        User operator = requireStudentAccess(student.getId(), request, true);
+        if (universityId == null || universityId.longValue() <= 0L) {
+            throw new IllegalArgumentException("universityId must be positive");
+        }
+
+        List<GraduationApplication> targets = new ArrayList<GraduationApplication>();
+        List<Map<String, Object>> snapshots = new ArrayList<Map<String, Object>>();
+        for (GraduationApplication application :
+                applicationRepository.findByStudent_IdOrderBySortOrderAscIdAsc(student.getId())) {
+            if (application.getUniversity() != null
+                    && universityId.equals(application.getUniversity().getId())) {
+                targets.add(application);
+                snapshots.add(snapshotApplication(application));
+            }
+        }
+        if (targets.isEmpty()) {
+            return;
+        }
+
+        applicationRepository.deleteAll(targets);
+        applicationRepository.flush();
+        normalizeSortOrders(student.getId());
+        for (int index = 0; index < targets.size(); index++) {
+            recordHistory(
+                    student,
+                    targets.get(index).getId(),
+                    OPERATION_DELETE_APPLICATION,
+                    buildSingleChange("application", "正式大学申请", snapshots.get(index), null),
+                    operator,
+                    resolveTraceId(request)
+            );
+        }
+    }
+
+    @Transactional
     public List<GraduationApplicationDto> reorder(Long studentId,
                                                   List<GraduationApplicationReorderRequest> requestBody,
                                                   HttpServletRequest request) {
