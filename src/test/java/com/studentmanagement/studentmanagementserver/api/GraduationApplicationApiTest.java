@@ -82,6 +82,65 @@ class GraduationApplicationApiTest {
     private ObjectMapper objectMapper;
 
     @Test
+    void deletingUniversityApplicationsRemovesAllProgramsInOneRequest() throws Exception {
+        Teacher teacher = createTeacherAccount("graduation_teacher_bulk_delete", "Bulk Delete Teacher");
+        Student student = createStudentAccount("graduation_student_bulk_delete", "Bulk", "Delete", "Student");
+        assignTeacherStudent(teacher, student, TeacherStudentStatus.ACTIVE);
+        University target = universityRepository.save(new University(
+                "Bulk Delete University", "Ontario", "Toronto", "Canada", null));
+        University retained = universityRepository.save(new University(
+                "Retained University", "Ontario", "Ottawa", "Canada", null));
+        UniversityProgram first = universityProgramRepository.save(new UniversityProgram(target, "Arts", null, null));
+        UniversityProgram second = universityProgramRepository.save(new UniversityProgram(target, "Science", null, null));
+        UniversityProgram third = universityProgramRepository.save(new UniversityProgram(retained, "Commerce", null, null));
+        String bearer = bearerFor(teacher.getUser());
+
+        mockMvc.perform(put("/api/students/{studentId}/graduation-applications/confirm", student.getId())
+                        .header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(confirmPayload(Arrays.asList(
+                                applicationPayload(target.getId(), first.getId(), "PREPARING"),
+                                applicationPayload(target.getId(), second.getId(), "READY_TO_SUBMIT"),
+                                applicationPayload(retained.getId(), third.getId(), "SUBMITTED")
+                        )))))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(delete("/api/students/{studentId}/graduation-applications/universities/{universityId}",
+                        student.getId(), target.getId())
+                        .header("Authorization", bearerFor(student.getUser())))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(get("/api/students/{studentId}/graduation-applications", student.getId())
+                        .header("Authorization", bearer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(3));
+
+        mockMvc.perform(delete("/api/students/{studentId}/graduation-applications/universities/{universityId}",
+                        student.getId(), target.getId())
+                        .header("Authorization", bearer))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(delete("/api/students/{studentId}/graduation-applications/universities/{universityId}",
+                        student.getId(), target.getId())
+                        .header("Authorization", bearer))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/students/{studentId}/graduation-applications", student.getId())
+                        .header("Authorization", bearer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].universityId").value(retained.getId()))
+                .andExpect(jsonPath("$[0].sortOrder").value(1));
+
+        mockMvc.perform(get("/api/students/{studentId}/graduation-applications/history", student.getId())
+                        .header("Authorization", bearer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(4))
+                .andExpect(jsonPath("$.items[0].operation").value("DELETE_APPLICATION"))
+                .andExpect(jsonPath("$.items[1].operation").value("DELETE_APPLICATION"));
+    }
+
+    @Test
     void customProgramCanBeReusedInAnApplicationAndIsNotDuplicated() throws Exception {
         Teacher teacher = createTeacherAccount("graduation_teacher_custom_program", "Custom Program Teacher");
         Student student = createStudentAccount("graduation_student_custom_program", "Custom", "Program", "Student");

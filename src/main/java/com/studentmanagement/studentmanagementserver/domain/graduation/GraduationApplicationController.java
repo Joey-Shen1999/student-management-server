@@ -119,6 +119,14 @@ public class GraduationApplicationController {
         return ResponseEntity.noContent().build();
     }
 
+    @DeleteMapping("/students/{studentId}/graduation-applications/universities/{universityId}")
+    public ResponseEntity<Void> deleteUniversityApplications(@PathVariable Long studentId,
+                                                              @PathVariable Long universityId,
+                                                              HttpServletRequest request) {
+        graduationApplicationService.deleteUniversityApplications(studentId, universityId, request);
+        return ResponseEntity.noContent().build();
+    }
+
     @PutMapping("/students/{studentId}/graduation-applications/reorder")
     public ResponseEntity<List<GraduationApplicationDto>> reorder(
             @PathVariable Long studentId,
