@@ -174,6 +174,72 @@ class GraduationApplicationApiTest {
     }
 
     @Test
+    void customUniversityAndProgramCanBeUsedInAnApplication() throws Exception {
+        Teacher teacher = createTeacherAccount("graduation_teacher_custom_university", "Custom University Teacher");
+        Student student = createStudentAccount("graduation_student_custom_university", "Custom", "University", "Student");
+        assignTeacherStudent(teacher, student, TeacherStudentStatus.ACTIVE);
+        String bearer = bearerFor(teacher.getUser());
+
+        MvcResult created = mockMvc.perform(post("/api/universities")
+                        .header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"  Hong Kong Example University  \",\"country\":\" Hong Kong \"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Hong Kong Example University"))
+                .andExpect(jsonPath("$.country").value("Hong Kong"))
+                .andReturn();
+        Long universityId = objectMapper.readTree(created.getResponse().getContentAsString()).get("id").asLong();
+
+        mockMvc.perform(post("/api/universities")
+                        .header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"hong kong example university\",\"country\":\"Hong Kong\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(universityId));
+
+        MvcResult createdProgram = mockMvc.perform(post("/api/universities/{universityId}/programs", universityId)
+                        .header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"programName\":\"Emerging Media Studies\"}"))
+                .andExpect(status().isOk())
+                .andReturn();
+        Long programId = objectMapper.readTree(createdProgram.getResponse().getContentAsString()).get("id").asLong();
+
+        mockMvc.perform(put("/api/students/{studentId}/graduation-applications/confirm", student.getId())
+                        .header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(confirmPayload(universityId, programId, "PREPARING"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].universityName").value("Hong Kong Example University"))
+                .andExpect(jsonPath("$[0].programName").value("Emerging Media Studies"));
+    }
+
+    @Test
+    void customUniversityRequiresValidNameAndCountry() throws Exception {
+        Teacher teacher = createTeacherAccount("graduation_teacher_invalid_university", "Invalid University Teacher");
+        String bearer = bearerFor(teacher.getUser());
+
+        mockMvc.perform(post("/api/universities")
+                        .header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Other\",\"country\":\"Hong Kong\"}"))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(post("/api/universities")
+                        .header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Example University\",\"country\":\"\"}"))
+                .andExpect(status().isBadRequest());
+
+        universityRepository.save(new University("Example University", null, null, "Canada", null));
+        mockMvc.perform(post("/api/universities")
+                        .header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Example University\",\"country\":\"Hong Kong\"}"))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
     void teacherConfirmApplications_studentCanReadProgress() throws Exception {
         Teacher teacher = createTeacherAccount("graduation_teacher_confirm", "Graduation Teacher");
         Student student = createStudentAccount("graduation_student_confirm", "Grad", "Student", "Confirm");
