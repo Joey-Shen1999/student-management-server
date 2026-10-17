@@ -26,6 +26,12 @@ public class UniversityCatalogController {
         return ResponseEntity.ok(universityCatalogService.listActiveUniversities());
     }
 
+    @PostMapping
+    public ResponseEntity<UniversityDto> createCustomUniversity(@RequestBody CustomUniversityRequest body,
+                                                                  HttpServletRequest request) {
+        return ResponseEntity.ok(universityCatalogService.createCustomUniversity(body, request));
+    }
+
     @GetMapping("/{universityId}/programs")
     public ResponseEntity<List<UniversityProgramDto>> listPrograms(@PathVariable Long universityId) {
         return ResponseEntity.ok(universityCatalogService.listActivePrograms(universityId));

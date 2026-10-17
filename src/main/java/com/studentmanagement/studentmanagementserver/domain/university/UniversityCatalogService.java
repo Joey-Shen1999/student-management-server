@@ -55,17 +55,35 @@ public class UniversityCatalogService {
     }
 
     @Transactional
+    public UniversityDto createCustomUniversity(CustomUniversityRequest body, HttpServletRequest request) {
+        requireCatalogEditor(request);
+        String name = body == null || body.getName() == null ? "" : body.getName().trim();
+        String country = body == null || body.getCountry() == null ? "" : body.getCountry().trim();
+        if (name.isEmpty() || name.length() > 180 || "other".equalsIgnoreCase(name)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "University name must be 1-180 characters and cannot be Other.");
+        }
+        if (country.isEmpty() || country.length() > 80) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Country/region must be 1-80 characters.");
+        }
+        University existing = universityRepository.findFirstByNameIgnoreCase(name).orElse(null);
+        if (existing != null) {
+            if (!existing.isActive()) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "University is inactive: " + name);
+            }
+            if (!existing.getCountry().equalsIgnoreCase(country)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                        "A university with this name exists in another country/region: " + name);
+            }
+            return toDto(existing);
+        }
+        return toDto(universityRepository.save(new University(name, null, null, country, null)));
+    }
+
+    @Transactional
     public UniversityProgramDto createCustomProgram(Long universityId,
                                                     CustomUniversityProgramRequest body,
                                                     HttpServletRequest request) {
-        User operator = authSessionService.requireAuthenticatedUser(request);
-        if (operator.isMustChangePassword()) {
-            throw new MustChangePasswordRequiredException();
-        }
-        if (operator.getRole() != UserRole.ADMIN && operator.getRole() != UserRole.TEACHER
-                && operator.getRole() != UserRole.STUDENT) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "University program access denied.");
-        }
+        requireCatalogEditor(request);
         University university = requireActiveUniversity(universityId);
         String name = body == null || body.getProgramName() == null ? "" : body.getProgramName().trim();
         if (name.isEmpty() || name.length() > 180 || "other".equalsIgnoreCase(name)) {
@@ -82,6 +100,17 @@ public class UniversityCatalogService {
             }
         }
         return toDto(universityProgramRepository.save(new UniversityProgram(university, name, null, null)));
+    }
+
+    private void requireCatalogEditor(HttpServletRequest request) {
+        User operator = authSessionService.requireAuthenticatedUser(request);
+        if (operator.isMustChangePassword()) {
+            throw new MustChangePasswordRequiredException();
+        }
+        if (operator.getRole() != UserRole.ADMIN && operator.getRole() != UserRole.TEACHER
+                && operator.getRole() != UserRole.STUDENT) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "University catalog access denied.");
+        }
     }
 
     private University requireActiveUniversity(Long universityId) {
