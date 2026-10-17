@@ -6,6 +6,7 @@ public class GraduationApplicationPortalCredentialRequest {
     private String schoolPassword;
     private Boolean studentVisible;
     private Boolean interviewRequired;
+    private Boolean videoInterviewRequired;
     private Boolean languageScoreRequired;
 
     public String getSchoolAccount() {
@@ -46,6 +47,14 @@ public class GraduationApplicationPortalCredentialRequest {
 
     public void setInterviewRequired(Boolean interviewRequired) {
         this.interviewRequired = interviewRequired;
+    }
+
+    public Boolean getVideoInterviewRequired() {
+        return videoInterviewRequired;
+    }
+
+    public void setVideoInterviewRequired(Boolean videoInterviewRequired) {
+        this.videoInterviewRequired = videoInterviewRequired;
     }
 
     public Boolean getLanguageScoreRequired() {

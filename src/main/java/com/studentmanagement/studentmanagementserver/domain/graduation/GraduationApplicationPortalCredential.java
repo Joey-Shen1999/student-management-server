@@ -50,6 +50,9 @@ public class GraduationApplicationPortalCredential extends BaseEntity {
     @Column(name = "interview_required", nullable = false)
     private boolean interviewRequired = false;
 
+    @Column(name = "video_interview_required", nullable = false)
+    private boolean videoInterviewRequired = false;
+
     @Column(name = "language_score_required", nullable = false)
     private boolean languageScoreRequired = false;
 
@@ -89,6 +92,10 @@ public class GraduationApplicationPortalCredential extends BaseEntity {
         return interviewRequired;
     }
 
+    public boolean isVideoInterviewRequired() {
+        return videoInterviewRequired;
+    }
+
     public boolean isLanguageScoreRequired() {
         return languageScoreRequired;
     }
@@ -98,12 +105,14 @@ public class GraduationApplicationPortalCredential extends BaseEntity {
                                  String schoolPassword,
                                  boolean studentVisible,
                                  boolean interviewRequired,
+                                 boolean videoInterviewRequired,
                                  boolean languageScoreRequired) {
         this.schoolAccount = schoolAccount;
         this.schoolEmail = schoolEmail;
         this.schoolPassword = schoolPassword;
         this.studentVisible = studentVisible;
         this.interviewRequired = interviewRequired;
+        this.videoInterviewRequired = videoInterviewRequired;
         this.languageScoreRequired = languageScoreRequired;
     }
 }

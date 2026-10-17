@@ -13,6 +13,7 @@ public class GraduationApplicationPortalCredentialDto {
     private String defaultSchoolPassword;
     private boolean studentVisible;
     private boolean interviewRequired;
+    private boolean videoInterviewRequired;
     private boolean languageScoreRequired;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -95,6 +96,14 @@ public class GraduationApplicationPortalCredentialDto {
 
     public void setInterviewRequired(boolean interviewRequired) {
         this.interviewRequired = interviewRequired;
+    }
+
+    public boolean isVideoInterviewRequired() {
+        return videoInterviewRequired;
+    }
+
+    public void setVideoInterviewRequired(boolean videoInterviewRequired) {
+        this.videoInterviewRequired = videoInterviewRequired;
     }
 
     public boolean isLanguageScoreRequired() {

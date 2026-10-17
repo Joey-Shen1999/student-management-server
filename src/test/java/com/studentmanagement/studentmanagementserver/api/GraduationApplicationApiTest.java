@@ -384,6 +384,69 @@ class GraduationApplicationApiTest {
     }
 
     @Test
+    void interviewListIncludesOnlyMarkedApplicationsInRequestedGraduationYear() throws Exception {
+        Teacher teacher = createTeacherAccount("graduation_teacher_interview_list", "Interview List Teacher");
+        Student matching = createStudentAccount("graduation_student_interview_matching", "Interview", "Matching", "");
+        Student otherYear = createStudentAccount("graduation_student_interview_other_year", "Interview", "OtherYear", "");
+        assignTeacherStudent(teacher, matching, TeacherStudentStatus.ACTIVE);
+        assignTeacherStudent(teacher, otherYear, TeacherStudentStatus.ACTIVE);
+        studentSchoolRecordRepository.save(new StudentSchoolRecord(matching, SchoolType.MAIN,
+                "Matching School", LocalDate.of(2032, 9, 1), LocalDate.of(2035, 6, 30)));
+        studentSchoolRecordRepository.save(new StudentSchoolRecord(otherYear, SchoolType.MAIN,
+                "Other School", LocalDate.of(2033, 9, 1), LocalDate.of(2036, 6, 30)));
+        University markedUniversity = universityRepository.save(new University(
+                "Interview Marked University", "Ontario", "Toronto", "Canada", null));
+        University unmarkedUniversity = universityRepository.save(new University(
+                "Interview Unmarked University", "Ontario", "Ottawa", "Canada", null));
+        UniversityProgram markedProgram = universityProgramRepository.save(new UniversityProgram(
+                markedUniversity, "Arts", null, null));
+        UniversityProgram unmarkedProgram = universityProgramRepository.save(new UniversityProgram(
+                unmarkedUniversity, "Science", null, null));
+        String teacherBearer = bearerFor(teacher.getUser());
+
+        mockMvc.perform(put("/api/students/{studentId}/graduation-applications/confirm", matching.getId())
+                        .header("Authorization", teacherBearer).contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(confirmPayload(Arrays.asList(
+                                applicationPayload(markedUniversity.getId(), markedProgram.getId(), "SUBMITTED"),
+                                applicationPayload(unmarkedUniversity.getId(), unmarkedProgram.getId(), "PREPARING")
+                        )))))
+                .andExpect(status().isOk());
+        mockMvc.perform(put("/api/students/{studentId}/graduation-applications/confirm", otherYear.getId())
+                        .header("Authorization", teacherBearer).contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(confirmPayload(
+                                markedUniversity.getId(), markedProgram.getId(), "SUBMITTED"))))
+                .andExpect(status().isOk());
+        for (Student student : Arrays.asList(matching, otherYear)) {
+            mockMvc.perform(put("/api/students/{studentId}/graduation-applications/universities/{universityId}/portal",
+                            student.getId(), markedUniversity.getId())
+                            .header("Authorization", teacherBearer).contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"videoInterviewRequired\":true}"))
+                    .andExpect(status().isOk());
+        }
+
+        mockMvc.perform(put("/api/students/{studentId}/graduation-applications/universities/{universityId}/portal",
+                        matching.getId(), unmarkedUniversity.getId())
+                        .header("Authorization", teacherBearer).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"interviewRequired\":true}"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/graduation-applications/video-interviews").param("year", "2035")
+                        .header("Authorization", teacherBearer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].studentId").value(matching.getId()))
+                .andExpect(jsonPath("$[0].studentName").value("Interview Matching"))
+                .andExpect(jsonPath("$[0].universityId").value(markedUniversity.getId()))
+                .andExpect(jsonPath("$[0].graduationYear").value(2035));
+        mockMvc.perform(get("/api/graduation-applications/video-interviews").param("year", "2035")
+                        .header("Authorization", bearerFor(matching.getUser())))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/graduation-applications/video-interviews").param("year", "1800")
+                        .header("Authorization", teacherBearer))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void graduationApplicationMutationsAreAudited() throws Exception {
         Teacher teacher = createTeacherAccount("graduation_teacher_audit", "Graduation Audit Teacher");
         Student student = createStudentAccount("graduation_student_audit", "Grad", "Student", "Audit");
@@ -498,6 +561,7 @@ class GraduationApplicationApiTest {
                 .andExpect(jsonPath("$.schoolPassword").value("ZAQ!2wsxcde3"))
                 .andExpect(jsonPath("$.studentVisible").value(false))
                 .andExpect(jsonPath("$.interviewRequired").value(false))
+                .andExpect(jsonPath("$.videoInterviewRequired").value(false))
                 .andExpect(jsonPath("$.languageScoreRequired").value(false));
 
         mockMvc.perform(get(
@@ -520,6 +584,7 @@ class GraduationApplicationApiTest {
         updatePayload.put("schoolPassword", "Changed!234");
         updatePayload.put("studentVisible", true);
         updatePayload.put("interviewRequired", true);
+        updatePayload.put("videoInterviewRequired", true);
         updatePayload.put("languageScoreRequired", true);
         mockMvc.perform(put(
                                 "/api/students/{studentId}/graduation-applications/universities/{universityId}/portal",
@@ -535,6 +600,7 @@ class GraduationApplicationApiTest {
                 .andExpect(jsonPath("$.schoolPassword").value("Changed!234"))
                 .andExpect(jsonPath("$.studentVisible").value(true))
                 .andExpect(jsonPath("$.interviewRequired").value(true))
+                .andExpect(jsonPath("$.videoInterviewRequired").value(true))
                 .andExpect(jsonPath("$.languageScoreRequired").value(true));
 
         mockMvc.perform(get(
@@ -546,6 +612,7 @@ class GraduationApplicationApiTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.studentVisible").value(true))
                 .andExpect(jsonPath("$.interviewRequired").value(true))
+                .andExpect(jsonPath("$.videoInterviewRequired").value(true))
                 .andExpect(jsonPath("$.languageScoreRequired").value(true))
                 .andExpect(jsonPath("$.schoolAccount").value("portal-user-123"))
                 .andExpect(jsonPath("$.schoolEmail").value("custom.portal@outlook.com"))

@@ -153,6 +153,53 @@ public class GraduationApplicationService {
     }
 
     @Transactional(readOnly = true)
+    public List<GraduationApplicationInterviewStudentDto> listInterviewStudents(Integer year,
+                                                                               HttpServletRequest request) {
+        requireApplicationOverviewAccess(request);
+        int targetYear = year == null ? LocalDate.now().getYear() : year.intValue();
+        if (targetYear < 1900 || targetYear > 2100) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid graduation year.");
+        }
+        List<GraduationApplicationPortalCredential> requirements =
+                portalCredentialRepository.findActiveInterviewRequirements();
+        if (requirements.isEmpty()) {
+            return Collections.emptyList();
+        }
+        Set<Long> studentIds = new HashSet<Long>();
+        for (GraduationApplicationPortalCredential requirement : requirements) {
+            studentIds.add(requirement.getStudent().getId());
+        }
+        Map<Long, StudentSchoolRecord> primarySchools = new HashMap<Long, StudentSchoolRecord>();
+        for (StudentSchoolRecord record : studentSchoolRecordRepository
+                .findByStudent_IdInOrderByStudent_IdAscIdAsc(studentIds)) {
+            Long studentId = record.getStudent().getId();
+            StudentSchoolRecord current = primarySchools.get(studentId);
+            if (shouldReplacePrimarySchool(current, record)) {
+                primarySchools.put(studentId, record);
+            }
+        }
+
+        List<GraduationApplicationInterviewStudentDto> result =
+                new ArrayList<GraduationApplicationInterviewStudentDto>();
+        for (GraduationApplicationPortalCredential requirement : requirements) {
+            Student student = requirement.getStudent();
+            StudentSchoolRecord school = primarySchools.get(student.getId());
+            if (school == null || school.getEndTime() == null || school.getEndTime().getYear() != targetYear) {
+                continue;
+            }
+            GraduationApplicationInterviewStudentDto dto = new GraduationApplicationInterviewStudentDto();
+            dto.setStudentId(student.getId());
+            dto.setStudentName(buildStudentApplicationDisplayName(student));
+            dto.setUsername(student.getUser().getUsername());
+            dto.setUniversityId(requirement.getUniversity().getId());
+            dto.setUniversityName(requirement.getUniversity().getName());
+            dto.setGraduationYear(targetYear);
+            result.add(dto);
+        }
+        return result;
+    }
+
+    @Transactional(readOnly = true)
     public GraduationApplicationHistoryListDto listHistory(Long studentId,
                                                            Integer page,
                                                            Integer size,
@@ -220,6 +267,7 @@ public class GraduationApplicationService {
                     applicationPassword,
                     portalCredential.isStudentVisible(),
                     portalCredential.isInterviewRequired(),
+                    portalCredential.isVideoInterviewRequired(),
                     portalCredential.isLanguageScoreRequired()
             );
         }
@@ -280,6 +328,9 @@ public class GraduationApplicationService {
         boolean interviewRequired = requestBody != null && requestBody.getInterviewRequired() != null
                 ? requestBody.getInterviewRequired().booleanValue()
                 : credential.isInterviewRequired();
+        boolean videoInterviewRequired = requestBody != null && requestBody.getVideoInterviewRequired() != null
+                ? requestBody.getVideoInterviewRequired().booleanValue()
+                : credential.isVideoInterviewRequired();
         boolean languageScoreRequired = requestBody != null && requestBody.getLanguageScoreRequired() != null
                 ? requestBody.getLanguageScoreRequired().booleanValue()
                 : credential.isLanguageScoreRequired();
@@ -296,6 +347,7 @@ public class GraduationApplicationService {
                 ),
                 studentVisible,
                 interviewRequired,
+                videoInterviewRequired,
                 languageScoreRequired
         );
         GraduationApplicationPortalCredential saved = portalCredentialRepository.save(credential);
@@ -717,6 +769,7 @@ public class GraduationApplicationService {
         }
         addChangeIfDifferent(changes, "studentVisible", "学生可见", before, after, "studentVisible");
         addChangeIfDifferent(changes, "interviewRequired", "面试提醒", before, after, "interviewRequired");
+        addChangeIfDifferent(changes, "videoInterviewRequired", "视频面试", before, after, "videoInterviewRequired");
         addChangeIfDifferent(changes, "languageScoreRequired", "语言成绩提醒", before, after, "languageScoreRequired");
         return changes;
     }
@@ -826,6 +879,7 @@ public class GraduationApplicationService {
         );
         snapshot.put("studentVisible", credential != null && credential.isStudentVisible());
         snapshot.put("interviewRequired", credential != null && credential.isInterviewRequired());
+        snapshot.put("videoInterviewRequired", credential != null && credential.isVideoInterviewRequired());
         snapshot.put("languageScoreRequired", credential != null && credential.isLanguageScoreRequired());
         return snapshot;
     }
@@ -1238,6 +1292,7 @@ public class GraduationApplicationService {
         dto.setUniversityName(university == null ? null : university.getName());
         dto.setStudentVisible(credential != null && credential.isStudentVisible());
         dto.setInterviewRequired(credential != null && credential.isInterviewRequired());
+        dto.setVideoInterviewRequired(credential != null && credential.isVideoInterviewRequired());
         dto.setLanguageScoreRequired(credential != null && credential.isLanguageScoreRequired());
         if (exposeSensitive) {
             dto.setSchoolAccount(credential == null ? "" : safeString(credential.getSchoolAccount()));
