@@ -62,6 +62,23 @@ public class InterviewCourseService {
                 plan == null ? Collections.emptyList() : requirementRepository.findByPlan_IdOrderByIdAsc(plan.getId()));
     }
 
+    @Transactional(readOnly = true)
+    public InterviewCoursePlanDto getMyInterviewCourse(HttpServletRequest request) {
+        User user = authSessionService.requireAuthenticatedUser(request);
+        if (user.isMustChangePassword()) throw new MustChangePasswordRequiredException();
+        if (user.getRole() != UserRole.STUDENT) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Student required");
+        }
+        Student student = studentRepository.findByUser_Id(user.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Student not found"));
+        InterviewCoursePlan plan = planRepository.findByStudent_Id(student.getId()).orElse(null);
+        if (plan == null || !plan.isEnabled()) {
+            return toDto(student, null, graduationYear(student.getId()),
+                    Collections.emptyList(), Collections.emptyList());
+        }
+        return currentPlan(student, plan);
+    }
+
     @Transactional
     public InterviewCoursePlanDto setEnabled(Long studentId, InterviewCourseEnabledRequest body,
                                              HttpServletRequest request) {

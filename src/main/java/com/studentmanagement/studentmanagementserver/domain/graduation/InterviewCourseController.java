@@ -39,6 +39,11 @@ public class InterviewCourseController {
         return ResponseEntity.ok(service.get(studentId, request));
     }
 
+    @GetMapping("/me/interview-course")
+    public ResponseEntity<InterviewCoursePlanDto> getMyInterviewCourse(HttpServletRequest request) {
+        return ResponseEntity.ok(service.getMyInterviewCourse(request));
+    }
+
     @PutMapping("/students/{studentId}/graduation-applications/interview-course/enabled")
     public ResponseEntity<InterviewCoursePlanDto> setEnabled(@PathVariable Long studentId,
                                                              @RequestBody InterviewCourseEnabledRequest body,

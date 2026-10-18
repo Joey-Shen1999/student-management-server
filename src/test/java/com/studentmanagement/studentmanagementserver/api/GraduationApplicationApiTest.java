@@ -576,6 +576,45 @@ class GraduationApplicationApiTest {
     }
 
     @Test
+    void studentCanReadOnlyTheirEnabledInterviewCourse() throws Exception {
+        Teacher teacher = createTeacherAccount("student_interview_teacher", "Interview Teacher");
+        Student student = createStudentAccount("student_interview_self", "Student", "Self", "");
+        Student other = createStudentAccount("student_interview_other", "Student", "Other", "");
+        String studentBearer = bearerFor(student.getUser());
+        String base = "/api/students/" + student.getId() + "/graduation-applications/interview-course";
+
+        mockMvc.perform(get("/api/me/interview-course").header("Authorization", studentBearer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.enabled").value(false))
+                .andExpect(jsonPath("$.lessons.length()").value(0));
+        mockMvc.perform(get("/api/me/interview-course").header("Authorization", bearerFor(teacher.getUser())))
+                .andExpect(status().isForbidden());
+
+        String teacherBearer = bearerFor(teacher.getUser());
+        mockMvc.perform(put(base + "/enabled").header("Authorization", teacherBearer)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"enabled\":true}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(post(base + "/requirements").header("Authorization", teacherBearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"universityName\":\"McMaster University\",\"programName\":\"Engineering I\"}"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/me/interview-course").header("Authorization", studentBearer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.studentId").value(student.getId()))
+                .andExpect(jsonPath("$.enabled").value(true))
+                .andExpect(jsonPath("$.lessons.length()").value(4))
+                .andExpect(jsonPath("$.requirements[0].programName").value("Engineering I"));
+        mockMvc.perform(get("/api/me/interview-course").header("Authorization", bearerFor(other.getUser())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.studentId").value(other.getId()))
+                .andExpect(jsonPath("$.enabled").value(false))
+                .andExpect(jsonPath("$.requirements.length()").value(0));
+        mockMvc.perform(get(base).header("Authorization", studentBearer))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void graduationApplicationMutationsAreAudited() throws Exception {
         Teacher teacher = createTeacherAccount("graduation_teacher_audit", "Graduation Audit Teacher");
         Student student = createStudentAccount("graduation_student_audit", "Grad", "Student", "Audit");
