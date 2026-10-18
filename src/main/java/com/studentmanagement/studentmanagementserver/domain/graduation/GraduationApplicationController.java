@@ -36,6 +36,13 @@ public class GraduationApplicationController {
         return ResponseEntity.ok(graduationApplicationService.listUniversitySummaries(request));
     }
 
+    @GetMapping("/graduation-applications/video-interviews")
+    public ResponseEntity<List<GraduationApplicationInterviewStudentDto>> listInterviewStudents(
+            @RequestParam(value = "year", required = false) Integer year,
+            HttpServletRequest request) {
+        return ResponseEntity.ok(graduationApplicationService.listInterviewStudents(year, request));
+    }
+
     @GetMapping("/graduation-applications/universities/{universityId}/students")
     public ResponseEntity<List<GraduationApplicationUniversityStudentDto>> listStudentsByUniversity(
             @PathVariable Long universityId,
