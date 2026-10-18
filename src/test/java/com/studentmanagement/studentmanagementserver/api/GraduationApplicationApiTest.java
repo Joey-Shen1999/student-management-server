@@ -447,6 +447,135 @@ class GraduationApplicationApiTest {
     }
 
     @Test
+    void interviewCoursesAreStudentLevelAndLessonsPersistIndependently() throws Exception {
+        Teacher teacher = createTeacherAccount("interview_course_teacher", "Interview Course Teacher");
+        Student matching = createStudentAccount("interview_course_matching", "Course", "Matching", "");
+        Student otherYear = createStudentAccount("interview_course_other_year", "Course", "Other", "");
+        studentSchoolRecordRepository.save(new StudentSchoolRecord(matching, SchoolType.MAIN,
+                "Interview Course School", LocalDate.of(2038, 9, 1), LocalDate.of(2041, 6, 30)));
+        studentSchoolRecordRepository.save(new StudentSchoolRecord(otherYear, SchoolType.MAIN,
+                "Interview Course School", LocalDate.of(2039, 9, 1), LocalDate.of(2042, 6, 30)));
+        String bearer = bearerFor(teacher.getUser());
+        String base = "/api/students/" + matching.getId() + "/graduation-applications/interview-course";
+
+        mockMvc.perform(get(base).header("Authorization", bearer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.enabled").value(false))
+                .andExpect(jsonPath("$.lessons.length()").value(0));
+        mockMvc.perform(put(base + "/enabled").header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"enabled\":true}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.enabled").value(true))
+                .andExpect(jsonPath("$.lessons.length()").value(4))
+                .andExpect(jsonPath("$.lessons[0].lessonDate").doesNotExist());
+        mockMvc.perform(get("/api/graduation-applications/interview-courses/enabled-students")
+                        .header("Authorization", bearer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0]").value(matching.getId()));
+        mockMvc.perform(get("/api/graduation-applications/interview-courses/enabled-students")
+                        .header("Authorization", bearerFor(matching.getUser())))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(put(base + "/enabled").header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"enabled\":true}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.lessons.length()").value(4));
+
+        MvcResult added = mockMvc.perform(post(base + "/lessons").header("Authorization", bearer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.lessons.length()").value(5))
+                .andExpect(jsonPath("$.lessons[4].lessonNumber").value(5))
+                .andReturn();
+        Map<String, Object> result = objectMapper.readValue(added.getResponse().getContentAsString(),
+                new TypeReference<Map<String, Object>>() {});
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> lessons = (List<Map<String, Object>>) result.get("lessons");
+        Number lessonId = (Number) lessons.get(0).get("id");
+        mockMvc.perform(put(base + "/lessons/{lessonId}", lessonId.longValue())
+                        .header("Authorization", bearer).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"lessonDate\":\"2041-04-16\",\"lessonTime\":\"15:30\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.lessons[0].lessonDate").value("2041-04-16"))
+                .andExpect(jsonPath("$.lessons[0].lessonTime").value("15:30:00"));
+
+        MvcResult requirementAdded = mockMvc.perform(post(base + "/requirements")
+                        .header("Authorization", bearer).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"universityName\":\"  University of Toronto  \",\"programName\":\"Computer Science\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.requirements.length()").value(1))
+                .andExpect(jsonPath("$.requirements[0].universityName").value("University of Toronto"))
+                .andReturn();
+        Map<String, Object> requirementResult = objectMapper.readValue(
+                requirementAdded.getResponse().getContentAsString(), new TypeReference<Map<String, Object>>() {});
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> requirements = (List<Map<String, Object>>) requirementResult.get("requirements");
+        Number requirementId = (Number) requirements.get(0).get("id");
+        mockMvc.perform(put(base + "/requirements/{id}", requirementId.longValue())
+                        .header("Authorization", bearer).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"universityName\":\"McMaster University\",\"programName\":\"Engineering I\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.requirements[0].programName").value("Engineering I"));
+        mockMvc.perform(post(base + "/requirements").header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"universityName\":\" \" ,\"programName\":\"Engineering I\"}"))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(get("/api/graduation-applications/interview-courses").param("year", "2041")
+                        .header("Authorization", bearer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].studentId").value(matching.getId()))
+                .andExpect(jsonPath("$[0].studentName").value("Course Matching"))
+                .andExpect(jsonPath("$[0].lessons.length()").value(5))
+                .andExpect(jsonPath("$[0].requirements[0].universityName").value("McMaster University"));
+        mockMvc.perform(get("/api/graduation-applications/interview-courses").param("year", "2042")
+                        .header("Authorization", bearer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+        mockMvc.perform(get("/api/graduation-applications/interview-courses").param("year", "1800")
+                        .header("Authorization", bearer))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(put("/api/students/{studentId}/graduation-applications/interview-course/enabled",
+                        otherYear.getId())
+                        .header("Authorization", bearer).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"enabled\":true}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(put("/api/students/{studentId}/graduation-applications/interview-course/lessons/{lessonId}",
+                        otherYear.getId(), lessonId.longValue())
+                        .header("Authorization", bearer).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"lessonDate\":\"2042-04-16\"}"))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(put("/api/students/{studentId}/graduation-applications/interview-course/requirements/{id}",
+                        otherYear.getId(), requirementId.longValue())
+                        .header("Authorization", bearer).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"universityName\":\"Other\",\"programName\":\"Other\"}"))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/graduation-applications/interview-courses").param("year", "2041")
+                        .header("Authorization", bearerFor(matching.getUser())))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(put(base + "/lessons/{lessonId}", lessonId.longValue())
+                        .header("Authorization", bearerFor(matching.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(put(base + "/enabled").header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"enabled\":false}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/graduation-applications/interview-courses").param("year", "2041")
+                        .header("Authorization", bearer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+        mockMvc.perform(put(base + "/enabled").header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"enabled\":true}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.lessons.length()").value(5))
+                .andExpect(jsonPath("$.lessons[0].lessonDate").value("2041-04-16"))
+                .andExpect(jsonPath("$.requirements.length()").value(1));
+        mockMvc.perform(delete(base + "/requirements/{id}", requirementId.longValue())
+                        .header("Authorization", bearer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.requirements.length()").value(0));
+    }
+
+    @Test
     void graduationApplicationMutationsAreAudited() throws Exception {
         Teacher teacher = createTeacherAccount("graduation_teacher_audit", "Graduation Audit Teacher");
         Student student = createStudentAccount("graduation_student_audit", "Grad", "Student", "Audit");
