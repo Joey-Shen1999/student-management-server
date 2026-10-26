@@ -19,6 +19,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import javax.servlet.http.HttpServletRequest;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -196,7 +197,7 @@ public class InterviewCourseService {
     @Transactional(readOnly = true)
     public List<InterviewCoursePlanDto> list(Integer year, HttpServletRequest request) {
         requireTeacherOrAdmin(request);
-        int targetYear = year == null ? LocalDate.now().getYear() : year;
+        int targetYear = year == null ? currentGraduationYear(LocalDate.now(ZoneId.of("America/Toronto"))) : year;
         if (targetYear < 1900 || targetYear > 2100) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid graduation year");
         }
@@ -225,6 +226,11 @@ public class InterviewCourseService {
                     requirementsByPlan.getOrDefault(plan.getId(), Collections.emptyList())));
         }
         return result;
+    }
+
+    static int currentGraduationYear(LocalDate date) {
+        // The September academic year ends with graduation in the following calendar year.
+        return date.getYear() + (date.getMonthValue() >= 9 ? 1 : 0);
     }
 
     private InterviewCoursePlan requireEnabledPlan(Long studentId) {
