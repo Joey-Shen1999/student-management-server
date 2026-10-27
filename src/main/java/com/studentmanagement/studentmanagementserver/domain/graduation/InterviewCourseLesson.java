@@ -30,7 +30,7 @@ public class InterviewCourseLesson extends BaseEntity {
     @Column(name = "lesson_time")
     private LocalTime lessonTime;
 
-    @Column(name = "confirmed", nullable = false)
+    @Column(name = "confirmed", nullable = false, columnDefinition = "boolean default false")
     private boolean confirmed;
 
     protected InterviewCourseLesson() {}
