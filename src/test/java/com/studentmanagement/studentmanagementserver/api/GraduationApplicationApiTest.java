@@ -7,6 +7,7 @@ import com.studentmanagement.studentmanagementserver.domain.enums.SchoolType;
 import com.studentmanagement.studentmanagementserver.domain.enums.TeacherStudentStatus;
 import com.studentmanagement.studentmanagementserver.domain.enums.UserAccountStatus;
 import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
+import com.studentmanagement.studentmanagementserver.domain.graduation.GraduationApplication;
 import com.studentmanagement.studentmanagementserver.domain.student.Student;
 import com.studentmanagement.studentmanagementserver.domain.student.StudentSchoolRecord;
 import com.studentmanagement.studentmanagementserver.domain.teacher.Teacher;
@@ -16,6 +17,7 @@ import com.studentmanagement.studentmanagementserver.domain.university.Universit
 import com.studentmanagement.studentmanagementserver.domain.user.User;
 import com.studentmanagement.studentmanagementserver.repo.StudentSchoolRecordRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentRepository;
+import com.studentmanagement.studentmanagementserver.repo.GraduationApplicationRepository;
 import com.studentmanagement.studentmanagementserver.repo.TeacherRepository;
 import com.studentmanagement.studentmanagementserver.repo.TeacherStudentRepository;
 import com.studentmanagement.studentmanagementserver.repo.UniversityProgramRepository;
@@ -87,6 +89,9 @@ class GraduationApplicationApiTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private GraduationApplicationRepository applicationRepository;
 
     @Test
     void deletingUniversityApplicationsRemovesAllProgramsInOneRequest() throws Exception {
@@ -488,18 +493,24 @@ class GraduationApplicationApiTest {
                 .andExpect(jsonPath("$[*].studentId", hasItem(currentCohort.getId().intValue())))
                 .andExpect(jsonPath("$[*].studentId", not(hasItem(previousCohort.getId().intValue()))))
                 .andExpect(jsonPath("$[*].studentId", not(hasItem(nextCohort.getId().intValue()))))
-                .andExpect(jsonPath("$[*].studentId", not(hasItem(noSchool.getId().intValue()))))
-                .andExpect(jsonPath("$[*].studentId", not(hasItem(noEndDate.getId().intValue()))))
+                .andExpect(jsonPath("$[*].studentId", hasItem(noSchool.getId().intValue())))
+                .andExpect(jsonPath("$[*].studentId", hasItem(noEndDate.getId().intValue())))
                 .andReturn();
         for (JsonNode row : objectMapper.readTree(roster.getResponse().getContentAsString())) {
             if (row.path("studentId").asLong() == currentCohort.getId()) {
                 assertEquals(graduationYear, row.path("graduationYear").asInt());
+                assertEquals(false, row.path("graduationStageEnabled").asBoolean());
+            }
+            if (row.path("studentId").asLong() == noSchool.getId()) {
+                assertEquals(true, row.path("graduationYear").isNull());
+                assertEquals(false, row.path("graduationStageEnabled").asBoolean());
             }
         }
         mockMvc.perform(get("/api/graduation-applications/interview-courses")
                         .param("year", String.valueOf(graduationYear - 1)).header("Authorization", bearer))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[*].studentId", hasItem(previousCohort.getId().intValue())))
+                .andExpect(jsonPath("$[*].studentId", not(hasItem(noSchool.getId().intValue()))))
                 .andExpect(jsonPath("$[*].studentId", not(hasItem(currentCohort.getId().intValue()))));
 
         mockMvc.perform(put("/api/students/{id}/graduation-applications/interview-course/enabled", currentCohort.getId())
@@ -519,6 +530,70 @@ class GraduationApplicationApiTest {
         mockMvc.perform(get("/api/graduation-applications/interview-courses").header("Authorization", bearer))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[*].studentId", not(hasItem(currentCohort.getId().intValue()))));
+    }
+
+    @Test
+    @Transactional
+    void interviewRosterIncludesEngineeringApplicationsAndSchoolSelectionWarnings() throws Exception {
+        Teacher teacher = createTeacherAccount("interview_school_teacher", "Interview School Teacher");
+        Student student = createStudentAccount("interview_school_student", "Engineering", "Applicant", "");
+        String bearer = bearerFor(teacher.getUser());
+        String base = "/api/students/" + student.getId() + "/graduation-applications/interview-course";
+        LocalDate today = LocalDate.now(ZoneId.of("America/Toronto"));
+        int cohort = today.getYear() + (today.getMonthValue() >= 9 ? 1 : 0);
+        studentSchoolRecordRepository.save(new StudentSchoolRecord(student, SchoolType.MAIN,
+                "Engineering Applicant School", LocalDate.of(cohort - 3, 9, 1), LocalDate.of(cohort, 6, 30)));
+        mockMvc.perform(put(base + "/enabled").header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"enabled\":true}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.graduationStageEnabled").value(false))
+                .andExpect(jsonPath("$.engineeringApplications.length()").value(0));
+
+        String[][] choices = {
+                {"University of Toronto – St. George Campus", "Computer Engineering", ""},
+                {"University of Toronto", "TrackOne", "Faculty of Applied Science & Engineering"},
+                {"McMaster University", "Engineering I", ""},
+                {"University of Waterloo", "Software Engineering", ""},
+                {"University of Toronto – Mississauga", "Computer Engineering", ""},
+                {"University of Toronto – Scarborough", "Engineering", ""},
+                {"University of Toronto – St. George Campus", "Computer Science", ""},
+                {"University of Waterloo", "Computer Science", ""},
+                {"Toronto Metropolitan University", "Mechanical Engineering", ""},
+                {"Wilfrid Laurier University", "Waterloo Engineering", ""},
+                {"UOttawa", "Engineering", ""},
+        };
+        for (int i = 0; i < choices.length; i++) {
+            University university = universityRepository.save(new University(choices[i][0], "Ontario", null, "Canada", null));
+            UniversityProgram program = universityProgramRepository.save(new UniversityProgram(
+                    university, choices[i][1], choices[i][2], null));
+            applicationRepository.save(new GraduationApplication(student, university, program, i + 1));
+        }
+        mockMvc.perform(get(base).header("Authorization", bearer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.graduationStageEnabled").value(true))
+                .andExpect(jsonPath("$.engineeringApplications.length()").value(4))
+                .andExpect(jsonPath("$.engineeringApplications[0].programName").value("Computer Engineering"))
+                .andExpect(jsonPath("$.engineeringApplications[1].programName").value("TrackOne"))
+                .andExpect(jsonPath("$.engineeringApplications[2].universityName").value("McMaster University"))
+                .andExpect(jsonPath("$.engineeringApplications[3].universityName").value("University of Waterloo"));
+        MvcResult roster = mockMvc.perform(get("/api/graduation-applications/interview-courses")
+                        .param("year", String.valueOf(cohort)).header("Authorization", bearer))
+                .andExpect(status().isOk()).andReturn();
+        boolean found = false;
+        for (JsonNode row : objectMapper.readTree(roster.getResponse().getContentAsString())) {
+            if (row.path("studentId").asLong() == student.getId()) {
+                found = true;
+                assertEquals(true, row.path("graduationStageEnabled").asBoolean());
+                assertEquals(4, row.path("engineeringApplications").size());
+            }
+        }
+        assertEquals(true, found);
+        applicationRepository.deleteByStudent_Id(student.getId());
+        applicationRepository.flush();
+        mockMvc.perform(post(base + "/lessons").header("Authorization", bearer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.graduationStageEnabled").value(false))
+                .andExpect(jsonPath("$.engineeringApplications.length()").value(0));
     }
 
     @Test
