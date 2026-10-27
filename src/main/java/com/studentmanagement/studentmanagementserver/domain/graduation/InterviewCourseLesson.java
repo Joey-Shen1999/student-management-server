@@ -11,6 +11,7 @@ import javax.persistence.Table;
 import javax.persistence.UniqueConstraint;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.Objects;
 
 @Entity
 @Table(name = "interview_course_lessons", uniqueConstraints = @UniqueConstraint(
@@ -29,6 +30,9 @@ public class InterviewCourseLesson extends BaseEntity {
     @Column(name = "lesson_time")
     private LocalTime lessonTime;
 
+    @Column(name = "confirmed", nullable = false)
+    private boolean confirmed;
+
     protected InterviewCourseLesson() {}
 
     public InterviewCourseLesson(InterviewCoursePlan plan, int lessonNumber) {
@@ -40,8 +44,17 @@ public class InterviewCourseLesson extends BaseEntity {
     public int getLessonNumber() { return lessonNumber; }
     public LocalDate getLessonDate() { return lessonDate; }
     public LocalTime getLessonTime() { return lessonTime; }
+    public boolean isConfirmed() { return confirmed; }
     public void schedule(LocalDate lessonDate, LocalTime lessonTime) {
+        if (!Objects.equals(this.lessonDate, lessonDate) || !Objects.equals(this.lessonTime, lessonTime)
+                || lessonDate == null || lessonTime == null) {
+            this.confirmed = false;
+        }
         this.lessonDate = lessonDate;
         this.lessonTime = lessonTime;
+    }
+
+    public void setConfirmed(boolean confirmed) {
+        this.confirmed = confirmed && lessonDate != null && lessonTime != null;
     }
 }

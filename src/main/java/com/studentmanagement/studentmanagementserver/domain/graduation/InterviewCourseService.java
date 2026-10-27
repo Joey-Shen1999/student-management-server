@@ -125,7 +125,12 @@ public class InterviewCourseService {
         }
         InterviewCourseLesson lesson = lessonRepository.findByIdAndPlan_Id(lessonId, plan.getId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Lesson not found"));
+        if (Boolean.TRUE.equals(body.getConfirmed())
+                && (body.getLessonDate() == null || body.getLessonTime() == null)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A date and time are required to confirm a lesson");
+        }
         lesson.schedule(body.getLessonDate(), body.getLessonTime());
+        if (body.getConfirmed() != null) lesson.setConfirmed(body.getConfirmed());
         lessonRepository.save(lesson);
         return toDto(student, plan, graduationYear(studentId),
                 lessonRepository.findByPlan_IdOrderByLessonNumberAsc(plan.getId()),
@@ -299,7 +304,7 @@ public class InterviewCourseService {
         List<InterviewCourseLessonDto> lessonDtos = new ArrayList<>();
         for (InterviewCourseLesson lesson : lessons) {
             lessonDtos.add(new InterviewCourseLessonDto(lesson.getId(), lesson.getLessonNumber(),
-                    lesson.getLessonDate(), lesson.getLessonTime()));
+                    lesson.getLessonDate(), lesson.getLessonTime(), lesson.isConfirmed()));
         }
         List<InterviewCourseRequirementDto> requirementDtos = new ArrayList<>();
         for (InterviewCourseRequirement requirement : requirements) {

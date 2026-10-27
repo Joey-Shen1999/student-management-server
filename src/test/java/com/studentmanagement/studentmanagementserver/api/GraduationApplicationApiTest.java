@@ -522,6 +522,87 @@ class GraduationApplicationApiTest {
     }
 
     @Test
+    void interviewLessonConfirmationPersistsAndReschedulingResetsIt() throws Exception {
+        Teacher teacher = createTeacherAccount("interview_confirmation_teacher", "Confirmation Teacher");
+        Student student = createStudentAccount("interview_confirmation_student", "Confirmation", "Student", "");
+        String bearer = bearerFor(teacher.getUser());
+        String base = "/api/students/" + student.getId() + "/graduation-applications/interview-course";
+        MvcResult enabled = mockMvc.perform(put(base + "/enabled").header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"enabled\":true}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.lessons[0].confirmed").value(false))
+                .andReturn();
+        long lessonId = objectMapper.readTree(enabled.getResponse().getContentAsString())
+                .path("lessons").get(0).path("id").asLong();
+        String lessonUrl = base + "/lessons/" + lessonId;
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("lessonDate", "2041-04-16");
+        body.put("lessonTime", "23:45");
+        mockMvc.perform(put(lessonUrl).header("Authorization", bearer).contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.lessons[0].confirmed").value(false));
+        body.put("confirmed", true);
+        mockMvc.perform(put(lessonUrl).header("Authorization", bearer).contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.lessons[0].confirmed").value(true));
+        mockMvc.perform(get(base).header("Authorization", bearer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.lessons[0].confirmed").value(true))
+                .andExpect(jsonPath("$.lessons[1].confirmed").value(false));
+        mockMvc.perform(get("/api/me/interview-course").header("Authorization", bearerFor(student.getUser())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.lessons[0].confirmed").value(true));
+        mockMvc.perform(put(lessonUrl).header("Authorization", bearerFor(student.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isForbidden());
+
+        // Older clients omit confirmation: keep it for an unchanged schedule, reset on edits.
+        body.remove("confirmed");
+        mockMvc.perform(put(lessonUrl).header("Authorization", bearer).contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.lessons[0].confirmed").value(true));
+        body.put("lessonTime", "00:00");
+        mockMvc.perform(put(lessonUrl).header("Authorization", bearer).contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.lessons[0].lessonTime").value("00:00:00"))
+                .andExpect(jsonPath("$.lessons[0].confirmed").value(false));
+        body.put("confirmed", true);
+        mockMvc.perform(put(lessonUrl).header("Authorization", bearer).contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk());
+        body.put("confirmed", false);
+        mockMvc.perform(put(lessonUrl).header("Authorization", bearer).contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.lessons[0].confirmed").value(false));
+        body.put("confirmed", true);
+        mockMvc.perform(put(lessonUrl).header("Authorization", bearer).contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk());
+        body.remove("confirmed");
+        body.put("lessonDate", "2041-04-17");
+        mockMvc.perform(put(lessonUrl).header("Authorization", bearer).contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.lessons[0].confirmed").value(false));
+        body.put("lessonTime", null);
+        body.put("confirmed", true);
+        mockMvc.perform(put(lessonUrl).header("Authorization", bearer).contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isBadRequest());
+        body.put("confirmed", false);
+        mockMvc.perform(put(lessonUrl).header("Authorization", bearer).contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.lessons[0].lessonTime").doesNotExist())
+                .andExpect(jsonPath("$.lessons[0].confirmed").value(false));
+    }
+
+    @Test
     void interviewCoursesAreStudentLevelAndLessonsPersistIndependently() throws Exception {
         Teacher teacher = createTeacherAccount("interview_course_teacher", "Interview Course Teacher");
         Student matching = createStudentAccount("interview_course_matching", "Course", "Matching", "");
