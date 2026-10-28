@@ -10,11 +10,15 @@ public class InterviewCoursePlanDto {
     private boolean enabled;
     private List<InterviewCourseLessonDto> lessons;
     private List<InterviewCourseRequirementDto> requirements;
+    private boolean graduationStageEnabled;
+    private List<InterviewCourseRequirementDto> engineeringApplications;
 
     public InterviewCoursePlanDto(Long studentId, String studentName, String username,
                                   Integer graduationYear, boolean enabled,
                                   List<InterviewCourseLessonDto> lessons,
-                                  List<InterviewCourseRequirementDto> requirements) {
+                                  List<InterviewCourseRequirementDto> requirements,
+                                  boolean graduationStageEnabled,
+                                  List<InterviewCourseRequirementDto> engineeringApplications) {
         this.studentId = studentId;
         this.studentName = studentName;
         this.username = username;
@@ -22,6 +26,8 @@ public class InterviewCoursePlanDto {
         this.enabled = enabled;
         this.lessons = lessons;
         this.requirements = requirements;
+        this.graduationStageEnabled = graduationStageEnabled;
+        this.engineeringApplications = engineeringApplications;
     }
 
     public Long getStudentId() { return studentId; }
@@ -31,4 +37,6 @@ public class InterviewCoursePlanDto {
     public boolean isEnabled() { return enabled; }
     public List<InterviewCourseLessonDto> getLessons() { return lessons; }
     public List<InterviewCourseRequirementDto> getRequirements() { return requirements; }
+    public boolean isGraduationStageEnabled() { return graduationStageEnabled; }
+    public List<InterviewCourseRequirementDto> getEngineeringApplications() { return engineeringApplications; }
 }

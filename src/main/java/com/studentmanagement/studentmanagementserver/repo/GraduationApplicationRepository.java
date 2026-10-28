@@ -7,10 +7,15 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Collection;
 
 public interface GraduationApplicationRepository extends JpaRepository<GraduationApplication, Long> {
 
     List<GraduationApplication> findByStudent_IdOrderBySortOrderAscIdAsc(Long studentId);
+
+    @Query("select a from GraduationApplication a join fetch a.university join fetch a.program " +
+            "where a.student.id in :studentIds order by a.student.id, a.sortOrder, a.id")
+    List<GraduationApplication> findForInterviewStudents(@Param("studentIds") Collection<Long> studentIds);
 
     List<GraduationApplication> findByStudent_IdAndIdIn(Long studentId, List<Long> ids);
 

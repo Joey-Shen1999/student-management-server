@@ -6,6 +6,7 @@ import com.studentmanagement.studentmanagementserver.domain.student.Student;
 import com.studentmanagement.studentmanagementserver.domain.student.StudentSchoolRecord;
 import com.studentmanagement.studentmanagementserver.domain.user.User;
 import com.studentmanagement.studentmanagementserver.repo.InterviewCourseLessonRepository;
+import com.studentmanagement.studentmanagementserver.repo.GraduationApplicationRepository;
 import com.studentmanagement.studentmanagementserver.repo.InterviewCoursePlanRepository;
 import com.studentmanagement.studentmanagementserver.repo.InterviewCourseRequirementRepository;
 import com.studentmanagement.studentmanagementserver.repo.StudentRepository;
@@ -26,6 +27,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 @Service
@@ -38,19 +40,22 @@ public class InterviewCourseService {
     private final StudentRepository studentRepository;
     private final StudentSchoolRecordRepository schoolRepository;
     private final AuthSessionService authSessionService;
+    private final GraduationApplicationRepository applicationRepository;
 
     public InterviewCourseService(InterviewCoursePlanRepository planRepository,
                                   InterviewCourseLessonRepository lessonRepository,
                                   InterviewCourseRequirementRepository requirementRepository,
                                   StudentRepository studentRepository,
                                   StudentSchoolRecordRepository schoolRepository,
-                                  AuthSessionService authSessionService) {
+                                  AuthSessionService authSessionService,
+                                  GraduationApplicationRepository applicationRepository) {
         this.planRepository = planRepository;
         this.lessonRepository = lessonRepository;
         this.requirementRepository = requirementRepository;
         this.studentRepository = studentRepository;
         this.schoolRepository = schoolRepository;
         this.authSessionService = authSessionService;
+        this.applicationRepository = applicationRepository;
     }
 
     @Transactional(readOnly = true)
@@ -202,7 +207,8 @@ public class InterviewCourseService {
     @Transactional(readOnly = true)
     public List<InterviewCoursePlanDto> list(Integer year, HttpServletRequest request) {
         requireTeacherOrAdmin(request);
-        int targetYear = year == null ? currentGraduationYear(LocalDate.now(ZoneId.of("America/Toronto"))) : year;
+        int currentYear = currentGraduationYear(LocalDate.now(ZoneId.of("America/Toronto")));
+        int targetYear = year == null ? currentYear : year;
         if (targetYear < 1900 || targetYear > 2100) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid graduation year");
         }
@@ -211,6 +217,11 @@ public class InterviewCourseService {
 
         List<Long> studentIds = plans.stream().map(plan -> plan.getStudent().getId()).collect(Collectors.toList());
         Map<Long, StudentSchoolRecord> primarySchools = primarySchools(studentIds);
+        Map<Long, List<GraduationApplication>> applicationsByStudent = new HashMap<>();
+        for (GraduationApplication application : applicationRepository.findForInterviewStudents(studentIds)) {
+            applicationsByStudent.computeIfAbsent(application.getStudent().getId(), ignored -> new ArrayList<>())
+                    .add(application);
+        }
         List<Long> planIds = plans.stream().map(InterviewCoursePlan::getId).collect(Collectors.toList());
         Map<Long, List<InterviewCourseLesson>> lessonsByPlan = new HashMap<>();
         for (InterviewCourseLesson lesson : lessonRepository.findByPlan_IdInOrderByPlan_IdAscLessonNumberAsc(planIds)) {
@@ -225,10 +236,13 @@ public class InterviewCourseService {
         for (InterviewCoursePlan plan : plans) {
             Student student = plan.getStudent();
             StudentSchoolRecord school = primarySchools.get(student.getId());
-            if (school == null || school.getEndTime() == null || school.getEndTime().getYear() != targetYear) continue;
-            result.add(toDto(student, plan, targetYear,
+            Integer studentYear = school == null || school.getEndTime() == null ? null : school.getEndTime().getYear();
+            if (studentYear != null && studentYear != targetYear) continue;
+            if (studentYear == null && targetYear != currentYear) continue;
+            result.add(toDto(student, plan, studentYear,
                     lessonsByPlan.getOrDefault(plan.getId(), Collections.emptyList()),
-                    requirementsByPlan.getOrDefault(plan.getId(), Collections.emptyList())));
+                    requirementsByPlan.getOrDefault(plan.getId(), Collections.emptyList()),
+                    applicationsByStudent.getOrDefault(student.getId(), Collections.emptyList())));
         }
         return result;
     }
@@ -297,6 +311,14 @@ public class InterviewCourseService {
     private InterviewCoursePlanDto toDto(Student student, InterviewCoursePlan plan, Integer year,
                                          List<InterviewCourseLesson> lessons,
                                          List<InterviewCourseRequirement> requirements) {
+        return toDto(student, plan, year, lessons, requirements,
+                applicationRepository.findByStudent_IdOrderBySortOrderAscIdAsc(student.getId()));
+    }
+
+    private InterviewCoursePlanDto toDto(Student student, InterviewCoursePlan plan, Integer year,
+                                         List<InterviewCourseLesson> lessons,
+                                         List<InterviewCourseRequirement> requirements,
+                                         List<GraduationApplication> applications) {
         String name = ((student.getFirstName() == null ? "" : student.getFirstName()) + " " +
                 (student.getLastName() == null ? "" : student.getLastName())).trim();
         if (name.isEmpty()) name = student.getNickName() == null ? "" : student.getNickName();
@@ -312,6 +334,31 @@ public class InterviewCourseService {
                     requirement.getUniversityName(), requirement.getProgramName()));
         }
         return new InterviewCoursePlanDto(student.getId(), name, student.getUser().getUsername(), year,
-                plan != null && plan.isEnabled(), lessonDtos, requirementDtos);
+                plan != null && plan.isEnabled(), lessonDtos, requirementDtos, !applications.isEmpty(),
+                applications.stream().filter(this::isInterviewEngineeringApplication)
+                        .map(application -> new InterviewCourseRequirementDto(application.getId(),
+                                application.getUniversity().getName(), application.getProgram().getProgramName()))
+                        .collect(Collectors.toList()));
+    }
+
+    private boolean isInterviewEngineeringApplication(GraduationApplication application) {
+        String university = normalizedName(application.getUniversity().getName());
+        boolean toronto = (university.startsWith("universityoftoronto") || university.equals("uoft")
+                || university.equals("uot") || university.equals("utsg") || university.startsWith("多伦多大学"))
+                && !university.contains("mississauga") && !university.contains("scarborough")
+                && !university.contains("utm") && !university.contains("utsc")
+                && !university.contains("密西沙加") && !university.contains("士嘉堡");
+        boolean targetUniversity = toronto || university.equals("mcmasteruniversity") || university.equals("mcmaster")
+                || university.equals("麦克马斯特大学") || university.equals("麦马")
+                || university.equals("universityofwaterloo") || university.equals("waterloo")
+                || university.equals("uwaterloo") || university.equals("滑铁卢大学");
+        String program = normalizedName(application.getProgram().getProgramName());
+        String faculty = normalizedName(application.getProgram().getFacultyName());
+        return targetUniversity && (program.contains("engineering") || faculty.contains("engineering")
+                || program.contains("工程") || faculty.contains("工程"));
+    }
+
+    private String normalizedName(String value) {
+        return value == null ? "" : value.toLowerCase(Locale.ROOT).replaceAll("[^\\p{L}\\p{N}]", "");
     }
 }
