@@ -44,6 +44,12 @@ public class TeacherPagePreference extends BaseEntity {
     @Column(name = "ordered_column_keys_json", columnDefinition = "text")
     private String orderedColumnKeysJson;
 
+    @Column(name = "pinned_column_keys_json", columnDefinition = "text")
+    private String pinnedColumnKeysJson;
+
+    public String getPinnedColumnKeysJson() { return pinnedColumnKeysJson; }
+    public void setPinnedColumnKeysJson(String value) { pinnedColumnKeysJson = value; }
+
     protected TeacherPagePreference() {
     }
 

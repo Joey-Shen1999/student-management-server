@@ -93,6 +93,9 @@ public class TeacherPagePreferenceService {
         }
 
         String normalizedVersion = normalizeVersion(requestBody.getVersion());
+        if (requestBody.getPinnedColumnKeys() != null) {
+            preference.setPinnedColumnKeysJson(serializeColumnKeys(normalizeColumnKeys(requestBody.getPinnedColumnKeys())));
+        }
         if (normalizedVersion != null || preference.getVersion() == null) {
             preference.setVersion(normalizedVersion);
         }
@@ -118,13 +121,16 @@ public class TeacherPagePreferenceService {
                 : deserializeColumnKeys(preference.getOrderedColumnKeysJson());
         LocalDateTime updatedAt = preference.getUpdatedAt();
 
-        return new TeacherPagePreferenceResponseDto(
+        TeacherPagePreferenceResponseDto response = new TeacherPagePreferenceResponseDto(
                 preference.getPageKey(),
                 preference.getVersion(),
                 visibleColumnKeys,
                 orderedColumnKeys,
                 updatedAt == null ? null : updatedAt.toString()
         );
+        response.setPinnedColumnKeys(preference.getPinnedColumnKeysJson() == null ? null
+                : deserializeColumnKeys(preference.getPinnedColumnKeysJson()));
+        return response;
     }
 
     private Teacher resolveTeacherScope(HttpServletRequest request, boolean createIfMissing) {

@@ -9,6 +9,9 @@ public class TeacherPagePreferenceResponseDto {
     private final List<String> visibleColumnKeys;
     private final List<String> orderedColumnKeys;
     private final String updatedAt;
+    private List<String> pinnedColumnKeys;
+    public List<String> getPinnedColumnKeys() { return pinnedColumnKeys; }
+    public void setPinnedColumnKeys(List<String> value) { pinnedColumnKeys = value; }
 
     public TeacherPagePreferenceResponseDto(String pageKey,
                                             String version,
