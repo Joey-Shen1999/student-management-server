@@ -58,6 +58,31 @@ class TeacherPagePreferenceApiTest {
     private ObjectMapper objectMapper;
 
     @Test
+    void pinnedColumnsAreScopedByUserAndPageAndPreservedForLegacyUpdates() throws Exception {
+        Teacher teacher = createTeacherAccount("pref_pins_teacher", "Pins Teacher");
+        Teacher other = createTeacherAccount("pref_pins_other", "Other Pins Teacher");
+        String bearer = bearerFor(teacher.getUser());
+        String url = "/api/teacher/preferences/" + STUDENT_PAGE_KEY;
+        mockMvc.perform(put(url).header("Authorization", bearer).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"version\":\"v12\",\"visibleColumnKeys\":[\"name\",\"email\"],\"pinnedColumnKeys\":[\" name \",\"email\",\"email\"]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.pinnedColumnKeys.length()").value(2));
+        mockMvc.perform(put(url).header("Authorization", bearer).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"visibleColumnKeys\":[\"name\"]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.pinnedColumnKeys.length()").value(2));
+        mockMvc.perform(get(url).header("Authorization", bearer))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.pinnedColumnKeys[0]").value("name"));
+        mockMvc.perform(get(url).header("Authorization", bearerFor(other.getUser())))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.pinnedColumnKeys").doesNotExist());
+        mockMvc.perform(get("/api/teacher/preferences/" + GOAL_PAGE_KEY).header("Authorization", bearer))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.pinnedColumnKeys").doesNotExist());
+        mockMvc.perform(put(url).header("Authorization", bearer).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"pinnedColumnKeys\":[]}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.pinnedColumnKeys.length()").value(0));
+    }
+
+    @Test
     void put_withOrderedColumnKeys_returns200AndPersistsNormalizedPayload() throws Exception {
         Teacher teacher = createTeacherAccount("pref_put_ordered_teacher", "Pref Put Ordered");
 

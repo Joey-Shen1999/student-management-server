@@ -7,6 +7,9 @@ public class TeacherPagePreferencePutRequestDto {
     private String version;
     private List<String> visibleColumnKeys;
     private List<String> orderedColumnKeys;
+    private List<String> pinnedColumnKeys;
+    public List<String> getPinnedColumnKeys() { return pinnedColumnKeys; }
+    public void setPinnedColumnKeys(List<String> value) { pinnedColumnKeys = value; }
 
     public String getVersion() {
         return version;
