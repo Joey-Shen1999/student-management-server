@@ -2,6 +2,8 @@ package com.studentmanagement.studentmanagementserver.domain.graduation;
 
 import com.studentmanagement.studentmanagementserver.domain.common.BaseEntity;
 import com.studentmanagement.studentmanagementserver.domain.student.Student;
+import com.studentmanagement.studentmanagementserver.domain.teacher.Teacher;
+import javax.persistence.ManyToOne;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
@@ -19,6 +21,13 @@ public class InterviewCoursePlan extends BaseEntity {
 
     @Column(nullable = false)
     private boolean enabled;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "teacher_id")
+    private Teacher teacher;
+
+    public Teacher getTeacher() { return teacher; }
+    public void setTeacher(Teacher teacher) { this.teacher = teacher; }
 
     protected InterviewCoursePlan() {}
 

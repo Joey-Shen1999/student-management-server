@@ -2,6 +2,9 @@ package com.studentmanagement.studentmanagementserver.domain.graduation;
 
 import com.studentmanagement.studentmanagementserver.domain.enums.SchoolType;
 import com.studentmanagement.studentmanagementserver.domain.enums.UserRole;
+import com.studentmanagement.studentmanagementserver.domain.enums.UserAccountStatus;
+import com.studentmanagement.studentmanagementserver.domain.teacher.Teacher;
+import com.studentmanagement.studentmanagementserver.repo.TeacherRepository;
 import com.studentmanagement.studentmanagementserver.domain.student.Student;
 import com.studentmanagement.studentmanagementserver.domain.student.StudentSchoolRecord;
 import com.studentmanagement.studentmanagementserver.domain.user.User;
@@ -41,6 +44,7 @@ public class InterviewCourseService {
     private final StudentSchoolRecordRepository schoolRepository;
     private final AuthSessionService authSessionService;
     private final GraduationApplicationRepository applicationRepository;
+    private final TeacherRepository teacherRepository;
 
     public InterviewCourseService(InterviewCoursePlanRepository planRepository,
                                   InterviewCourseLessonRepository lessonRepository,
@@ -48,7 +52,8 @@ public class InterviewCourseService {
                                   StudentRepository studentRepository,
                                   StudentSchoolRecordRepository schoolRepository,
                                   AuthSessionService authSessionService,
-                                  GraduationApplicationRepository applicationRepository) {
+                                  GraduationApplicationRepository applicationRepository,
+                                  TeacherRepository teacherRepository) {
         this.planRepository = planRepository;
         this.lessonRepository = lessonRepository;
         this.requirementRepository = requirementRepository;
@@ -56,6 +61,41 @@ public class InterviewCourseService {
         this.schoolRepository = schoolRepository;
         this.authSessionService = authSessionService;
         this.applicationRepository = applicationRepository;
+        this.teacherRepository = teacherRepository;
+    }
+
+    @Transactional(readOnly = true)
+    public List<InterviewTeacherOption> listTeachers(HttpServletRequest request) {
+        requireTeacherOrAdmin(request);
+        return teacherRepository.findAllWithUser().stream().filter(this::isAvailableTeacher)
+                .sorted(Comparator.comparing(Teacher::getName, String.CASE_INSENSITIVE_ORDER)
+                        .thenComparing(Teacher::getId))
+                .map(t -> new InterviewTeacherOption(t.getId(), t.getName(), t.getUser().getUsername()))
+                .collect(Collectors.toList());
+    }
+
+    private boolean isAvailableTeacher(Teacher teacher) {
+        return teacher.getUser().getStatus() == UserAccountStatus.ACTIVE
+                && (teacher.getUser().getRole() == UserRole.TEACHER || teacher.getUser().getRole() == UserRole.ADMIN);
+    }
+
+    @Transactional
+    public InterviewCoursePlanDto setTeacher(Long studentId, InterviewTeacherRequest body, HttpServletRequest request) {
+        requireTeacherOrAdmin(request);
+        if (body == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "teacher is required");
+        Student student = requireStudent(studentId);
+        InterviewCoursePlan plan = requireEnabledPlan(studentId);
+        Teacher teacher = null;
+        if (body.getTeacherId() != null) {
+            teacher = teacherRepository.findById(body.getTeacherId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Teacher account not found"));
+            if (!isAvailableTeacher(teacher)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Teacher account is unavailable");
+            }
+        }
+        plan.setTeacher(teacher);
+        planRepository.save(plan);
+        return currentPlan(student, plan);
     }
 
     @Transactional(readOnly = true)
@@ -333,12 +373,17 @@ public class InterviewCourseService {
             requirementDtos.add(new InterviewCourseRequirementDto(requirement.getId(),
                     requirement.getUniversityName(), requirement.getProgramName()));
         }
-        return new InterviewCoursePlanDto(student.getId(), name, student.getUser().getUsername(), year,
+        InterviewCoursePlanDto result = new InterviewCoursePlanDto(student.getId(), name, student.getUser().getUsername(), year,
                 plan != null && plan.isEnabled(), lessonDtos, requirementDtos, !applications.isEmpty(),
                 applications.stream().filter(this::isInterviewEngineeringApplication)
                         .map(application -> new InterviewCourseRequirementDto(application.getId(),
                                 application.getUniversity().getName(), application.getProgram().getProgramName()))
                         .collect(Collectors.toList()));
+        if (plan != null && plan.getTeacher() != null) {
+            Teacher teacher = plan.getTeacher();
+            result.assignTeacher(teacher.getId(), teacher.getName(), teacher.getUser().getUsername());
+        }
+        return result;
     }
 
     private boolean isInterviewEngineeringApplication(GraduationApplication application) {

@@ -8,6 +8,15 @@ public class InterviewCoursePlanDto {
     private String username;
     private Integer graduationYear;
     private boolean enabled;
+    private Long teacherId;
+    private String teacherName;
+    private String teacherUsername;
+    public Long getTeacherId() { return teacherId; }
+    public String getTeacherName() { return teacherName; }
+    public String getTeacherUsername() { return teacherUsername; }
+    public void assignTeacher(Long id, String name, String username) {
+        teacherId = id; teacherName = name; teacherUsername = username;
+    }
     private List<InterviewCourseLessonDto> lessons;
     private List<InterviewCourseRequirementDto> requirements;
     private boolean graduationStageEnabled;

@@ -23,6 +23,17 @@ public class InterviewCourseController {
         this.service = service;
     }
 
+    @GetMapping("/graduation-applications/interview-courses/teachers")
+    public ResponseEntity<List<InterviewTeacherOption>> teachers(HttpServletRequest request) {
+        return ResponseEntity.ok(service.listTeachers(request));
+    }
+
+    @PutMapping("/students/{studentId}/graduation-applications/interview-course/teacher")
+    public ResponseEntity<InterviewCoursePlanDto> setTeacher(@PathVariable Long studentId,
+            @RequestBody InterviewTeacherRequest body, HttpServletRequest request) {
+        return ResponseEntity.ok(service.setTeacher(studentId, body, request));
+    }
+
     @GetMapping("/graduation-applications/interview-courses")
     public ResponseEntity<List<InterviewCoursePlanDto>> list(@RequestParam(required = false) Integer year,
                                                               HttpServletRequest request) {
