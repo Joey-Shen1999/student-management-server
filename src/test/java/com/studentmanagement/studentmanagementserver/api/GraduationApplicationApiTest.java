@@ -678,6 +678,45 @@ class GraduationApplicationApiTest {
     }
 
     @Test
+    void interviewTeacherAssignmentUsesRealActiveAccountsAndPersistsPerStudent() throws Exception {
+        Teacher teacher = createTeacherAccount("interview_assigned_teacher", "Assigned Teacher");
+        Teacher archived = createTeacherAccount("interview_archived_teacher", "Archived Teacher");
+        archived.getUser().setStatus(UserAccountStatus.ARCHIVED);
+        userRepository.saveAndFlush(archived.getUser());
+        Student student = createStudentAccount("interview_assigned_student", "Assigned", "Student", "");
+        String bearer = bearerFor(teacher.getUser());
+        String base = "/api/students/" + student.getId() + "/graduation-applications/interview-course";
+        mockMvc.perform(put(base + "/enabled").header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"enabled\":true}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/graduation-applications/interview-courses/teachers").header("Authorization", bearer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[*].teacherId", hasItem(teacher.getId().intValue())))
+                .andExpect(jsonPath("$[*].teacherId", not(hasItem(archived.getId().intValue()))));
+        mockMvc.perform(put(base + "/teacher").header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"teacherId\":" + teacher.getId() + "}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.teacherId").value(teacher.getId()))
+                .andExpect(jsonPath("$.teacherName").value("Assigned Teacher"))
+                .andExpect(jsonPath("$.teacherUsername").value("interview_assigned_teacher"))
+                .andExpect(jsonPath("$.lessons.length()").value(4));
+        mockMvc.perform(get(base).header("Authorization", bearer)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.teacherId").value(teacher.getId()));
+        mockMvc.perform(put(base + "/teacher").header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"teacherId\":" + archived.getId() + "}"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(put(base + "/teacher").header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"teacherId\":9223372036854775807}"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(put(base + "/teacher").header("Authorization", bearerFor(student.getUser()))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"teacherId\":null}"))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(put(base + "/teacher").header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"teacherId\":null}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.teacherId").doesNotExist());
+    }
+
+    @Test
     void interviewCoursesAreStudentLevelAndLessonsPersistIndependently() throws Exception {
         Teacher teacher = createTeacherAccount("interview_course_teacher", "Interview Course Teacher");
         Student matching = createStudentAccount("interview_course_matching", "Course", "Matching", "");
