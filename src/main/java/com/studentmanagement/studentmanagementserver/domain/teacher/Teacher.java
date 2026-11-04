@@ -19,6 +19,11 @@ public class Teacher extends BaseEntity {
     @Column(name = "advisor_enabled")
     private Boolean advisorEnabled = Boolean.FALSE;
 
+    @Column(name = "interview_enabled", nullable = false, columnDefinition = "boolean default true")
+    private boolean interviewEnabled = true;
+    public boolean isInterviewEnabled() { return interviewEnabled; }
+    public void setInterviewEnabled(boolean enabled) { this.interviewEnabled = enabled; }
+
     protected Teacher() {}
 
     public Teacher(User user, String name) {

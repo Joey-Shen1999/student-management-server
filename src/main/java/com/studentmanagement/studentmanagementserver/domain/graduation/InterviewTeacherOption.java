@@ -1,6 +1,11 @@
 package com.studentmanagement.studentmanagementserver.domain.graduation;
 
 public class InterviewTeacherOption {
+    private boolean enabled = true;
+    public boolean isEnabled() { return enabled; }
+    public InterviewTeacherOption(Long id, String name, String username, boolean enabled) {
+        this(id, name, username); this.enabled = enabled;
+    }
     private final Long teacherId;
     private final String name;
     private final String username;

@@ -66,12 +66,31 @@ public class InterviewCourseService {
 
     @Transactional(readOnly = true)
     public List<InterviewTeacherOption> listTeachers(HttpServletRequest request) {
+        return listTeachers(request, false);
+    }
+    @Transactional(readOnly = true)
+    public List<InterviewTeacherOption> listTeachers(HttpServletRequest request, boolean includeDisabled) {
         requireTeacherOrAdmin(request);
         return teacherRepository.findAllWithUser().stream().filter(this::isAvailableTeacher)
+                .filter(t -> includeDisabled || t.isInterviewEnabled())
                 .sorted(Comparator.comparing(Teacher::getName, String.CASE_INSENSITIVE_ORDER)
                         .thenComparing(Teacher::getId))
-                .map(t -> new InterviewTeacherOption(t.getId(), t.getName(), t.getUser().getUsername()))
+                .map(t -> new InterviewTeacherOption(t.getId(), t.getName(), t.getUser().getUsername(), t.isInterviewEnabled()))
                 .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public List<InterviewTeacherOption> setTeacherEnabled(Long id, InterviewTeacherEnabledRequest body, HttpServletRequest request) {
+        requireTeacherOrAdmin(request);
+        if (body == null || body.getEnabled() == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "enabled is required");
+        Teacher teacher = teacherRepository.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Teacher not found"));
+        if (!isAvailableTeacher(teacher)) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Teacher account is unavailable");
+        if (!body.getEnabled() && planRepository.existsByTeacher_Id(id)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "请先改派或取消该老师的学生分配，再移除面试课老师。");
+        }
+        teacher.setInterviewEnabled(body.getEnabled());
+        teacherRepository.saveAndFlush(teacher);
+        return listTeachers(request, true);
     }
 
     private boolean isAvailableTeacher(Teacher teacher) {
@@ -89,7 +108,7 @@ public class InterviewCourseService {
         if (body.getTeacherId() != null) {
             teacher = teacherRepository.findById(body.getTeacherId())
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Teacher account not found"));
-            if (!isAvailableTeacher(teacher)) {
+            if (!isAvailableTeacher(teacher) || !teacher.isInterviewEnabled()) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Teacher account is unavailable");
             }
         }
