@@ -717,6 +717,43 @@ class GraduationApplicationApiTest {
     }
 
     @Test
+    void managesInterviewRosterWithoutDeletingAccountsAndProtectsAssignments() throws Exception {
+        Teacher teacher = createTeacherAccount("roster_teacher", "Roster Teacher");
+        Student student = createStudentAccount("roster_student", "Roster", "Student", "");
+        String bearer = bearerFor(teacher.getUser());
+        String roster = "/api/graduation-applications/interview-courses/teachers";
+        String enabled = roster + "/" + teacher.getId() + "/enabled";
+        String plan = "/api/students/" + student.getId() + "/graduation-applications/interview-course";
+        mockMvc.perform(put(enabled).header("Authorization", bearerFor(student.getUser()))
+                .contentType(MediaType.APPLICATION_JSON).content("{\"enabled\":false}"))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(put(enabled).header("Authorization", bearer)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"enabled\":false}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(get(roster).header("Authorization", bearer)).andExpect(status().isOk())
+                .andExpect(jsonPath("$[*].teacherId", not(hasItem(teacher.getId().intValue()))));
+        mockMvc.perform(get(roster + "?includeDisabled=true").header("Authorization", bearer))
+                .andExpect(status().isOk()).andExpect(jsonPath("$[*].teacherId", hasItem(teacher.getId().intValue())));
+        mockMvc.perform(put(plan + "/enabled").header("Authorization", bearer)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"enabled\":true}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(put(plan + "/teacher").header("Authorization", bearer)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"teacherId\":" + teacher.getId() + "}"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(put(enabled).header("Authorization", bearer)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"enabled\":true}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(put(plan + "/teacher").header("Authorization", bearer)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"teacherId\":" + teacher.getId() + "}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(put(enabled).header("Authorization", bearer)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"enabled\":false}"))
+                .andExpect(status().isConflict());
+        mockMvc.perform(get(plan).header("Authorization", bearer)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.teacherId").value(teacher.getId()));
+    }
+
+    @Test
     void interviewCoursesAreStudentLevelAndLessonsPersistIndependently() throws Exception {
         Teacher teacher = createTeacherAccount("interview_course_teacher", "Interview Course Teacher");
         Student matching = createStudentAccount("interview_course_matching", "Course", "Matching", "");

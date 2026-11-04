@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface InterviewCoursePlanRepository extends JpaRepository<InterviewCoursePlan, Long> {
+    boolean existsByTeacher_Id(Long teacherId);
     Optional<InterviewCoursePlan> findByStudent_Id(Long studentId);
 
     @Query("select p from InterviewCoursePlan p join fetch p.student s join fetch s.user u " +

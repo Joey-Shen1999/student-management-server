@@ -24,8 +24,14 @@ public class InterviewCourseController {
     }
 
     @GetMapping("/graduation-applications/interview-courses/teachers")
-    public ResponseEntity<List<InterviewTeacherOption>> teachers(HttpServletRequest request) {
-        return ResponseEntity.ok(service.listTeachers(request));
+    public ResponseEntity<List<InterviewTeacherOption>> teachers(@RequestParam(defaultValue = "false") boolean includeDisabled, HttpServletRequest request) {
+        return ResponseEntity.ok(service.listTeachers(request, includeDisabled));
+    }
+
+    @PutMapping("/graduation-applications/interview-courses/teachers/{teacherId}/enabled")
+    public ResponseEntity<List<InterviewTeacherOption>> teacherEnabled(@PathVariable Long teacherId,
+            @RequestBody InterviewTeacherEnabledRequest body, HttpServletRequest request) {
+        return ResponseEntity.ok(service.setTeacherEnabled(teacherId, body, request));
     }
 
     @PutMapping("/students/{studentId}/graduation-applications/interview-course/teacher")
