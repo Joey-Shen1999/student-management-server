@@ -396,6 +396,25 @@ class GraduationApplicationApiTest {
     }
 
     @Test
+    void interviewPlanAndRosterExposeCurrentSchoolLocation() throws Exception {
+        Teacher teacher = createTeacherAccount("school_location_teacher", "Location Teacher");
+        Student student = createStudentAccount("school_location_student", "Location", "Student", "");
+        StudentSchoolRecord school = new StudentSchoolRecord(student, SchoolType.MAIN,
+                "Current School", LocalDate.of(2032, 9, 1), LocalDate.of(2035, 6, 30));
+        school.setState("British Columbia"); school.setCity("Vancouver"); school.setCountry("Canada");
+        studentSchoolRecordRepository.saveAndFlush(school);
+        String bearer = bearerFor(teacher.getUser());
+        mockMvc.perform(put("/api/students/" + student.getId() + "/graduation-applications/interview-course/enabled")
+                .header("Authorization", bearer).contentType(MediaType.APPLICATION_JSON).content("{\"enabled\":true}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.schoolProvince").value("British Columbia"))
+                .andExpect(jsonPath("$.schoolCity").value("Vancouver"));
+        mockMvc.perform(get("/api/graduation-applications/interview-courses?year=2035")
+                .header("Authorization", bearer)).andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].schoolProvince").value("British Columbia"))
+                .andExpect(jsonPath("$[0].schoolCountry").value("Canada"));
+    }
+
+    @Test
     void interviewListIncludesOnlyMarkedApplicationsInRequestedGraduationYear() throws Exception {
         Teacher teacher = createTeacherAccount("graduation_teacher_interview_list", "Interview List Teacher");
         Student matching = createStudentAccount("graduation_student_interview_matching", "Interview", "Matching", "");

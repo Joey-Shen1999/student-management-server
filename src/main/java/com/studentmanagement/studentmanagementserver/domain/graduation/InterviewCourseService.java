@@ -301,7 +301,7 @@ public class InterviewCourseService {
             result.add(toDto(student, plan, studentYear,
                     lessonsByPlan.getOrDefault(plan.getId(), Collections.emptyList()),
                     requirementsByPlan.getOrDefault(plan.getId(), Collections.emptyList()),
-                    applicationsByStudent.getOrDefault(student.getId(), Collections.emptyList())));
+                    applicationsByStudent.getOrDefault(student.getId(), Collections.emptyList()), school));
         }
         return result;
     }
@@ -378,6 +378,14 @@ public class InterviewCourseService {
                                          List<InterviewCourseLesson> lessons,
                                          List<InterviewCourseRequirement> requirements,
                                          List<GraduationApplication> applications) {
+        return toDto(student, plan, year, lessons, requirements, applications,
+                primarySchools(Collections.singletonList(student.getId())).get(student.getId()));
+    }
+
+    private InterviewCoursePlanDto toDto(Student student, InterviewCoursePlan plan, Integer year,
+                                         List<InterviewCourseLesson> lessons,
+                                         List<InterviewCourseRequirement> requirements,
+                                         List<GraduationApplication> applications, StudentSchoolRecord school) {
         String name = ((student.getFirstName() == null ? "" : student.getFirstName()) + " " +
                 (student.getLastName() == null ? "" : student.getLastName())).trim();
         if (name.isEmpty()) name = student.getNickName() == null ? "" : student.getNickName();
@@ -402,6 +410,7 @@ public class InterviewCourseService {
             Teacher teacher = plan.getTeacher();
             result.assignTeacher(teacher.getId(), teacher.getName(), teacher.getUser().getUsername());
         }
+        if (school != null) result.assignSchool(school.getState(), school.getCity(), school.getCountry());
         return result;
     }
 

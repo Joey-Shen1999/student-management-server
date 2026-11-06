@@ -7,6 +7,16 @@ public class InterviewCoursePlanDto {
     private String studentName;
     private String username;
     private Integer graduationYear;
+    private String schoolProvince;
+    private String schoolCity;
+    private String schoolCountry;
+    public String getSchoolProvince() { return schoolProvince; }
+    public String getSchoolCity() { return schoolCity; }
+    public String getSchoolCountry() { return schoolCountry; }
+    public void assignSchool(String province, String city, String country) {
+        schoolProvince = province; schoolCity = city; schoolCountry = country;
+    }
+
     private boolean enabled;
     private Long teacherId;
     private String teacherName;
